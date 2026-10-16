@@ -9,6 +9,7 @@ const QualiSim = preload("res://scripts/quali_sim.gd")
 
 const SPEEDS := [0, 1, 4, 16, 64]
 const SPEED_NAMES := ["Pause", "1x", "4x", "16x", "64x"]
+const SPEED_NAMES_SHORT := ["II", "1x", "4x", "16x", "64x"]
 const RISK_NAMES := ["Sicher", "Normal", "Attacke"]
 
 var main
@@ -110,7 +111,7 @@ func _ready() -> void:
 
 func _build_top() -> Control:
 	var p := U.panel(8, U.ACCENT)
-	var h := U.hbox(16)
+	var h := U.hbox(6 if U.is_mobile() else 16)
 	p.add_child(h)
 	var M := U.is_mobile()
 	phase_label = U.label("Q1", 24 if M else 34, U.ACCENT, true)
@@ -129,15 +130,15 @@ func _build_top() -> Control:
 	h.add_child(weather_label)
 	for i in SPEEDS.size():
 		var b := Button.new()
-		b.text = SPEED_NAMES[i]
+		b.text = SPEED_NAMES_SHORT[i] if M else SPEED_NAMES[i]
 		b.toggle_mode = true
-		b.custom_minimum_size = Vector2(46 if M else 56, 38)
+		b.custom_minimum_size = Vector2(36 if M else 56, 38)
 		b.pressed.connect(_set_speed.bind(i))
 		h.add_child(b)
 		speed_buttons.append(b)
-	h.add_child(U.button("Überspringen" if M else "Abschnitt überspringen", _skip_phase, 120 if M else 190, 38))
+	h.add_child(U.button("Weiter >>" if M else "Abschnitt überspringen", _skip_phase, 84 if M else 190, 38))
 	var cb := U.checkbox()
-	cb.text = "Auto-Slow"
+	cb.text = "Auto" if U.is_mobile() else "Auto-Slow"
 	cb.button_pressed = true
 	cb.toggled.connect(func(v): auto_slow = v)
 	h.add_child(cb)

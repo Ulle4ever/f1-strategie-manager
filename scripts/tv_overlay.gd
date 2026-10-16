@@ -126,14 +126,15 @@ func _poll_battle() -> void:
 func _draw() -> void:
 	if sim == null:
 		return
+	var tight := compact and size.y < 250.0   # sehr wenig Platz: nur Fahrerkarte und Laufband
 	if not sim.started:
 		_draw_grid()
 	else:
 		if selected != null:
 			_draw_card(selected)
-		if _toast_t > 0.0:
+		if _toast_t > 0.0 and not tight:
 			_draw_toast()
-		if _battle_t > 0.0 and not _battle.is_empty():
+		if _battle_t > 0.0 and not _battle.is_empty() and not tight:
 			_draw_battle()
 	_draw_ticker()
 

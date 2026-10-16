@@ -38,6 +38,7 @@ Die Autos sind Punkte auf der Streckenkarte (Ansicht von oben).
 - **Handy-Layout** (automatisch auf Touchgeräten mit kleinem Bildschirm): virtuelle Größe ca. 900 x 420, große Bedienelemente, jeder Bildschirm in Reitern:
   Zentrale (Rennen, Kalender, WM, Entwicklung, Fahrer), Markt (Mein Team, Fahrer, News, Angebot), Wochenende (Strecke, Qualifying/Aufstellung, Strategie), Training (Training, Setup),
   Qualifying und Rennen (Tabelle, Karte, Funk, im Rennen zusätzlich Log). Nur Querformat, im Hochformat erscheint ein Hinweis zum Drehen.
+- **Anzeigegröße:** Auf dem Startbildschirm gibt es am Handy die Schaltfläche "Größe" (Klein, Mittel, Groß; Standard Groß). Sie wählt die virtuelle Bildschirmhöhe 420, 360 oder 310 und wird gespeichert.
 - **Touch:** Karte mit einem Finger schieben, mit zwei Fingern zoomen, Auto antippen zum Auswählen. Startampel antippen statt Leertaste, Pause über die Tempo-Schaltfläche.
 - **Rechenzeit:** Simulation läuft mit Zeitbudget pro Bild (flüssig auch auf langsameren Geräten), "Ende" und "Sofort simulieren" rechnen schrittweise mit Fortschrittsanzeige.
 - **Schrift:** Titillium Web (SIL Open Font License, Lizenz in `fonts/OFL.txt`) ist eingebunden, damit der Browser dieselbe Schrift zeigt.

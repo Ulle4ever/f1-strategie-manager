@@ -13,8 +13,6 @@ const MarketScreen = preload("res://scripts/screen_market.gd")
 const LineupScreen = preload("res://scripts/screen_lineup.gd")
 const PracticeScreen = preload("res://scripts/screen_practice.gd")
 
-const MOBILE_SIZE := Vector2i(900, 420)
-
 var current: Node = null
 var rotate_hint: CanvasLayer
 
@@ -23,7 +21,7 @@ func _ready() -> void:
 	get_window().theme = U.make_theme()
 	RenderingServer.set_default_clear_color(U.BG0)
 	if U.is_mobile():
-		get_window().content_scale_size = MOBILE_SIZE
+		apply_scale()
 		get_tree().node_added.connect(_touchify)
 		_make_rotate_hint()
 	show_start()
@@ -45,6 +43,12 @@ func _bench() -> void:
 	await get_tree().create_timer(1.0).timeout
 	print("[Zeit] Qualifying-Ablauf gesamt %d ms" % (Time.get_ticks_msec() - t0))
 	current._on_instant()
+
+
+## Anzeigegröße (Handy): kleinere virtuelle Höhe = alles größer.
+func apply_scale() -> void:
+	if U.is_mobile():
+		get_window().content_scale_size = U.mobile_base_size()
 
 
 ## Alle Bedienelemente auf Fingergröße bringen.

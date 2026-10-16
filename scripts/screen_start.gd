@@ -11,6 +11,7 @@ var start_button: Button
 var selected_label: Label
 var selected_team := ""
 var team_buttons := {}
+var size_button: Button
 var teams: Array = []
 
 
@@ -44,6 +45,9 @@ func _ready() -> void:
 	top.add_child(U.spacer())
 	if Game.has_save():
 		top.add_child(U.button("Spielstand laden", _on_load, 160 if M else 190, 42))
+	if M:
+		size_button = U.button("Größe: %s" % U.LEVEL_NAMES[U.ui_level()], _on_size, 130, 42)
+		top.add_child(size_button)
 
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -140,6 +144,12 @@ func _on_year(_i: int) -> void:
 		grid.add_child(b)
 		team_buttons[t["id"]] = b
 		rank += 1
+
+
+func _on_size() -> void:
+	U.set_ui_level((U.ui_level() + 1) % U.LEVEL_NAMES.size())
+	size_button.text = "Größe: %s" % U.LEVEL_NAMES[U.ui_level()]
+	main.apply_scale()
 
 
 func _on_team(id: String, tname: String) -> void:

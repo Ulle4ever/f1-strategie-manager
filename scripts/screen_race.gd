@@ -11,6 +11,7 @@ const TvOverlay = preload("res://scripts/tv_overlay.gd")
 
 const SPEEDS := [0, 1, 4, 16, 64, 256]
 const SPEED_NAMES := ["Pause", "1x", "4x", "16x", "64x", "256x"]
+const SPEED_NAMES_SHORT := ["II", "1x", "4x", "16x", "64x", "256x"]
 
 var main
 var sim
@@ -206,12 +207,13 @@ func _player_grid() -> int:
 
 func _build_top() -> Control:
 	var p := U.panel(8, U.ACCENT)
-	var h := U.hbox(14)
+	var h := U.hbox(6 if U.is_mobile() else 14)
 	p.add_child(h)
 	var M := U.is_mobile()
 	lap_label = U.label("", 20 if M else 28, U.TEXT, true)
 	h.add_child(lap_label)
 	time_label = U.label("", 16, U.MUTED)
+	time_label.visible = not M
 	h.add_child(time_label)
 	status_chip = U.chip("GRÜN", Color("14562f"), U.GOOD)
 	status_label = status_chip.get_child(0)
@@ -219,18 +221,21 @@ func _build_top() -> Control:
 	weather_label = U.label("", 14, U.MUTED)
 	weather_label.clip_text = true
 	weather_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	weather_label.visible = not M
+	if M:
+		h.add_child(U.spacer())
 	h.add_child(weather_label)
 	for i in SPEEDS.size():
 		var b := Button.new()
-		b.text = SPEED_NAMES[i]
+		b.text = SPEED_NAMES_SHORT[i] if U.is_mobile() else SPEED_NAMES[i]
 		b.toggle_mode = true
-		b.custom_minimum_size = Vector2(42 if M else 54, 36)
+		b.custom_minimum_size = Vector2(34 if M else 54, 36)
 		b.pressed.connect(_set_speed.bind(i))
 		h.add_child(b)
 		speed_buttons.append(b)
 	h.add_child(U.button("Ende", _skip_to_end, 52 if M else 64, 36))
 	var cb := U.checkbox()
-	cb.text = "Auto-Slow"
+	cb.text = "Auto" if U.is_mobile() else "Auto-Slow"
 	cb.button_pressed = true
 	cb.toggled.connect(func(v): auto_slow = v)
 	h.add_child(cb)

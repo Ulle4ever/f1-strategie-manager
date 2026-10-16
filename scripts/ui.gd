@@ -23,6 +23,37 @@ const BG := BG0
 static var _font: Font
 static var _font_bold: Font
 static var _mobile := -1
+static var _level := -1
+const LEVEL_NAMES := ["Klein", "Mittel", "Groß"]
+const LEVEL_HEIGHTS := [420, 360, 310]   # virtuelle Bildschirmhöhe am Handy: kleiner = größere Darstellung
+
+
+## Anzeigegröße am Handy (0 = klein ... 2 = groß), gespeichert in user://settings.cfg.
+static func ui_level() -> int:
+	if _level < 0:
+		_level = 2
+		var env := OS.get_environment("F1_SCALE")
+		if env != "":
+			_level = clampi(int(env), 0, 2)
+		else:
+			var cf := ConfigFile.new()
+			if cf.load("user://settings.cfg") == OK:
+				_level = clampi(int(cf.get_value("anzeige", "stufe", 2)), 0, 2)
+	return _level
+
+
+static func set_ui_level(l: int) -> void:
+	_level = clampi(l, 0, 2)
+	var cf := ConfigFile.new()
+	cf.load("user://settings.cfg")
+	cf.set_value("anzeige", "stufe", _level)
+	cf.save("user://settings.cfg")
+
+
+## Basisgröße des virtuellen Bildschirms im Handy-Modus.
+static func mobile_base_size() -> Vector2i:
+	var h: int = LEVEL_HEIGHTS[ui_level()]
+	return Vector2i(int(round(float(h) * 900.0 / 420.0)), h)
 
 
 ## Handy-Modus: erzwingbar per Umgebungsvariable F1_MOBILE=1, Kommandozeile (--mobile), Webadresse (?mobile=1)

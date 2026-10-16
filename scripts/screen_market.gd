@@ -53,7 +53,7 @@ func _ready() -> void:
 	var head := U.hbox(14)
 	root.add_child(head)
 	var sub := "Saison %d  >  %d" % [Game.year, Game.year + 1] if Game.market_open else "Vertragsverhandlungen"
-	var tb := U.title_bar("Fahrermarkt", sub)
+	var tb := U.title_bar("Fahrermarkt", "" if M else sub)
 	tb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(tb)
 	var bud := U.vbox(0)
