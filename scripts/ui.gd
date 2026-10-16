@@ -23,6 +23,7 @@ const BG := BG0
 static var _font: Font
 static var _font_bold: Font
 static var _mobile := -1
+static var touch_scrolled := false   # wahr, solange ein Wisch eine Liste scrollt: Antippen-Aktionen werden dann ignoriert
 static var _level := -1
 const LEVEL_NAMES := ["Klein", "Mittel", "Groß"]
 const LEVEL_HEIGHTS := [420, 360, 310]   # virtuelle Bildschirmhöhe am Handy: kleiner = größere Darstellung

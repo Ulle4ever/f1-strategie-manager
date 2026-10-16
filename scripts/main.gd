@@ -14,6 +14,14 @@ const LineupScreen = preload("res://scripts/screen_lineup.gd")
 const PracticeScreen = preload("res://scripts/screen_practice.gd")
 
 var current: Node = null
+
+# Wisch-Scrollen am Handy: Wisch auf Knöpfen und Karten scrollt die darunterliegende Liste (mit Schwung)
+var _ts_sc: ScrollContainer = null
+var _ts_blocked := false
+var _ts_dist := 0.0
+var _ts_scrolling := false
+var _ts_vel := 0.0
+var _ts_idx := -1          # Kennung des ersten Fingers (Browser vergeben sie beliebig)
 var rotate_hint: CanvasLayer
 
 
@@ -44,6 +52,64 @@ func _bench() -> void:
 	await get_tree().create_timer(1.0).timeout
 	print("[Zeit] Qualifying-Ablauf gesamt %d ms" % (Time.get_ticks_msec() - t0))
 	current._on_instant()
+
+
+## Tiefstes sichtbares ScrollContainer-Element unter pos; blocked = Finger liegt auf Karte oder Schieberegler (die ziehen selbst).
+func _find_scroll(node: Node, pos: Vector2, res: Dictionary) -> void:
+	if node is Control:
+		var c := node as Control
+		if not c.visible or not c.get_global_rect().has_point(pos):
+			return
+		if node is ScrollContainer:
+			res["sc"] = node
+			res["blocked"] = false
+		elif node is HSlider or node.is_in_group("no_touch_scroll"):
+			res["blocked"] = true
+	for ch in node.get_children():
+		_find_scroll(ch, pos, res)
+
+
+func _input(event: InputEvent) -> void:
+	if not U.is_mobile():
+		return
+	var st := event as InputEventScreenTouch
+	if st != null and (st.index == _ts_idx or (st.pressed and _ts_idx == -1)):
+		if st.pressed:
+			_ts_idx = st.index
+			U.touch_scrolled = false
+			_ts_dist = 0.0
+			_ts_vel = 0.0
+			_ts_scrolling = false
+			var res := {"sc": null, "blocked": false}
+			if current != null:
+				_find_scroll(current, st.position, res)
+			_ts_sc = res["sc"]
+			_ts_blocked = res["blocked"]
+		else:
+			_ts_sc = null if not _ts_scrolling else _ts_sc
+			_ts_scrolling = false
+			_ts_idx = -1
+		return
+	var sd := event as InputEventScreenDrag
+	if sd != null and sd.index == _ts_idx and _ts_sc != null and not _ts_blocked:
+		_ts_dist += absf(sd.relative.y) + absf(sd.relative.x)
+		if _ts_dist > 12.0:
+			if not _ts_scrolling:
+				_ts_scrolling = true
+				U.touch_scrolled = true
+				get_viewport().gui_release_focus()   # bricht ein begonnenes Drücken auf einem Knopf ab
+			_ts_sc.scroll_vertical -= int(sd.relative.y)
+			_ts_vel = -sd.relative.y
+			get_viewport().set_input_as_handled()
+
+
+func _process(delta: float) -> void:
+	# Schwung nach dem Loslassen
+	if _ts_sc != null and not _ts_scrolling and absf(_ts_vel) > 0.5:
+		_ts_sc.scroll_vertical += int(_ts_vel)
+		_ts_vel *= pow(0.02, delta)
+	elif not _ts_scrolling:
+		_ts_vel = 0.0
 
 
 ## Anzeigegröße (Handy): kleinere virtuelle Höhe = alles größer.

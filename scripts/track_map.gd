@@ -62,6 +62,7 @@ func _init() -> void:
 	_chip.content_margin_top = 1
 	_chip.content_margin_bottom = 1
 	clip_contents = true
+	add_to_group("no_touch_scroll")
 
 
 func _ready() -> void:

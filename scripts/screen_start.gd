@@ -41,12 +41,13 @@ func _ready() -> void:
 	year_option.item_selected.connect(_on_year)
 	top.add_child(year_option)
 	info_label = U.label("", 16, U.MUTED)
+	info_label.visible = not M
 	top.add_child(info_label)
 	top.add_child(U.spacer())
 	if Game.has_save():
-		top.add_child(U.button("Spielstand laden", _on_load, 160 if M else 190, 42))
+		top.add_child(U.button("Laden" if M else "Spielstand laden", _on_load, 90 if M else 190, 42))
 	if M:
-		size_button = U.button("Größe: %s" % U.LEVEL_NAMES[U.ui_level()], _on_size, 130, 42)
+		size_button = U.button("Größe: %s" % U.LEVEL_NAMES[U.ui_level()], _on_size, 120, 42)
 		top.add_child(size_button)
 
 	var scroll := ScrollContainer.new()

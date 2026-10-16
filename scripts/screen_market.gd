@@ -469,7 +469,7 @@ func _refresh_news() -> void:
 
 func _on_click(ev: InputEvent, d: Dictionary) -> void:
 	var mb := ev as InputEventMouseButton
-	if mb != null and mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
+	if mb != null and not mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT and not U.touch_scrolled:
 		_select(d)
 
 
