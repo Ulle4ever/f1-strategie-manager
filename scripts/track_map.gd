@@ -34,6 +34,7 @@ var _fit_ready := false
 var _last_size := Vector2.ZERO
 var _press_pos := Vector2.ZERO
 var _touches := {}
+var _aa := true            # Kantenglättung der Linien (am Handy aus: spart GPU)
 var _pinch_dist := 0.0
 var _pinching := false
 var _dragging := false
@@ -52,6 +53,7 @@ const REAR_WING := [Vector2(-0.50, -0.2), Vector2(-0.42, -0.2), Vector2(-0.42, 0
 
 
 func _init() -> void:
+	_aa = not U.is_mobile()
 	_chip = StyleBoxFlat.new()
 	_chip.bg_color = Color(0.03, 0.04, 0.07, 0.85)
 	_chip.set_corner_radius_all(3)
@@ -460,8 +462,8 @@ func _draw() -> void:
 	line.append(line[0])
 	var racing := sim != null
 	# Auslaufzonen / Rasen
-	draw_polyline(line, Color(0.06, 0.15, 0.10, 0.50), rw + 70.0, true)
-	draw_polyline(line, Color(0.05, 0.11, 0.09, 0.55), rw + 34.0, true)
+	draw_polyline(line, Color(0.06, 0.15, 0.10, 0.50), rw + 70.0, _aa)
+	draw_polyline(line, Color(0.05, 0.11, 0.09, 0.55), rw + 34.0, _aa)
 	# Kiesbetten außen an engen Kurven
 	for kb in _kerbs:
 		var pl := PackedVector2Array()
@@ -472,7 +474,7 @@ func _draw() -> void:
 			tt = tt.normalized()
 			pl.append(to_screen(track.pts[i]) - Vector2(-tt.y, tt.x) * float(kb["side"]) * (rw * 0.5 + rw * 0.65))
 		if pl.size() > 1:
-			draw_polyline(pl, Color(0.55, 0.47, 0.32, 0.42), rw * 0.8, true)
+			draw_polyline(pl, Color(0.55, 0.47, 0.32, 0.42), rw * 0.8, _aa)
 	# Tribünen an Start/Ziel und in den engsten Kurven
 	_draw_stand(-330.0, 250.0, -1.0, rw)
 	for kb in _kerbs.slice(0, 3):
@@ -482,18 +484,18 @@ func _draw() -> void:
 	if racing:
 		_draw_pit_lane(rw)
 	# Strecke: Schatten, Rand, Asphalt
-	draw_polyline(line, Color(0, 0, 0, 0.35), rw + 11.0, true)
-	draw_polyline(line, Color(0.09, 0.11, 0.16), rw + 4.0, true)
-	draw_polyline(line, Color(0.48, 0.53, 0.64), rw, true)
-	draw_polyline(line, Color(0.17, 0.19, 0.25), rw - 3.5, true)
+	draw_polyline(line, Color(0, 0, 0, 0.35), rw + 11.0, _aa)
+	draw_polyline(line, Color(0.09, 0.11, 0.16), rw + 4.0, _aa)
+	draw_polyline(line, Color(0.48, 0.53, 0.64), rw, _aa)
+	draw_polyline(line, Color(0.17, 0.19, 0.25), rw - 3.5, _aa)
 	if racing:
 		# Gummispur wird mit den Runden dunkler, Nässe glänzt
 		var prog := clampf(float(sim.leader_lap()) / maxf(float(sim.laps), 1.0), 0.0, 1.0)
 		if sim.started:
-			draw_polyline(line, Color(0.05, 0.06, 0.08, 0.10 + 0.40 * prog), rw * 0.34, true)
+			draw_polyline(line, Color(0.05, 0.06, 0.08, 0.10 + 0.40 * prog), rw * 0.34, _aa)
 		if sim.wet > 0.08:
-			draw_polyline(line, Color(0.35, 0.55, 0.95, 0.18 * sim.wet), rw - 3.5, true)
-			draw_polyline(line, Color(0.75, 0.88, 1.0, 0.16 * sim.wet), rw * 0.18, true)
+			draw_polyline(line, Color(0.35, 0.55, 0.95, 0.18 * sim.wet), rw - 3.5, _aa)
+			draw_polyline(line, Color(0.75, 0.88, 1.0, 0.16 * sim.wet), rw * 0.18, _aa)
 	# Randsteine innen an engen Kurven
 	for kb in _kerbs:
 		var seg := PackedVector2Array()
@@ -516,8 +518,8 @@ func _draw() -> void:
 			var l: float = z[2]
 			var sg := _line_points(a, a + l, 24.0)
 			if sg.size() > 1:
-				draw_polyline(sg, Color(U.GOOD, 0.35), 8.0, true)
-				draw_polyline(sg, Color(U.GOOD, 0.95), 2.5, true)
+				draw_polyline(sg, Color(U.GOOD, 0.35), 8.0, _aa)
+				draw_polyline(sg, Color(U.GOOD, 0.95), 2.5, _aa)
 	# Sektoren
 	var font := U.font(true)
 	if show_sectors:
@@ -562,11 +564,11 @@ func _draw_stand(s0: float, s1: float, side: float, rw: float) -> void:
 	var seg := _offset_line(s0, s1, 14.0, off1)
 	if seg.size() < 2:
 		return
-	draw_polyline(seg, Color(0.14, 0.16, 0.22, 0.9), rw * 0.95, true)
+	draw_polyline(seg, Color(0.14, 0.16, 0.22, 0.9), rw * 0.95, _aa)
 	var seg2 := _offset_line(s0, s1, 14.0, off1 + side * rw * 0.18)
-	draw_polyline(seg2, Color(0.28, 0.31, 0.40, 0.8), rw * 0.18, true)
+	draw_polyline(seg2, Color(0.28, 0.31, 0.40, 0.8), rw * 0.18, _aa)
 	var seg3 := _offset_line(s0, s1, 14.0, off1 - side * rw * 0.18)
-	draw_polyline(seg3, Color(0.22, 0.25, 0.33, 0.8), rw * 0.18, true)
+	draw_polyline(seg3, Color(0.22, 0.25, 0.33, 0.8), rw * 0.18, _aa)
 	# Zuschauer als bunte Punkte
 	if zoom > 1.3:
 		var i := 0
@@ -586,9 +588,9 @@ func _draw_pit_lane(rw: float) -> void:
 		s += 8.0
 	if lane.size() < 2:
 		return
-	draw_polyline(lane, Color(0, 0, 0, 0.35), rw * 0.7 + 8.0, true)
-	draw_polyline(lane, Color(0.40, 0.44, 0.54), rw * 0.62, true)
-	draw_polyline(lane, Color(0.13, 0.15, 0.2), rw * 0.62 - 3.0, true)
+	draw_polyline(lane, Color(0, 0, 0, 0.35), rw * 0.7 + 8.0, _aa)
+	draw_polyline(lane, Color(0.40, 0.44, 0.54), rw * 0.62, _aa)
+	draw_polyline(lane, Color(0.13, 0.15, 0.2), rw * 0.62 - 3.0, _aa)
 	# Garagen
 	var gl := clampf(10.0 * _scale * 1.8, 3.0, 26.0)
 	var gd := clampf(rw * 0.75, 6.0, 40.0)
@@ -729,7 +731,7 @@ func _draw_minimap() -> void:
 	for i in range(0, track.n, st):
 		pl.append(track.pts[i] * ms + org)
 	pl.append(pl[0])
-	draw_polyline(pl, Color(0.6, 0.65, 0.78, 0.9), 2.0, true)
+	draw_polyline(pl, Color(0.6, 0.65, 0.78, 0.9), 2.0, _aa)
 	if sim != null:
 		for c in sim.cars:
 			if c.state == 3:

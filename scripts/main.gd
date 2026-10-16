@@ -22,6 +22,7 @@ func _ready() -> void:
 	RenderingServer.set_default_clear_color(U.BG0)
 	if U.is_mobile():
 		apply_scale()
+		Engine.max_fps = 30   # schont Akku und Grafikspeicher (verhindert "WebGL context lost" auf iPad/Handy)
 		get_tree().node_added.connect(_touchify)
 		_make_rotate_hint()
 	show_start()

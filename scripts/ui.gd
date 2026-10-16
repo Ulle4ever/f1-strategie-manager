@@ -71,7 +71,7 @@ static func is_mobile() -> bool:
 				_mobile = 0
 			elif DisplayServer.is_touchscreen_available():
 				var win := DisplayServer.window_get_size()
-				if mini(win.x, win.y) < 700:
+				if mini(win.x, win.y) < 1100:
 					_mobile = 1
 		elif OS.has_feature("mobile") or OS.has_feature("android") or OS.has_feature("ios"):
 			_mobile = 1
