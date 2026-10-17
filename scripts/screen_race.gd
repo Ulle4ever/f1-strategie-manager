@@ -92,9 +92,17 @@ var follow_hint: Label
 var pit_head: Label
 var pit_win_label: Label
 var pit_outlook: Label
-var pit_when_buttons: Array = []
+var pit_when_box: HFlowContainer
+var pit_when_lap := -1
+var pit_edit_lap := -1
+var pit_when_key := ""
+var pit_confirm_btn: Button
+var pit_cancel_btn: Button
+var pit_edit_label: Label
+var pit_edit_reset: Button
+var pit_auto_key := ""
 var pit_plan_box: VBoxContainer
-var pit_fuel_card: PanelContainer
+var pit_fuel_card: VBoxContainer
 var pit_fuel_label: Label
 var pit_fuel_hint: Label
 var pit_pred: Label
@@ -314,7 +322,7 @@ func _build_control_panel() -> Control:
 			var b := Button.new()
 			b.toggle_mode = true
 			b.text = c.code
-			b.custom_minimum_size = Vector2(84, 36)
+			b.custom_minimum_size = Vector2(84, 30 if U.is_mobile() else 36)
 			b.pressed.connect(_select.bind(c))
 			prow.add_child(b)
 			player_buttons.append({"btn": b, "car": c})
@@ -326,6 +334,8 @@ func _build_control_panel() -> Control:
 	th.add_child(car_sub)
 	race_tabs = TabContainer.new()
 	race_tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	if U.is_mobile():
+		race_tabs.add_theme_font_size_override("font_size", 14)
 	v.add_child(race_tabs)
 	race_tabs.add_child(_build_car_tab())
 	race_tabs.add_child(_build_pit_tab())
@@ -424,20 +434,42 @@ func _build_car_tab() -> Control:
 func _build_pit_tab() -> Control:
 	var t := _scroll_tab("Boxen")
 	var v: VBoxContainer = t[1]
+	var pit_root := VBoxContainer.new()
+	pit_root.name = "Boxen"
+	pit_root.add_theme_constant_override("separation", 6)
+	t[0].name = "Scroll"
+	t[0].size_flags_vertical = Control.SIZE_EXPAND_FILL
+	pit_root.add_child(t[0])
+	var footer := U.vbox(5)
+	pit_root.add_child(footer)
+	# Status: was ist gerade geplant?
 	var hc := U.card(9, Color(U.WARN, 0.07), Color(U.WARN, 0.35))
-	var hv := U.vbox(3)
+	var hv := U.vbox(4)
 	hc.add_child(hv)
 	pit_head = _wrap_label("", 16, U.WARN, true)
 	hv.add_child(pit_head)
 	pit_win_label = _wrap_label("", 12, U.TEXT)
 	hv.add_child(pit_win_label)
+	pit_cancel_btn = U.button("Angeforderten Stopp zurücknehmen", _on_cancel_request, 0, 34)
+	hv.add_child(pit_cancel_btn)
 	v.add_child(hc)
+	pit_plan_box = U.vbox(4)
+	v.add_child(pit_plan_box)
 
-	v.add_child(U.section("1  Reifen wählen", 12))
+	# Neuer Stopp in drei Schritten
+	var comp_card := U.card(10)
+	var cv := U.vbox(7)
+	comp_card.add_child(cv)
+	cv.add_child(U.section("Stopp planen", 13))
+	pit_edit_label = _wrap_label("", 12, U.BLUE, true)
+	cv.add_child(pit_edit_label)
+	pit_edit_reset = U.button("Änderung verwerfen", _on_edit_reset, 0, 30)
+	cv.add_child(pit_edit_reset)
+	cv.add_child(_wrap_label("1  Welche Reifen?", 12, U.MUTED, true))
 	var brow := HFlowContainer.new()
 	brow.add_theme_constant_override("h_separation", 4)
 	brow.add_theme_constant_override("v_separation", 4)
-	v.add_child(brow)
+	cv.add_child(brow)
 	for k in RaceSim.COMPOUNDS.size():
 		var b := Button.new()
 		var cd: Dictionary = RaceSim.COMPOUNDS[k]
@@ -453,80 +485,88 @@ func _build_pit_tab() -> Control:
 		brow.add_child(b)
 		pit_buttons.append(b)
 	pit_outlook = _wrap_label("", 12, U.MUTED)
-	v.add_child(pit_outlook)
-
-	v.add_child(U.section("2  Zeitpunkt", 12))
-	var wrow := HFlowContainer.new()
-	wrow.add_theme_constant_override("h_separation", 4)
-	wrow.add_theme_constant_override("v_separation", 4)
-	v.add_child(wrow)
-	for i in 4:
-		var b := U.button("", _on_pit_when.bind(i), 0, 40)
-		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.custom_minimum_size.x = 76
-		wrow.add_child(b)
-		pit_when_buttons.append(b)
-	pit_plan_box = U.vbox(3)
-	v.add_child(pit_plan_box)
-
-	pit_fuel_card = U.card(9)
-	var pfv := U.vbox(4)
-	pit_fuel_card.add_child(pfv)
-	pfv.add_child(U.section("3  Tanken (beim Stopp)", 12))
+	cv.add_child(pit_outlook)
+	cv.add_child(_wrap_label("2  Wann?", 12, U.MUTED, true))
+	pit_when_box = HFlowContainer.new()
+	pit_when_box.add_theme_constant_override("h_separation", 4)
+	pit_when_box.add_theme_constant_override("v_separation", 4)
+	cv.add_child(pit_when_box)
+	pit_fuel_card = U.vbox(4)
+	pit_fuel_card.add_child(_wrap_label("Tanken beim Stopp", 12, U.MUTED, true))
 	var pfr := U.hbox(5)
-	pfv.add_child(pfr)
-	pfr.add_child(U.button("-", _on_pit_fuel.bind(-1), 38, 36))
+	pit_fuel_card.add_child(pfr)
+	pfr.add_child(U.button("-", _on_pit_fuel.bind(-1), 38, 34))
 	pit_fuel_label = _wrap_label("", 13, U.TEXT, true)
 	pit_fuel_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	pit_fuel_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	pfr.add_child(pit_fuel_label)
-	pfr.add_child(U.button("+", _on_pit_fuel.bind(1), 38, 36))
-	pfr.add_child(U.button("Auto", _on_pit_fuel.bind(0), 54, 36))
+	pfr.add_child(U.button("+", _on_pit_fuel.bind(1), 38, 34))
+	pfr.add_child(U.button("Auto", _on_pit_fuel.bind(0), 54, 34))
 	pit_fuel_hint = _wrap_label("", 11, U.MUTED)
-	pfv.add_child(pit_fuel_hint)
-	v.add_child(pit_fuel_card)
+	pit_fuel_card.add_child(pit_fuel_hint)
+	cv.add_child(pit_fuel_card)
 	pit_fuel_card.visible = sim.rules["refuel"]
-
+	var sum_parent: VBoxContainer = cv if U.is_mobile() else footer   # Handy: Zusammenfassung im Scrollbereich, nur der Knopf bleibt unten
+	sum_parent.add_child(_wrap_label("3  Prüfen und bestätigen", 12, U.MUTED, true))
 	pit_pred = _wrap_label("", 13, U.TEXT)
-	var pc := U.card(9)
+	var pc := U.card(9, Color(U.BLUE, 0.06), Color(U.BLUE, 0.3))
 	pc.add_child(pit_pred)
-	v.add_child(pc)
-	pit_status = _wrap_label("", 13, U.WARN, true)
+	sum_parent.add_child(pc)
+	pit_confirm_btn = U.primary_button("STOPP BESTÄTIGEN", _on_pit_confirm, 0, 42 if U.is_mobile() else 48)
+	footer.add_child(pit_confirm_btn)
+	v.add_child(comp_card)
+	pit_status = _wrap_label("", 13, U.GOOD, true)
 	v.add_child(pit_status)
-	v.add_child(U.button("Alle geplanten Stopps abbrechen", _on_cancel_pit, 0, 34))
+	var clr := U.button("Alle geplanten Stopps löschen", _on_cancel_pit, 0, 30)
+	v.add_child(clr)
 	plan_label = _wrap_label("", 12, U.MUTED)
+	plan_label.visible = false
 	v.add_child(plan_label)
-	return t[0]
+	return pit_root
 
 
-## Reiter "Taktik": Empfehlungen als Karten, Energie/Motor, Teamorder, Gambles.
+## Einklappbarer Bereich: Kopfzeile zum Antippen, Inhalt darunter. Rückgabe: Inhalts-Box.
+func _collapsible(parent: VBoxContainer, title: String, open := false) -> VBoxContainer:
+	var holder := U.vbox(4)
+	var content := U.vbox(5)
+	content.visible = open
+	var head := Button.new()
+	head.toggle_mode = true
+	head.button_pressed = open
+	head.text = ("%s   [-]" if open else "%s   [+]") % title
+	head.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	head.custom_minimum_size = Vector2(0, 38)
+	head.add_theme_font_size_override("font_size", 14)
+	head.toggled.connect(func(on: bool):
+		content.visible = on
+		head.text = ("%s   [-]" if on else "%s   [+]") % title)
+	holder.add_child(head)
+	holder.add_child(content)
+	parent.add_child(holder)
+	return content
+
+
+## Reiter "Taktik": oben Empfehlungen, dann Energie und Teamorder; Automatik, Gambles und Rechner eingeklappt.
 func _build_tactics_tab() -> Control:
 	var t := _scroll_tab("Taktik")
 	var tv: VBoxContainer = t[1]
 	tv.add_child(U.section("Empfehlungen", 12))
 	advice_box = U.vbox(5)
 	tv.add_child(advice_box)
-	tv.add_child(U.section("Wenn-Dann-Regeln (automatisch)", 12))
-	var rdefs2 := [["sc_pit", "Safety Car: Stopp holen"], ["rain_switch", "Regen: Regenreifen"], ["dry_switch", "Abtrocknen: Slicks"], ["defend", "Konter-Stopp"], ["fuel_save", "Sprit automatisch sparen"]]
-	for d2 in rdefs2:
-		var cb := U.checkbox(str(d2[1]))
-		cb.toggled.connect(_on_rule.bind(str(d2[0])))
-		tv.add_child(cb)
-		rule_checks[str(d2[0])] = cb
-	tv.add_child(HSeparator.new())
 
 	# Energie / Motor
-	var ers_head := U.label("Energie", 12, U.MUTED, true)
-	ers_head_label = ers_head
-	tv.add_child(U.section("Energie / Motor", 12))
-	tv.add_child(ers_head)
+	var ec := U.card(9)
+	var ev := U.vbox(5)
+	ec.add_child(ev)
+	ers_head_label = U.label("Energie", 12, U.MUTED, true)
+	ev.add_child(ers_head_label)
 	ers_bar = ProgressBar.new()
 	ers_bar.max_value = 100.0
 	ers_bar.show_percentage = false
-	ers_bar.custom_minimum_size = Vector2(0, 10)
-	tv.add_child(ers_bar)
+	ers_bar.custom_minimum_size = Vector2(0, 8)
+	ev.add_child(ers_bar)
 	var mrow := U.hbox(5)
-	tv.add_child(mrow)
+	ev.add_child(mrow)
 	for i in 3:
 		var b := Button.new()
 		b.toggle_mode = true
@@ -536,50 +576,63 @@ func _build_tactics_tab() -> Control:
 		mrow.add_child(b)
 		mode_buttons.append(b)
 	mode_hint = _wrap_label("", 11, U.MUTED)
-	tv.add_child(mode_hint)
-	engine_label = _wrap_label("", 12, U.MUTED)
-	tv.add_child(engine_label)
-	tv.add_child(HSeparator.new())
+	ev.add_child(mode_hint)
+	engine_label = _wrap_label("", 11, U.MUTED)
+	ev.add_child(engine_label)
+	tv.add_child(ec)
 
 	# Teamorder
-	tv.add_child(U.section("Teamorder", 12))
-	to_label = _wrap_label("", 13, U.TEXT)
-	tv.add_child(to_label)
+	var oc := U.card(9)
+	var ov := U.vbox(5)
+	oc.add_child(ov)
+	ov.add_child(U.label("TEAMORDER", 12, U.MUTED, true))
+	to_label = _wrap_label("", 12, U.TEXT)
+	ov.add_child(to_label)
 	var trow := U.hbox(5)
-	tv.add_child(trow)
+	ov.add_child(trow)
 	var names := ["Platz tauschen", "Position halten", "Aufhalten"]
 	var tips := ["Der gewählte Fahrer lässt den Teamkollegen hinter sich vorbei.", "Kein Zweikampf unter Teamkollegen.", "Der gewählte Fahrer bremst einen Verfolger bewusst ein (Schützenhilfe)."]
 	for i in 3:
 		var b := U.button(names[i], _on_order.bind(i), 0, 36)
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.add_theme_font_size_override("font_size", 13)
+		b.add_theme_font_size_override("font_size", 12)
 		b.tooltip_text = tips[i]
 		trow.add_child(b)
 		order_buttons.append(b)
-	order_buttons.append(U.button("Befehle aufheben", _on_order.bind(3), 0, 32))
-	tv.add_child(order_buttons[3])
-	order_status = _wrap_label("", 12, U.MUTED)
-	tv.add_child(order_status)
-	tv.add_child(HSeparator.new())
+	order_buttons.append(U.button("Befehle aufheben", _on_order.bind(3), 0, 30))
+	ov.add_child(order_buttons[3])
+	order_status = _wrap_label("", 11, U.MUTED)
+	ov.add_child(order_status)
+	tv.add_child(oc)
 
-	# Gambles
-	tv.add_child(U.section("Gambles", 12))
-	sc_label = _wrap_label("", 13, U.TEXT)
-	tv.add_child(sc_label)
-	radar_label = _wrap_label("", 13, U.TEXT)
-	tv.add_child(radar_label)
+	# Automatik (eingeklappt)
+	var auto_box := _collapsible(tv, "Automatik: Wenn-Dann-Regeln")
+	auto_box.add_child(_wrap_label("Das Team handelt automatisch, auch wenn du gerade nicht eingreifst.", 11, U.MUTED))
+	var rdefs2 := [["sc_pit", "Safety Car: Stopp holen"], ["rain_switch", "Regen: auf Regenreifen"], ["dry_switch", "Abtrocknen: zurück auf Slicks"], ["defend", "Konter-Stopp bei Undercut-Gefahr"], ["fuel_save", "Sprit automatisch sparen"]]
+	for d2 in rdefs2:
+		var cb := U.checkbox(str(d2[1]))
+		cb.toggled.connect(_on_rule.bind(str(d2[0])))
+		auto_box.add_child(cb)
+		rule_checks[str(d2[0])] = cb
+
+	# Gambles und Rechner (eingeklappt)
+	var gb := _collapsible(tv, "Gambles und Rechner")
+	sc_label = _wrap_label("", 12, U.TEXT)
+	gb.add_child(sc_label)
+	radar_label = _wrap_label("", 12, U.TEXT)
+	gb.add_child(radar_label)
 	double_btn = U.button("Doppelstopp (beide Autos)", _on_double, 0, 36)
-	tv.add_child(double_btn)
-	tv.add_child(_wrap_label("Beide Autos stoppen am Rundenende. Das zweite Auto wartet etwa 2-3 Sekunden.", 11, U.MUTED))
-	uc_label = _wrap_label("", 13, U.TEXT)
-	threat_label = _wrap_label("", 13, U.TEXT)
-	rejoin_label = _wrap_label("", 13, U.MUTED)
+	gb.add_child(double_btn)
+	gb.add_child(_wrap_label("Beide Autos stoppen am Rundenende. Das zweite Auto wartet etwa 2-3 Sekunden.", 11, U.MUTED))
+	gb.add_child(HSeparator.new())
+	uc_label = _wrap_label("", 12, U.TEXT)
+	threat_label = _wrap_label("", 12, U.TEXT)
+	rejoin_label = _wrap_label("", 12, U.MUTED)
 	uc_btn = U.button("Jetzt stoppen (empfohlene Mischung)", _on_uc_pit, 0, 36)
-	tv.add_child(U.section("Undercut-Rechnung", 12))
-	tv.add_child(uc_label)
-	tv.add_child(threat_label)
-	tv.add_child(rejoin_label)
-	tv.add_child(uc_btn)
+	gb.add_child(uc_label)
+	gb.add_child(threat_label)
+	gb.add_child(rejoin_label)
+	gb.add_child(uc_btn)
 	return t[0]
 
 
@@ -686,23 +739,57 @@ func _on_pit_sel(k: int) -> void:
 	pit_sel = k
 
 
-## Zeitpunkt des Stopps: 0 = am Ende dieser Runde, sonst in n Runden (fest eingeplant).
-func _on_pit_when(i: int) -> void:
+## Zeitpunkt wählen (nur Auswahl, ausgeführt wird erst mit "Stopp bestätigen").
+func _on_when(lap: int) -> void:
+	pit_when_lap = lap
+	pit_when_key = ""
+
+
+## Stopp bestätigen: am Rundenende anfordern oder für eine spätere Runde einplanen.
+func _on_pit_confirm() -> void:
 	var c = selected
 	if c == null or not c.is_player or c.state != 1:
 		return
-	var offs := [0, 2, 4, 6]
-	var n: int = offs[i]
+	var now_lap: int = c.floor_laps + 1
+	var lap: int = pit_when_lap if pit_when_lap >= now_lap else now_lap
 	var comp: int = pit_sel if pit_sel >= 0 else sim.suggest_comp(c)
-	if n == 0:
+	if pit_edit_lap > 0:
+		sim.unschedule_pit(c, pit_edit_lap)
+	if lap <= now_lap:
 		sim.request_pit(c, comp)
 		_radio("Funk an %s: Box, Box! Reifen: %s" % [c.code, RaceSim.COMPOUNDS[comp]["name"]])
+		_banner_msg("Box diese Runde: %s" % RaceSim.COMPOUNDS[comp]["name"], 2.0, U.GOOD)
 	else:
-		var lap: int = c.floor_laps + 1 + n
 		if lap >= sim.laps:
 			return
 		sim.schedule_pit(c, lap, comp)
 		_radio("Funk an %s: Stopp für Ende Runde %d eingeplant (%s)." % [c.code, lap, RaceSim.COMPOUNDS[comp]["name"]])
+		_banner_msg("Stopp Runde %d: %s" % [lap, RaceSim.COMPOUNDS[comp]["name"]], 2.0, U.GOOD)
+	pit_edit_lap = -1
+	pit_when_lap = -1
+	pit_when_key = ""
+	pit_auto_key = ""
+	_plan_key = "x"
+
+
+## Geplanten Stopp bearbeiten: Reifen und Zeitpunkt in die Auswahl laden, die alte Planung bleibt bis zum Bestätigen.
+func _on_edit_plan(lap: int, comp: int) -> void:
+	pit_edit_lap = lap
+	pit_sel = comp
+	pit_when_lap = lap
+	pit_when_key = ""
+
+
+func _on_edit_reset() -> void:
+	pit_edit_lap = -1
+	pit_when_lap = -1
+	pit_when_key = ""
+	pit_auto_key = ""
+
+
+func _on_cancel_request() -> void:
+	if selected != null and selected.is_player:
+		sim.cancel_pit(selected)
 
 
 func _on_pit_fuel(d: int) -> void:
@@ -743,13 +830,18 @@ func _update_advice(c) -> void:
 	for a in items:
 		var col := {"bad": U.BAD, "warn": U.WARN, "good": U.GOOD, "info": U.BLUE}[a["level"]] as Color
 		var card := U.card(8, Color(col, 0.10), Color(col, 0.55))
-		var v := U.vbox(3)
-		card.add_child(v)
+		var h := U.hbox(8)
+		card.add_child(h)
+		var v := U.vbox(2)
+		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		h.add_child(v)
 		v.add_child(_wrap_label(str(a["title"]), 14, col, true))
 		v.add_child(_wrap_label(str(a["text"]), 12, U.TEXT))
 		if str(a.get("action", "")) != "":
-			var b := U.button(str(a["label"]), _on_advice.bind(str(a["action"])), 0, 34)
-			v.add_child(b)
+			var b := U.button(str(a["label"]), _on_advice.bind(str(a["action"])), 96, 40)
+			b.add_theme_font_size_override("font_size", 13)
+			b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			h.add_child(b)
 		advice_box.add_child(card)
 
 
@@ -915,44 +1007,97 @@ func _update_car_pit(c) -> void:
 	elif c.tow > 0.05 and c.state == 1:
 		fh = "Im Windschatten: +%d %% Windschatten-Wirkung. %s" % [int(c.tow * 100.0), "Mit DRS/Batterie angreifen!" if c.gap_ahead < 1.0 else ""]
 	follow_hint.text = fh
-	# Boxen-Reiter
-	var win: Dictionary = sim.pit_window_info(c, c.floor_laps + 1) if c.state == 1 else {"need": false, "text": "", "frac": 0.0}
+	# Boxen-Reiter: Status, geplante Stopps, Auswahl in drei Schritten
+	var now_lap: int = c.floor_laps + 1
+	var racing: bool = c.state == 1
+	var win: Dictionary = sim.pit_window_info(c, now_lap) if racing else {"need": false, "text": "", "frac": 0.0, "ideal": now_lap}
+	var nxt := -1
+	for s in c.plan:
+		if int(s["lap"]) > c.floor_laps and (nxt < 0 or int(s["lap"]) < nxt):
+			nxt = int(s["lap"])
 	if c.pit_requested:
 		pit_head.text = "BOX DIESE RUNDE: %s" % RaceSim.COMPOUNDS[c.pit_comp]["name"].to_upper()
+		pit_head.add_theme_color_override("font_color", U.GOOD)
 	elif c.state == 2:
 		pit_head.text = "In der Box ..."
+		pit_head.add_theme_color_override("font_color", U.WARN)
 	else:
-		var nxt := -1
-		for s in c.plan:
-			if int(s["lap"]) > c.floor_laps and (nxt < 0 or int(s["lap"]) < nxt):
-				nxt = int(s["lap"])
+		pit_head.add_theme_color_override("font_color", U.WARN)
 		pit_head.text = ("Nächster Stopp: Ende Runde %d" % nxt) if nxt > 0 else ("Kein Stopp geplant" if not bool(win["need"]) else "Stopp nötig, noch nichts geplant")
+	pit_cancel_btn.visible = c.pit_requested
 	pit_win_label.text = str(win["text"])
 	if sim.wet > 0.1 or sim.rain > 0.05:
 		pit_win_label.text += "\nRegen: Reifenwahl nach Streckennässe (%d %%)." % int(sim.wet * 100.0)
+	# Standardvorschlag einmal pro Runde setzen, solange der Spieler nichts gewählt hat
+	var sug: int = sim.suggest_comp(c) if racing else 1
+	var def_lap: int = now_lap
+	if bool(win["need"]) and int(win["ideal"]) > now_lap and float(win["frac"]) < 0.85:
+		def_lap = mini(int(win["ideal"]), sim.laps - 1)
+	var akey := "%d|%d" % [c.pit_stops, now_lap]
 	if pit_sel < 0:
-		pit_sel = sim.suggest_comp(c) if c.state == 1 else 1
-	var sug: int = sim.suggest_comp(c) if c.state == 1 else -1
+		pit_sel = sug
+	if pit_when_lap < now_lap and pit_edit_lap < 0:
+		pit_when_lap = def_lap
+	if akey != pit_auto_key:
+		pit_auto_key = akey
+		if pit_when_lap < now_lap:
+			pit_when_lap = def_lap
 	for k in pit_buttons.size():
 		var o: Dictionary = sim.compound_outlook(c, k)
-		var t: String = RaceSim.COMPOUNDS[k]["name"]
-		t += "\n%d Rd%s" % [int(o["life"]), (" OK" if o["to_end"] else "")]
+		var tt: String = RaceSim.COMPOUNDS[k]["name"]
+		tt += "\n%d Rd%s" % [int(o["life"]), (" OK" if o["to_end"] else "")]
 		if not sim.tyre_unlimited():
 			var cnt: Dictionary = sim.tyre_count(c, k)
-			t += "\n%d Sätze" % int(cnt["free"])
+			tt += "\n%d Sätze" % int(cnt["free"])
 		if k == sug:
-			t += " *"
-		pit_buttons[k].text = t
+			tt += " *"
+		pit_buttons[k].text = tt
 		pit_buttons[k].set_pressed_no_signal(k == pit_sel)
-		pit_buttons[k].disabled = c.state != 1
+		pit_buttons[k].disabled = not racing
 	var oc: Dictionary = sim.compound_outlook(c, pit_sel)
-	pit_outlook.text = "%s hält ca. %d Runden%s.  * = Empfehlung, OK = reicht bis ins Ziel." % [RaceSim.COMPOUNDS[pit_sel]["name"], int(oc["life"]), " und reicht bis ins Ziel" if oc["to_end"] else ""]
-	var offs := [0, 2, 4, 6]
-	for i in 4:
-		var l: int = c.floor_laps + 1 + int(offs[i])
-		pit_when_buttons[i].text = ("Jetzt\n(Ende R%d)" % l) if i == 0 else ("In %d Rd.\n(R%d)" % [offs[i], l])
-		pit_when_buttons[i].disabled = c.state != 1 or l >= sim.laps
-	# geplante Stopps
+	pit_outlook.text = "%s hält ca. %d Runden%s.   * = Empfehlung, OK = reicht bis ins Ziel." % [RaceSim.COMPOUNDS[pit_sel]["name"], int(oc["life"]), " und reicht bis ins Ziel" if oc["to_end"] else ""]
+	# Zeitpunkt-Auswahl (nur neu aufbauen, wenn sich die Optionen ändern)
+	var opts: Array = []
+	for off in [0, 2, 4, 6]:
+		var l: int = now_lap + off
+		if l < sim.laps:
+			opts.append({"lap": l, "t": ("Jetzt\nEnde R%d" % l) if off == 0 else ("R%d\nin %d Rd." % [l, off])})
+	if bool(win["need"]) and int(win["ideal"]) > now_lap and int(win["ideal"]) < sim.laps:
+		var il: int = int(win["ideal"])
+		var dup := false
+		for o2 in opts:
+			if int(o2["lap"]) == il:
+				o2["t"] = "%s\nempfohlen" % str(o2["t"]).split("\n")[0]
+				dup = true
+		if not dup:
+			opts.append({"lap": il, "t": "R%d\nempfohlen" % il})
+	if pit_edit_lap > 0:
+		var has := false
+		for o3 in opts:
+			if int(o3["lap"]) == pit_edit_lap:
+				has = true
+		if not has:
+			opts.append({"lap": pit_edit_lap, "t": "R%d\ngeplant" % pit_edit_lap})
+	opts.sort_custom(func(a, b): return int(a["lap"]) < int(b["lap"]))
+	var wkey := "%d|%d|%s" % [now_lap, pit_when_lap, str(opts.size())]
+	if wkey != pit_when_key:
+		pit_when_key = wkey
+		U.clear(pit_when_box)
+		for o4 in opts:
+			var wb := Button.new()
+			wb.toggle_mode = true
+			wb.text = str(o4["t"])
+			wb.custom_minimum_size = Vector2(70, 44)
+			wb.add_theme_font_size_override("font_size", 12)
+			wb.button_pressed = int(o4["lap"]) == pit_when_lap
+			wb.disabled = not racing
+			wb.pressed.connect(_on_when.bind(int(o4["lap"])))
+			pit_when_box.add_child(wb)
+	# Änderungs-Hinweis
+	pit_edit_label.visible = pit_edit_lap > 0
+	pit_edit_reset.visible = pit_edit_lap > 0
+	pit_edit_label.text = "Du änderst den geplanten Stopp nach Runde %d." % pit_edit_lap
+	# geplante Stopps als Liste mit Ändern / Löschen
 	var pkey := ""
 	for s in c.plan:
 		if int(s["lap"]) > c.floor_laps:
@@ -962,11 +1107,14 @@ func _update_car_pit(c) -> void:
 		U.clear(pit_plan_box)
 		for s in c.plan:
 			if int(s["lap"]) > c.floor_laps:
-				var row := U.hbox(6)
-				row.add_child(U.label("Ende Runde %d" % int(s["lap"]), 13, U.TEXT, true))
-				row.add_child(U.label(RaceSim.COMPOUNDS[int(s["comp"])]["name"], 13, RaceSim.COMPOUNDS[int(s["comp"])]["ink"], true))
-				row.add_child(U.spacer())
-				row.add_child(U.button("x", _on_unplan.bind(int(s["lap"])), 34, 30))
+				var row := U.card(6, U.tint(0.04))
+				var rh := U.hbox(6)
+				row.add_child(rh)
+				rh.add_child(U.label("Ende Runde %d" % int(s["lap"]), 14, U.TEXT, true))
+				rh.add_child(U.label(RaceSim.COMPOUNDS[int(s["comp"])]["name"], 14, RaceSim.COMPOUNDS[int(s["comp"])]["ink"], true))
+				rh.add_child(U.spacer())
+				rh.add_child(U.button("Ändern", _on_edit_plan.bind(int(s["lap"]), int(s["comp"])), 70, 30))
+				rh.add_child(U.button("x", _on_unplan.bind(int(s["lap"])), 34, 30))
 				pit_plan_box.add_child(row)
 	# Tanken
 	if sim.rules["refuel"]:
@@ -976,26 +1124,35 @@ func _update_car_pit(c) -> void:
 		var stand: float = 1.2 + maxf(0.0, kg - c.fuel) / 9.0
 		pit_fuel_label.text = "%d Runden = %.1f kg%s" % [int(laps_f), kg, " (auto)" if c.pit_fuel_laps < 0.0 else ""]
 		pit_fuel_hint.text = "Standzeit ca. %.1f s. Mehr Sprit = längere Distanz, aber schwerer und langsamer (%.1f s pro Runde Gewicht)." % [stand, kg * RaceSim.FUEL_TIME * sim.scale_time]
-	# Prognose
-	if c.state == 1:
-		var rj: Dictionary = sim.rejoin_info(c)
-		var gain: float = sim.tyre_loss(c) - sim.fresh_loss(pit_sel)
-		var t2 := "Stopp jetzt: %.0f s Verlust, Rückkehr auf P%d" % [rj["loss"], rj["pos"]]
-		if rj["ahead"] != null:
-			t2 += " hinter %s (+%.1f s)" % [rj["ahead"].code, rj["gap_ahead"]]
-		if rj["behind"] != null and rj["gap_behind"] < 2.0:
-			t2 += ", %s dicht dahinter" % rj["behind"].code
-		t2 += ".\nFrische %s: %+.1f s pro Runde gegenüber den jetzigen Reifen." % [RaceSim.COMPOUNDS[pit_sel]["name"], gain]
-		pit_pred.text = t2
+	# Zusammenfassung der Auswahl
+	var sel_lap: int = pit_when_lap if pit_when_lap >= now_lap else now_lap
+	var cn: String = RaceSim.COMPOUNDS[pit_sel]["name"]
+	if racing:
+		var summary := "Stopp %s auf %s.\n" % ["am Ende dieser Runde (R%d)" % now_lap if sel_lap <= now_lap else "am Ende von Runde %d" % sel_lap, cn]
+		var rem: int = sim.laps - sel_lap
+		var life_n: float = float(oc["life"])
+		if life_n >= float(rem) + 0.5:
+			summary += "Die Reifen reichen danach bis ins Ziel (%d Rd. Rest, Haltbarkeit %d)." % [rem, int(life_n)]
+		else:
+			summary += "Haltbarkeit %d Rd., danach fehlen noch %d Runden: ein weiterer Stopp wäre nötig." % [int(life_n), rem - int(life_n)]
+		if sel_lap <= now_lap:
+			var rj: Dictionary = sim.rejoin_info(c)
+			var gain: float = sim.tyre_loss(c) - sim.fresh_loss(pit_sel)
+			summary += "\nRückkehr auf P%d" % rj["pos"]
+			if rj["ahead"] != null:
+				summary += " hinter %s (+%.1f s)" % [rj["ahead"].code, rj["gap_ahead"]]
+			summary += ", %.0f s Verlust. Frische Reifen: %+.1f s pro Runde." % [rj["loss"], gain]
+		pit_pred.text = summary
+		var btn_t := "STOPP BESTÄTIGEN: %s, %s" % [cn, "jetzt" if sel_lap <= now_lap else "Runde %d" % sel_lap]
+		if pit_edit_lap > 0:
+			btn_t = "ÄNDERUNG BESTÄTIGEN: %s, Runde %d" % [cn, sel_lap]
+		pit_confirm_btn.text = btn_t
+		pit_confirm_btn.disabled = false
 	else:
 		pit_pred.text = ""
-	var pl := []
-	for s in c.plan:
-		if int(s["lap"]) >= lap:
-			pl.append("Runde %d: %s" % [s["lap"], RaceSim.COMPOUNDS[int(s["comp"])]["name"]])
-	plan_label.text = "Geplante Stopps: " + (", ".join(pl) if not pl.is_empty() else "keine")
+		pit_confirm_btn.disabled = true
 	if c.pit_requested:
-		pit_status.text = "Box angefordert: %s" % RaceSim.COMPOUNDS[c.pit_comp]["name"]
+		pit_status.text = "Bestätigt: Box am Ende dieser Runde, %s." % RaceSim.COMPOUNDS[c.pit_comp]["name"]
 	else:
 		pit_status.text = ""
 

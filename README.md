@@ -67,6 +67,8 @@ Die Autos sind Punkte auf der Streckenkarte (Ansicht von oben).
   - *Reifen:* Reifensätze pro Wochenende (ab 2007: z. B. 2 Soft, 3 Medium, 8 Hard; Training und Qualifying verbrauchen Sätze, gebrauchte Sätze starten mit Vorbelastung), Bedarf des Plans gegen Bestand.
   - *Varianten:* A (ausgewogen), B (wenig Stopps), C (offensiv) werden per Suche berechnet, mit Vergleichsdiagramm und "Vorschau": mehrere Rennläufe mit Zufall (Safety Car, Gegner, Ausfälle) liefern Durchschnittsplatz, Streuung und Punktechance.
   - *Regeln:* Wenn-Dann-Regeln (Safety Car: Stopp, Regen/Abtrocknen: Reifenwechsel, Konter-Stopp, Sprit sparen) und Boxencrew (Stopp-Training 1 Mio. $ verbessert Standzeit und senkt Pannenrisiko, die Form sinkt von Rennen zu Rennen).
+- **Stopp im Rennen in drei Schritten:** Reiter "Boxen": 1 Reifen wählen (mit Haltbarkeit, Sätzen und Empfehlung), 2 Zeitpunkt wählen (jetzt, in 2/4/6 Runden oder empfohlenes Fenster), 3 Zusammenfassung prüfen und mit dem Knopf unten bestätigen (Vorschlag ist vorausgewählt, ein Tipp genügt).
+  Geplante Stopps stehen oben als Liste mit "Ändern" (lädt den Stopp in die Auswahl, die alte Planung bleibt bis zum Bestätigen) und "x". Der Reiter "Taktik" zeigt oben die Empfehlungen, dann Energie und Teamorder; Automatik, Gambles und Rechner sind einklappbar.
 - **Im Rennen:** Funkanweisungen (Push 3 Runden, Reifen managen, Lift & Coast), Fahrer-Rückmeldung zum Reifenzustand, Sätze-Anzeige im Reifenwahl-Fenster, Regeln auch im Reiter "Taktik" schaltbar.
 
 ## Karte, Kamera und TV-Grafik
