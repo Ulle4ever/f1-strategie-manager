@@ -94,7 +94,7 @@ func _ready() -> void:
 		left.add_child(lh)
 		lv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		lh.add_child(lv)
-		finish_box.custom_minimum_size = Vector2(290, 0)
+		finish_box.custom_minimum_size = Vector2(250, 0)
 		lh.add_child(finish_box)
 	else:
 		lv.add_child(finish_box)
@@ -338,7 +338,7 @@ func _refresh_finish() -> void:
 			Market.auto_fill_player()
 			Game.save()
 			_refresh_all(), 0, 36))
-	var b := U.primary_button("MARKT ABSCHLIESSEN  >  SAISON %d" % (Game.year + 1), _on_finish, 0, 52)
+	var b := U.primary_button(("ABSCHLIESSEN  >  %d" if U.is_mobile() else "MARKT ABSCHLIESSEN  >  SAISON %d") % (Game.year + 1), _on_finish, 0, 52)
 	b.disabled = open > 0
 	finish_box.add_child(b)
 	var hint := U.label("Danach besetzen die anderen Teams ihre Cockpits. Nicht verlängerte Fahrer verlassen dich.", 12, U.MUTED)

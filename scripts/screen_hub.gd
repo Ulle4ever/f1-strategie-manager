@@ -13,6 +13,7 @@ var tabs: TabContainer
 var budget_label: Label
 var dev_box: VBoxContainer
 var dev_rows := {}
+var save_button: Button
 
 
 func _ready() -> void:
@@ -34,6 +35,8 @@ func _ready() -> void:
 	budget_label = U.label("", 18 if M else 24, U.GOOD, true)
 	bud.add_child(budget_label)
 	head.add_child(bud)
+	save_button = U.button("Speichern", _on_save, 84 if M else 110, 42)
+	head.add_child(save_button)
 	head.add_child(U.button("Menü" if M else "Hauptmenü", func(): main.show_start(), 80 if M else 120, 42))
 
 	var cols := U.hbox(16)
@@ -70,6 +73,17 @@ func _scroll(content: Control, tab_name: String) -> void:
 	m.add_child(content)
 	sc.add_child(m)
 	tabs.add_child(sc)
+
+
+## Spielstand sofort speichern und kurz bestätigen (bzw. warnen, wenn der Browser nichts speichert).
+func _on_save() -> void:
+	Game.save()
+	save_button.text = "Gespeichert" if Game.save_ok else "Speichern fehlt!"
+	save_button.add_theme_color_override("font_color", U.GOOD if Game.save_ok else U.BAD)
+	await get_tree().create_timer(1.8).timeout
+	if is_instance_valid(save_button):
+		save_button.text = "Speichern"
+		save_button.remove_theme_color_override("font_color")
 
 
 func _refresh_budget() -> void:
@@ -310,8 +324,12 @@ func _build_next_race() -> Control:
 	var tag := U.hbox(8)
 	tag.add_child(U.chip("Runde %d / %d" % [Game.round_index + 1, Game.calendar.size()]))
 	v.add_child(tag)
-	v.add_child(U.label(str(race["name"]).to_upper(), 26, U.TEXT, true))
-	v.add_child(U.label("%s  |  %s, %s" % [race["circuit"], race["locality"], race["country"]], 13, U.MUTED))
+	var nm := U.label(str(race["name"]).to_upper(), 26, U.TEXT, true)
+	nm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(nm)
+	var cl := U.label("%s  |  %s, %s" % [race["circuit"], race["locality"], race["country"]], 13, U.MUTED)
+	cl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(cl)
 	if tr == null:
 		v.add_child(U.label("Streckendaten fehlen für diesen Kurs.", 16, U.BAD))
 		return p
@@ -336,12 +354,12 @@ func _build_next_race() -> Control:
 	if U.is_mobile():
 		# Handy: Info links, Karte rechts nebeneinander
 		p.remove_child(v)
-		var h := U.hbox(14)
+		var h := U.hbox(10)
 		p.add_child(h)
 		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		h.add_child(v)
 		v.remove_child(map)
-		map.custom_minimum_size = Vector2(300, 250)
+		map.custom_minimum_size = Vector2(240, 250)
 		map.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		h.add_child(map)
 	return p

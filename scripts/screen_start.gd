@@ -45,7 +45,14 @@ func _ready() -> void:
 	top.add_child(info_label)
 	top.add_child(U.spacer())
 	if Game.has_save():
-		top.add_child(U.button("Laden" if M else "Spielstand laden", _on_load, 90 if M else 190, 42))
+		var si: Dictionary = Game.save_info()
+		var lt := "Laden" if M else "Spielstand laden"
+		if not si.is_empty() and not M:
+			lt = "Laden: Saison %d, Rennen %d" % [int(si["year"]), int(si["round"]) + 1]
+		top.add_child(U.button(lt, _on_load, 90 if M else 250, 42))
+	if not M:
+		top.add_child(U.button("Sicherung kopieren", _on_backup_copy, 170, 42))
+		top.add_child(U.button("Sicherung einfügen", _on_backup_paste, 170, 42))
 	if M:
 		size_button = U.button("Größe: %s" % U.LEVEL_NAMES[U.ui_level()], _on_size, 120, 42)
 		top.add_child(size_button)
@@ -59,7 +66,12 @@ func _ready() -> void:
 	grid.add_theme_constant_override("h_separation", 10)
 	grid.add_theme_constant_override("v_separation", 10)
 	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(grid)
+	var content := U.vbox(10)
+	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(content)
+	content.add_child(grid)
+	if OS.has_feature("web"):
+		content.add_child(_web_tools())
 
 	var foot := U.hbox(14)
 	root.add_child(foot)
@@ -167,6 +179,70 @@ func _on_start() -> void:
 		return
 	Game.new_season(year_option.get_selected_id(), selected_team)
 	main.show_hub()
+
+
+const SHARP := [[1.0, "Sparsam"], [1.25, "Normal"], [1.5, "Hoch"], [2.0, "Sehr hoch"], [3.0, "Maximal"]]
+
+
+## Web: Bildschärfe wählen (Render-Auflösung) und App installieren.
+func _web_tools() -> Control:
+	var row := U.hbox(10)
+	var cur := float(JavaScriptBridge.eval("window.f1DprCap || 1", true))
+	var name := "%sx" % _num(cur)
+	for s in SHARP:
+		if is_equal_approx(float(s[0]), cur):
+			name = "%s (%sx)" % [s[1], _num(cur)]
+	var sb := U.button("Schärfe: %s" % name, _on_sharp, 0, 40)
+	sb.tooltip_text = "Höhere Schärfe: schärfere Schrift, braucht aber mehr Grafikspeicher (alte Geräte: 'Normal' oder 'Sparsam' wählen). Die Seite lädt neu."
+	row.add_child(sb)
+	var standalone := bool(JavaScriptBridge.eval("window.f1Standalone ? window.f1Standalone() : false", true))
+	if not standalone:
+		row.add_child(U.button("App installieren", _on_install, 0, 40))
+	row.add_child(U.spacer())
+	return row
+
+
+func _num(v: float) -> String:
+	return ("%.2f" % v).rstrip("0").rstrip(".")
+
+
+func _on_sharp() -> void:
+	var cur := float(JavaScriptBridge.eval("window.f1DprCap || 1", true))
+	var idx := 0
+	for i in SHARP.size():
+		if float(SHARP[i][0]) <= cur + 0.01:
+			idx = i
+	var nxt: float = float(SHARP[(idx + 1) % SHARP.size()][0])
+	if Game.active:
+		Game.save()
+	JavaScriptBridge.eval("window.f1SetDpr(%s)" % str(nxt), true)
+
+
+func _on_install() -> void:
+	if bool(JavaScriptBridge.eval("!!window.f1CanInstall", true)):
+		JavaScriptBridge.eval("window.f1Install()", true)
+		return
+	var ua := str(JavaScriptBridge.eval("navigator.userAgent", true))
+	if "iPhone" in ua or "iPad" in ua or "Macintosh" in ua:
+		selected_label.text = "iPhone/iPad: In Safari unten auf Teilen tippen, dann 'Zum Home-Bildschirm'."
+	else:
+		selected_label.text = "Im Browser-Menü 'App installieren' bzw. 'Zum Startbildschirm hinzufügen' wählen."
+	selected_label.add_theme_color_override("font_color", U.WARN)
+
+
+func _on_backup_copy() -> void:
+	if not Game.has_save():
+		Game.save()
+	DisplayServer.clipboard_set(Game.export_text())
+	selected_label.text = "Sicherung in der Zwischenablage (zum Aufbewahren in eine Notiz einfügen)"
+
+
+func _on_backup_paste() -> void:
+	if Game.import_text(DisplayServer.clipboard_get()):
+		main.show_hub()
+	else:
+		selected_label.text = "Zwischenablage enthält keine gültige Sicherung"
+		selected_label.add_theme_color_override("font_color", U.BAD)
 
 
 func _on_load() -> void:

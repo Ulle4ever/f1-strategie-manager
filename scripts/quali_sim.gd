@@ -527,18 +527,19 @@ func forced_start_of(c) -> int:
 
 
 ## Position des Autos auf der Strecke (Weltkoordinaten) für die Karte; null wenn in der Box.
-func car_world_pos(q: QCar):
+func car_world_pos(q: QCar, tv := -1.0):
+	var tm: float = time if tv < 0.0 else tv
 	if q.state != QState.OUT and q.state != QState.CRASHED:
 		return null
-	if q.state == QState.CRASHED and time > q.fly_end + 20.0:
+	if q.state == QState.CRASHED and tm > q.fly_end + 20.0:
 		return null
-	if time < q.out_end:
-		var f := (time - q.run_start) / maxf(out_lap_time, 1.0)
+	if tm < q.out_end:
+		var f := (tm - q.run_start) / maxf(out_lap_time, 1.0)
 		return track.point_at(f * track.length)
-	if q.fly_end > 0.0 and time <= q.fly_end:
-		var f2 := (time - q.fly_start) / maxf(q.fly_end - q.fly_start, 1.0)
+	if q.fly_end > 0.0 and tm <= q.fly_end:
+		var f2 := (tm - q.fly_start) / maxf(q.fly_end - q.fly_start, 1.0)
 		return track.point_at(track.dist_at_frac(f2))
-	if q.fly_end > 0.0 and time > q.fly_end and q.state == QState.OUT:
-		var f3 := (time - q.fly_end) / maxf(in_lap_time, 1.0)
+	if q.fly_end > 0.0 and tm > q.fly_end and q.state == QState.OUT:
+		var f3 := (tm - q.fly_end) / maxf(in_lap_time, 1.0)
 		return track.point_at(clampf(f3, 0.0, 1.0) * track.length)
 	return null

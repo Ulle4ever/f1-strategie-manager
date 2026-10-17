@@ -3,10 +3,11 @@ extends RefCounted
 
 const BG0 := Color("090b10")
 const BG1 := Color("141824")
-const PANEL := Color(0.082, 0.098, 0.141, 0.94)
-const PANEL2 := Color("1d2330")
-const PANEL3 := Color("262d3d")
-const LINE := Color("2c3446")
+const PANEL := Color(0.075, 0.09, 0.13, 0.93)
+const PANEL2 := Color("1a202d")
+const PANEL3 := Color("252d3f")
+const LINE := Color(1, 1, 1, 0.09)
+const RADIUS := 9
 const ACCENT := Color("e10600")
 const ACCENT_HI := Color("ff2a1f")
 const ACCENT_DARK := Color("7a0300")
@@ -99,7 +100,7 @@ static func font(bold := false) -> Font:
 	return _font_bold if bold else _font
 
 
-static func _box(col: Color, radius := 3, border := Color(0, 0, 0, 0), bw := 0) -> StyleBoxFlat:
+static func _box(col: Color, radius := RADIUS, border := Color(0, 0, 0, 0), bw := 0) -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = col
 	sb.set_corner_radius_all(radius)
@@ -112,13 +113,13 @@ static func _box(col: Color, radius := 3, border := Color(0, 0, 0, 0), bw := 0) 
 	return sb
 
 
-static func button_style(bg: Color, edge: Color, left := 4, radius := 3) -> StyleBoxFlat:
+## Knopf-/Balkenstil: flach mit feinem Rand (edge). left >= 2 betont den Rand (Auswahl), 0 = ohne Rand.
+static func button_style(bg: Color, edge: Color, left := 4, radius := RADIUS) -> StyleBoxFlat:
 	var sb := _box(bg, radius, Color(0, 0, 0, 0), 0)
 	sb.border_color = edge
-	sb.border_width_left = left
-	sb.border_width_bottom = 1
-	sb.border_width_top = 1
-	sb.border_width_right = 1
+	sb.set_border_width_all(0 if left <= 0 else (1 if left < 2 else 2))
+	sb.content_margin_left = 10
+	sb.content_margin_right = 10
 	return sb
 
 
@@ -129,29 +130,38 @@ static func make_theme() -> Theme:
 	th.set_font("font", "Label", font(false))
 	th.set_font("font", "Button", font(true))
 	th.set_font_size("font_size", "Button", 17)
-	th.set_stylebox("normal", "Button", button_style(PANEL2, LINE, 4))
-	th.set_stylebox("hover", "Button", button_style(PANEL3, ACCENT, 4))
-	th.set_stylebox("pressed", "Button", button_style(Color("3a0f12"), ACCENT_HI, 6))
-	th.set_stylebox("disabled", "Button", button_style(Color("11141b"), LINE, 2))
+	th.set_stylebox("normal", "Button", button_style(PANEL2, Color(1, 1, 1, 0.12), 1))
+	th.set_stylebox("hover", "Button", button_style(PANEL3, Color(ACCENT, 0.85), 1))
+	th.set_stylebox("pressed", "Button", button_style(Color("43141a"), ACCENT_HI, 2))
+	th.set_stylebox("disabled", "Button", button_style(Color(0.07, 0.08, 0.11, 0.8), Color(1, 1, 1, 0.05), 1))
 	th.set_stylebox("focus", "Button", StyleBoxEmpty.new())
 	th.set_color("font_color", "Button", TEXT)
 	th.set_color("font_hover_color", "Button", Color.WHITE)
 	th.set_color("font_pressed_color", "Button", Color.WHITE)
 	th.set_color("font_disabled_color", "Button", Color("525b6d"))
-	th.set_stylebox("panel", "PanelContainer", _box(PANEL, 3, LINE, 1))
+	th.set_stylebox("panel", "PanelContainer", _box(PANEL, RADIUS + 1, LINE, 1))
 	th.set_color("font_color", "Label", TEXT)
-	th.set_stylebox("panel", "PopupMenu", _box(PANEL2, 3, LINE, 1))
-	th.set_stylebox("hover", "PopupMenu", _box(PANEL3, 2))
+	th.set_stylebox("panel", "PopupMenu", _box(PANEL2, 8, LINE, 1))
+	th.set_stylebox("hover", "PopupMenu", _box(PANEL3, 6))
 	th.set_color("font_color", "PopupMenu", TEXT)
 	th.set_color("font_hover_color", "PopupMenu", Color.WHITE)
-	th.set_stylebox("normal", "OptionButton", button_style(PANEL2, LINE, 4))
-	th.set_stylebox("hover", "OptionButton", button_style(PANEL3, ACCENT, 4))
-	th.set_stylebox("pressed", "OptionButton", button_style(PANEL3, ACCENT, 4))
+	th.set_stylebox("normal", "OptionButton", button_style(PANEL2, Color(1, 1, 1, 0.12), 1))
+	th.set_stylebox("hover", "OptionButton", button_style(PANEL3, Color(ACCENT, 0.85), 1))
+	th.set_stylebox("pressed", "OptionButton", button_style(PANEL3, ACCENT, 1))
 	th.set_color("font_color", "OptionButton", TEXT)
-	th.set_stylebox("panel", "TabContainer", _box(PANEL, 3, LINE, 1))
-	th.set_stylebox("tab_selected", "TabContainer", button_style(PANEL, ACCENT, 0, 2))
-	th.set_stylebox("tab_unselected", "TabContainer", button_style(Color("0f121a"), LINE, 0, 2))
-	th.set_stylebox("tab_hovered", "TabContainer", button_style(PANEL2, LINE, 0, 2))
+	th.set_stylebox("panel", "TabContainer", _box(PANEL, RADIUS + 1, LINE, 1))
+	var tab_sel := _box(Color("2a1519"), 8, Color(ACCENT, 0.9), 1)
+	tab_sel.content_margin_top = 6
+	tab_sel.content_margin_bottom = 6
+	var tab_un := _box(Color(0.1, 0.12, 0.17, 0.9), 8, Color(1, 1, 1, 0.07), 1)
+	tab_un.content_margin_top = 6
+	tab_un.content_margin_bottom = 6
+	var tab_hv := _box(PANEL2, 8, Color(1, 1, 1, 0.12), 1)
+	tab_hv.content_margin_top = 6
+	tab_hv.content_margin_bottom = 6
+	th.set_stylebox("tab_selected", "TabContainer", tab_sel)
+	th.set_stylebox("tab_unselected", "TabContainer", tab_un)
+	th.set_stylebox("tab_hovered", "TabContainer", tab_hv)
 	th.set_color("font_selected_color", "TabContainer", Color.WHITE)
 	th.set_color("font_unselected_color", "TabContainer", MUTED)
 	th.set_color("font_hovered_color", "TabContainer", TEXT)
@@ -170,22 +180,22 @@ static func make_theme() -> Theme:
 	# Fortschrittsbalken
 	var pbg := StyleBoxFlat.new()
 	pbg.bg_color = Color(1, 1, 1, 0.08)
-	pbg.set_corner_radius_all(2)
+	pbg.set_corner_radius_all(5)
 	var pfill := StyleBoxFlat.new()
 	pfill.bg_color = Color.WHITE
-	pfill.set_corner_radius_all(2)
+	pfill.set_corner_radius_all(5)
 	th.set_stylebox("background", "ProgressBar", pbg)
 	th.set_stylebox("fill", "ProgressBar", pfill)
-	th.set_stylebox("normal", "SpinBox", _box(PANEL2, 3, LINE, 1))
+	th.set_stylebox("normal", "SpinBox", _box(PANEL2, 7, LINE, 1))
 	var trk := StyleBoxFlat.new()
 	trk.bg_color = PANEL3
-	trk.set_corner_radius_all(3)
+	trk.set_corner_radius_all(5)
 	trk.content_margin_top = 3
 	trk.content_margin_bottom = 3
 	th.set_stylebox("slider", "HSlider", trk)
 	var ga := StyleBoxFlat.new()
 	ga.bg_color = ACCENT
-	ga.set_corner_radius_all(3)
+	ga.set_corner_radius_all(5)
 	ga.content_margin_top = 3
 	ga.content_margin_bottom = 3
 	th.set_stylebox("grabber_area", "HSlider", ga)
@@ -270,10 +280,10 @@ static func button(text: String, cb = null, min_w := 0, min_h := 38) -> Button:
 ## Roter Haupt-Button.
 static func primary_button(text: String, cb = null, min_w := 0, min_h := 50) -> Button:
 	var b := button(text, cb, min_w, min_h)
-	b.add_theme_stylebox_override("normal", button_style(ACCENT, ACCENT_HI, 8))
-	b.add_theme_stylebox_override("hover", button_style(ACCENT_HI, Color.WHITE, 8))
-	b.add_theme_stylebox_override("pressed", button_style(ACCENT_DARK, Color.WHITE, 8))
-	b.add_theme_stylebox_override("disabled", button_style(Color("2a1414"), Color("3a2020"), 4))
+	b.add_theme_stylebox_override("normal", button_style(Color("e8261b"), Color("ff6a5e"), 1, 11))
+	b.add_theme_stylebox_override("hover", button_style(ACCENT_HI, Color.WHITE, 1, 11))
+	b.add_theme_stylebox_override("pressed", button_style(ACCENT_DARK, Color.WHITE, 1, 11))
+	b.add_theme_stylebox_override("disabled", button_style(Color("2a1414"), Color("3a2020"), 1, 11))
 	b.add_theme_font_size_override("font_size", 19)
 	b.add_theme_color_override("font_color", Color.WHITE)
 	return b
@@ -281,13 +291,37 @@ static func primary_button(text: String, cb = null, min_w := 0, min_h := 50) -> 
 
 static func panel(margin := 14, accent := Color(0, 0, 0, 0)) -> PanelContainer:
 	var p := PanelContainer.new()
-	var sb := _box(PANEL, 3, LINE, 1)
+	var sb := _box(PANEL, RADIUS + 1, LINE, 1)
 	sb.set_content_margin_all(margin)
+	sb.shadow_color = Color(0, 0, 0, 0.30)
+	sb.shadow_size = 6
+	sb.shadow_offset = Vector2(0, 2)
 	if accent.a > 0.0:
-		sb.border_width_top = 3
-		sb.border_color = accent
+		sb.border_width_top = 2
+		sb.border_color = Color(accent, 0.6)
 	p.add_theme_stylebox_override("panel", sb)
 	return p
+
+
+## Dezente Unterkarte innerhalb eines Panels (für Gruppen von Bedienelementen).
+static func card(margin := 10, tint := Color(1, 1, 1, 0.04), edge := Color(1, 1, 1, 0.07)) -> PanelContainer:
+	var p := PanelContainer.new()
+	var sb := _box(tint, 9, edge, 1)
+	sb.set_content_margin_all(margin)
+	p.add_theme_stylebox_override("panel", sb)
+	return p
+
+
+## Abschnittsüberschrift mit kleinem roten Marker.
+static func section(text: String, size := 12) -> Control:
+	var h := hbox(6)
+	var m := ColorRect.new()
+	m.color = ACCENT
+	m.custom_minimum_size = Vector2(3, size + 2)
+	m.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(m)
+	h.add_child(label(text.to_upper(), size, MUTED, true))
+	return h
 
 
 static func vbox(sep := 6) -> VBoxContainer:
@@ -419,9 +453,9 @@ static func stat(caption: String, value: String, col := TEXT) -> VBoxContainer:
 ## Kleine farbige Marke (Chip) mit Text.
 static func chip(text: String, bg := ACCENT, fg := Color.WHITE) -> PanelContainer:
 	var p := PanelContainer.new()
-	var sb := _box(bg, 3)
-	sb.content_margin_left = 8
-	sb.content_margin_right = 8
+	var sb := _box(bg, 11)
+	sb.content_margin_left = 10
+	sb.content_margin_right = 10
 	sb.content_margin_top = 2
 	sb.content_margin_bottom = 2
 	p.add_theme_stylebox_override("panel", sb)

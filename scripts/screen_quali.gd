@@ -355,7 +355,7 @@ func _update_ui() -> void:
 	for q in qsim.qcars:
 		if q.eliminated:
 			continue
-		var wp = qsim.car_world_pos(q)
+		var wp = qsim.car_world_pos(q, qsim.time - 1.0 + clampf(acc, 0.0, 1.0) if (qsim.active and not skipping_phase and SPEEDS[speed_idx] <= 16 and SPEEDS[speed_idx] > 0) else -1.0)
 		if wp != null:
 			dots.append({"pos": wp, "color": q.car.color, "code": q.car.code, "player": q.is_player, "selected": q == tower.selected, "label": qsim.rank_of(q) <= 3})
 	map.dots = dots

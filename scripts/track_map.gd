@@ -5,6 +5,7 @@ extends Control
 ## Rennen: sim gesetzt. Qualifying: dots gesetzt.
 
 const U = preload("res://scripts/ui.gd")
+const TrackEnv = preload("res://scripts/track_env.gd")
 
 signal car_clicked(car)
 
@@ -44,6 +45,8 @@ var _kerbs: Array = []                # [{"i0", "i1", "side"}] Indexbereiche eng
 var _team_slots := {}                 # team_id -> Boxen-Position (m)
 var _team_order: Array = []
 var _preset_box: HBoxContainer
+var _env := {}                        # Streckenumgebung (siehe track_env.gd)
+var show_env := true
 
 const BODY := [Vector2(0.50, 0.0), Vector2(0.38, 0.045), Vector2(0.22, 0.07), Vector2(0.12, 0.12), Vector2(0.02, 0.14), Vector2(-0.12, 0.17),
 	Vector2(-0.28, 0.14), Vector2(-0.40, 0.07), Vector2(-0.46, 0.05), Vector2(-0.46, -0.05), Vector2(-0.40, -0.07), Vector2(-0.28, -0.14),
@@ -95,6 +98,7 @@ func _tiny_button(text: String) -> Button:
 
 func set_track(t) -> void:
 	track = t
+	_env = TrackEnv.build(t, U.is_mobile()) if t != null else {}
 	_fit_ready = false
 	_last_size = Vector2.ZERO
 	_build_kerbs()
@@ -180,8 +184,15 @@ func _zoom_by(f: float) -> void:
 		_pan_to_fit = true
 
 
+## Darstellungsposition (m): zwischen den 1-s-Schritten der Simulation weich interpoliert.
+func _vdist(c) -> float:
+	if sim != null and c.state == 1 and sim.vis_frac < 0.999:
+		return lerpf(c.prev_dist, c.dist, sim.vis_frac)
+	return c.dist
+
+
 func _car_world(c) -> Vector2:
-	return track.point_at(c.dist)
+	return track.point_at(_vdist(c))
 
 
 func _gui_input(event: InputEvent) -> void:
@@ -304,13 +315,13 @@ func _screen_world_of(c) -> Vector2:
 	if c.state == 2:
 		var pv := _pit_visual(c)
 		return to_world(pv["pos"])
-	return track.point_at(c.dist)
+	return track.point_at(_vdist(c))
 
 
 func _screen_pos_of(c) -> Vector2:
 	if c.state == 2:
 		return _pit_visual(c)["pos"]
-	return to_screen(track.point_at(c.dist))
+	return to_screen(track.point_at(_vdist(c)))
 
 
 # ------------------------------------------------------------------ Streckendetails vorbereiten
@@ -462,9 +473,16 @@ func _draw() -> void:
 		line.append(to_screen(track.pts[i]))
 	line.append(line[0])
 	var racing := sim != null
-	# Auslaufzonen / Rasen
-	draw_polyline(line, Color(0.06, 0.15, 0.10, 0.50), rw + 70.0, _aa)
-	draw_polyline(line, Color(0.05, 0.11, 0.09, 0.55), rw + 34.0, _aa)
+	if show_env and not _env.is_empty():
+		_draw_env()
+	# Auslaufzonen / Rasen / Sand
+	var rk: String = str(_env.get("kind", ""))
+	if rk in ["desert", "desert_city", "dunes"]:
+		draw_polyline(line, Color(0.44, 0.37, 0.25, 0.55), rw + 70.0, _aa)
+		draw_polyline(line, Color(0.38, 0.31, 0.21, 0.6), rw + 34.0, _aa)
+	else:
+		draw_polyline(line, Color(0.06, 0.15, 0.10, 0.50), rw + 70.0, _aa)
+		draw_polyline(line, Color(0.05, 0.11, 0.09, 0.55), rw + 34.0, _aa)
 	# Kiesbetten außen an engen Kurven
 	for kb in _kerbs:
 		var pl := PackedVector2Array()
@@ -560,6 +578,81 @@ func _draw() -> void:
 		_draw_minimap()
 
 
+## Landschaft: Untergrund, Felder, Wasser, Bäume, Gebäude, Dünen. Nur sichtbare Objekte werden gezeichnet.
+func _draw_env() -> void:
+	draw_rect(Rect2(Vector2.ZERO, size), _env["ground"])
+	var tl := to_world(Vector2(-60, -60))
+	var br := to_world(size + Vector2(60, 60))
+	var vr := Rect2(tl, br - tl)
+	var vg := vr.grow(480.0)
+	var sc := _scale
+	# Insel: Land um die Strecke
+	for l in _env["land"]:
+		if vg.has_point(l["p"]):
+			draw_circle(to_screen(l["p"]), float(l["r"]) * sc, Color(0.09, 0.18, 0.10))
+	for fd in _env["fields"]:
+		var poly: PackedVector2Array = fd["poly"]
+		if not vg.has_point((poly[0] + poly[poly.size() / 2]) * 0.5):
+			continue
+		var sp := PackedVector2Array()
+		for q in poly:
+			sp.append(to_screen(q))
+		draw_colored_polygon(sp, fd["col"])
+	for w in _env["water"]:
+		var wp := PackedVector2Array()
+		for q in w["poly"]:
+			wp.append(to_screen(q))
+		draw_colored_polygon(wp, TrackEnv.WATER)
+		var edge := PackedVector2Array(wp)
+		if w["kind"] == "coast":
+			edge.resize(maxi(edge.size() - 2, 0))
+		else:
+			edge.append(wp[0])
+		if edge.size() > 1:
+			draw_polyline(edge, Color(TrackEnv.WATER_EDGE, 0.55), maxf(1.5, 7.0 * sc), _aa)
+	var show_small: bool = sc > 0.12
+	for it in _env["items"]:
+		var t: String = it["t"]
+		if t == "dune":
+			var dp: PackedVector2Array = it["pts"]
+			if not vg.has_point(dp[4]):
+				continue
+			var sd := PackedVector2Array()
+			for q in dp:
+				sd.append(to_screen(q))
+			draw_polyline(sd, it["col"], maxf(1.5, float(it["w"]) * sc), _aa)
+			continue
+		var p: Vector2 = it["p"]
+		if not vg.has_point(p):
+			continue
+		var s := to_screen(p)
+		match t:
+			"tree":
+				var rr: float = maxf(1.6, float(it["r"]) * sc)
+				draw_circle(s, rr, it["col"])
+				if rr > 5.0:
+					draw_circle(s + Vector2(-0.22, -0.22) * rr, rr * 0.55, Color(it["col"]).lightened(0.16))
+			"palm":
+				var rp: float = maxf(2.0, float(it["r"]) * sc)
+				for k in 6:
+					var a := TAU * float(k) / 6.0
+					draw_line(s, s + Vector2(cos(a), sin(a)) * rp, it["col"], maxf(1.0, rp * 0.4))
+				draw_circle(s, maxf(1.0, rp * 0.22), Color(it["col"]).darkened(0.3))
+			"scrub":
+				if show_small:
+					draw_circle(s, maxf(1.2, float(it["r"]) * sc), it["col"])
+			"bld":
+				var gx: Vector2 = it["gx"]
+				var gy: Vector2 = it["gy"]
+				var hw: float = float(it["w"]) * 0.5
+				var hh: float = float(it["h"]) * 0.5
+				var q := PackedVector2Array([to_screen(p - gx * hw - gy * hh), to_screen(p + gx * hw - gy * hh), to_screen(p + gx * hw + gy * hh), to_screen(p - gx * hw + gy * hh)])
+				draw_colored_polygon(q, it["col"])
+				if sc > 0.2:
+					q.append(q[0])
+					draw_polyline(q, Color(1, 1, 1, 0.07), 1.0)
+
+
 func _draw_stand(s0: float, s1: float, side: float, rw: float) -> void:
 	var off1 := side * (rw * 0.5 + rw * 0.9 + 22.0)
 	var seg := _offset_line(s0, s1, 14.0, off1)
@@ -616,8 +709,9 @@ func _draw_pit_lane(rw: float) -> void:
 
 
 func _car_heading(c) -> float:
-	var a := to_screen(track.point_at(c.dist - 10.0))
-	var b := to_screen(track.point_at(c.dist + 10.0))
+	var vd := _vdist(c)
+	var a := to_screen(track.point_at(vd - 10.0))
+	var b := to_screen(track.point_at(vd + 10.0))
 	var d := b - a
 	return d.angle() if d.length() > 0.01 else 0.0
 
@@ -664,7 +758,7 @@ func _draw_sim_cars(rw: float, font: Font) -> void:
 			ang = pv["angle"]
 			stopped = pv["stopped"]
 		else:
-			pos = to_screen(track.point_at(c.dist))
+			pos = to_screen(track.point_at(_vdist(c)))
 			ang = _car_heading(c)
 		if pos.x < -40.0 or pos.y < -40.0 or pos.x > size.x + 40.0 or pos.y > size.y + 40.0:
 			continue
@@ -688,7 +782,7 @@ func _draw_sim_cars(rw: float, font: Font) -> void:
 				r = 8.0
 			if c.state == 1 and c.speed > 10.0:
 				for k in range(1, 5):
-					var tp := to_screen(track.point_at(c.dist - 30.0 * k))
+					var tp := to_screen(track.point_at(_vdist(c) - 30.0 * k))
 					draw_circle(tp, r * (1.0 - 0.16 * k), Color(c.color, 0.32 - 0.07 * k))
 			if c.is_player:
 				draw_circle(pos, r + 4.0, Color(1, 1, 1, 0.20))

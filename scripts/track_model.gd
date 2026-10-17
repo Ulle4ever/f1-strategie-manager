@@ -247,6 +247,11 @@ func df_need() -> float:
 	return float(DF_NEED.get(id, 0.0))
 
 
+## Wie wichtig Motorleistung/Topspeed ist (-1 .. +1), grob das Gegenstück zum Abtriebsbedarf.
+func power_need() -> float:
+	return clampf(0.2 - 0.8 * df_need(), -0.6, 1.0)
+
+
 ## Index des Punktes bei Streckenposition s (0..length).
 func index_at(s: float) -> int:
 	var ss := fposmod(s, length)

@@ -44,6 +44,20 @@ Die Autos sind Punkte auf der Streckenkarte (Ansicht von oben).
 - **Schrift:** Titillium Web (SIL Open Font License, Lizenz in `fonts/OFL.txt`) ist eingebunden, damit der Browser dieselbe Schrift zeigt.
 - **Grenzen:** Auf einem echten Handy noch nicht getestet (nur Fenster in Handygröße und Browser am PC). Kein Ton. Speicherstand liegt im Browser (IndexedDB) und gehört zur jeweiligen Webadresse.
 
+## Rennen, Tank, Windschatten und Wetter
+- **Renndistanz:** Echte Rundenzahl aus den Daten; weicht sie stark von der üblichen Distanz ab (abgebrochene oder verkürzte Rennen, andere Streckenvariante), gilt die Standarddistanz von ca. 305 km (Monaco ca. 260 km). Beispiel: Malaysia hat jetzt 56 statt 31 Runden.
+- **Tank:** Im Wochenende unter "Strategie" gibt es je Fahrer die Spritreserve beim Start (Runden, auch negativ), in Jahren mit Nachtanken (bis 2009) zusätzlich je Stopp. Das Tankgewicht kostet Zeit (0,03 s pro kg und Runde) und erhöht den Reifenverschleiß;
+  ein zu knapper Tank bleibt auf der Strecke stehen ("Tank leer"). Im Rennen zeigt der Reiter "Auto" Tankinhalt und Reichweite, der Reiter "Boxen" die Spritmenge beim Stopp. Fahrstil "Sparen" verbraucht ca. 6 % weniger.
+- **Windschatten und Überholen:** Wer unter ca. 1,25 s hinter einem Auto fährt, gewinnt auf schnellen Geraden Tempo (bis ca. 2,4 %) und verliert in langsamen Kurven durch verwirbelte Luft. Wer lange dicht dran ist, bekommt bessere Überholchancen;
+  nach einem Überholmanöver gibt es Gegenangriffe. Im Reiter "Auto" wählst du "Dranbleiben" oder "Abstand halten" (ca. 1,6 s, schont die Reifen). Die Rennpace weicht von der Qualifying-Pace ab, dadurch gibt es im Mittelfeld deutlich mehr Positionskämpfe (ca. 45 statt 27 Überholungen pro Rennen).
+- **Auto und Strecke:** Jedes Auto hat ein Profil (Abtrieb, Motorleistung, Reifenschonung, Regen). Strecken verlangen unterschiedlich viel Abtrieb oder Topspeed, dadurch liegen manche Autos einzelnen Strecken besser. Der Wochenend-Reiter "Auto" zeigt den Vor- oder Nachteil in Sekunden pro Runde, ebenso wer sonst profitiert.
+  Deine Entwicklungsstufen Aerodynamik und Antrieb verschieben das Profil.
+- **Wetterbericht:** Reiter "Wetter" im Wochenende und im Rennen: Balkendiagramm der Regenstärke über die restliche Renndauer (je blasser, desto unsicherer), Beginn, Dauer, Stärke in mm/h, Sicherheit und eine Empfehlung. Fehlalarme sind möglich.
+- **Boxen-Fenster:** Reiter "Boxen": Stopp-Fenster aus dem Reifenzustand, Reifenwahl mit Haltbarkeit und Empfehlung, Zeitpunkt (jetzt oder in 2, 4, 6 Runden), Spritmenge, Prognose der Rückkehrposition, geplante Stopps. Reiter "Taktik": Empfehlungskarten (Undercut, Konter, Safety Car, Regen, Sprit, Reifen) mit Ausführen-Knopf.
+- **Streckenumgebung:** Je Strecke Landschaft auf der Karte (Wüste, Wald, Felder, Stadt, Dünen, Insel) mit Wasser nach Himmelsrichtung, Gebäuden und Bäumen (`track_env.gd`).
+- **Speichern:** Die Zentrale hat die Schaltfläche "Speichern" (zeigt "Gespeichert" bzw. warnt, wenn der Browser nichts speichert, z. B. im privaten Modus). Auf dem Startbildschirm: "Sicherung kopieren/einfügen" als Backup in der Zwischenablage.
+- **App:** Im Web-Export ist die Seite als installierbare App (PWA) eingerichtet; auf dem Startbildschirm gibt es "App installieren" (Android/Chrome/Edge direkt, iPhone/iPad über Teilen > Zum Home-Bildschirm) sowie "Schärfe" (Render-Auflösung 1x bis 3x).
+
 ## Karte, Kamera und TV-Grafik
 - **Kamera:** Mausrad zoomt (bis 16x), mit gedrückter Maustaste wird verschoben, ein Klick auf ein Auto wählt es. Voreinstellungen oben links (Gesamt, Auto 1, Auto 2, Führender, + / -),
   Tasten 1 bis 4 im Rennen. Folgemodus mit weicher Kamerafahrt, Minikarte beim Heranzoomen.

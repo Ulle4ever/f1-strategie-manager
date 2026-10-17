@@ -24,3 +24,4 @@ func _draw() -> void:
 		var tw := fb.get_string_size(title.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, -1, fs_t).x
 		draw_string(f, Vector2(60.0 * k + tw + 16.0, h * 0.5 + 10.0 * k), subtitle, HORIZONTAL_ALIGNMENT_LEFT, -1, fs_s, U.MUTED)
 	draw_line(Vector2(0, h - 1), Vector2(size.x, h - 1), Color(1, 1, 1, 0.07), 1.0)
+	draw_line(Vector2(0, h - 1), Vector2(minf(size.x, 220.0), h - 1), Color(U.ACCENT, 0.8), 2.0)

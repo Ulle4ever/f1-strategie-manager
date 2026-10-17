@@ -15,13 +15,18 @@ const PracticeScreen = preload("res://scripts/screen_practice.gd")
 
 var current: Node = null
 
-# Wisch-Scrollen am Handy: Wisch auf Knöpfen und Karten scrollt die darunterliegende Liste (mit Schwung)
+# Wisch-Scrollen am Handy: Wisch auf Knöpfen und Karten scrollt die darunterliegende Liste (mit Schwung).
+# Es wird die innerste Liste gewählt, die in Wischrichtung noch scrollen kann (sonst die äußere); Bruchteile von Pixeln gehen nicht verloren.
+var _ts_list: Array = []          # ScrollContainer unter dem Finger, innerster zuletzt
 var _ts_sc: ScrollContainer = null
+var _ts_horiz := false
 var _ts_blocked := false
 var _ts_dist := 0.0
+var _ts_acc := Vector2.ZERO       # Weg seit Berührungsbeginn
 var _ts_scrolling := false
-var _ts_vel := 0.0
-var _ts_idx := -1          # Kennung des ersten Fingers (Browser vergeben sie beliebig)
+var _ts_vel := Vector2.ZERO       # Geschwindigkeit in Pixel pro Sekunde (geglättet)
+var _ts_idx := -1                 # Kennung des ersten Fingers (Browser vergeben sie beliebig)
+var _ts_last_t := 0.0
 var rotate_hint: CanvasLayer
 
 
@@ -54,19 +59,46 @@ func _bench() -> void:
 	current._on_instant()
 
 
-## Tiefstes sichtbares ScrollContainer-Element unter pos; blocked = Finger liegt auf Karte oder Schieberegler (die ziehen selbst).
+## Alle sichtbaren ScrollContainer unter pos (äußerster zuerst); blocked = Finger liegt auf Karte oder Schieberegler (die ziehen selbst).
 func _find_scroll(node: Node, pos: Vector2, res: Dictionary) -> void:
 	if node is Control:
 		var c := node as Control
 		if not c.visible or not c.get_global_rect().has_point(pos):
 			return
 		if node is ScrollContainer:
-			res["sc"] = node
-			res["blocked"] = false
+			res["list"].append(node)
 		elif node is HSlider or node.is_in_group("no_touch_scroll"):
 			res["blocked"] = true
 	for ch in node.get_children():
 		_find_scroll(ch, pos, res)
+
+
+## Kann der Container in der gewünschten Richtung scrollen? dir > 0: Inhalt nach unten/rechts ziehen (Wert sinkt).
+func _can_scroll(sc: ScrollContainer, horiz: bool, content_move: float) -> bool:
+	var bar: ScrollBar = sc.get_h_scroll_bar() if horiz else sc.get_v_scroll_bar()
+	if horiz and sc.horizontal_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED:
+		return false
+	if not horiz and sc.vertical_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED:
+		return false
+	var rng := bar.max_value - bar.page
+	if rng < 2.0:
+		return false
+	if content_move > 0.0:      # Finger zieht nach unten: Wert sinkt
+		return bar.value > 0.5
+	return bar.value < rng - 0.5
+
+
+func _pick_scroll(horiz: bool, move: float) -> ScrollContainer:
+	for i in range(_ts_list.size() - 1, -1, -1):
+		var sc: ScrollContainer = _ts_list[i]
+		if is_instance_valid(sc) and _can_scroll(sc, horiz, move):
+			return sc
+	return null
+
+
+func _scroll_by(sc: ScrollContainer, horiz: bool, delta_px: float) -> void:
+	var bar: ScrollBar = sc.get_h_scroll_bar() if horiz else sc.get_v_scroll_bar()
+	bar.value = clampf(bar.value - delta_px, 0.0, maxf(bar.max_value - bar.page, 0.0))
 
 
 func _input(event: InputEvent) -> void:
@@ -78,38 +110,63 @@ func _input(event: InputEvent) -> void:
 			_ts_idx = st.index
 			U.touch_scrolled = false
 			_ts_dist = 0.0
-			_ts_vel = 0.0
+			_ts_acc = Vector2.ZERO
+			_ts_vel = Vector2.ZERO
 			_ts_scrolling = false
-			var res := {"sc": null, "blocked": false}
+			_ts_sc = null
+			_ts_last_t = Time.get_ticks_msec() / 1000.0
+			var res := {"list": [], "blocked": false}
 			if current != null:
 				_find_scroll(current, st.position, res)
-			_ts_sc = res["sc"]
-			_ts_blocked = res["blocked"]
+			_ts_list = res["list"]
+			_ts_blocked = res["blocked"] or _ts_list.is_empty()
 		else:
-			_ts_sc = null if not _ts_scrolling else _ts_sc
+			# kurzer Stillstand vor dem Loslassen: kein Nachlaufen
+			if Time.get_ticks_msec() / 1000.0 - _ts_last_t > 0.09:
+				_ts_vel = Vector2.ZERO
 			_ts_scrolling = false
 			_ts_idx = -1
 		return
 	var sd := event as InputEventScreenDrag
-	if sd != null and sd.index == _ts_idx and _ts_sc != null and not _ts_blocked:
-		_ts_dist += absf(sd.relative.y) + absf(sd.relative.x)
-		if _ts_dist > 12.0:
-			if not _ts_scrolling:
-				_ts_scrolling = true
-				U.touch_scrolled = true
-				get_viewport().gui_release_focus()   # bricht ein begonnenes Drücken auf einem Knopf ab
-			_ts_sc.scroll_vertical -= int(sd.relative.y)
-			_ts_vel = -sd.relative.y
-			get_viewport().set_input_as_handled()
+	if sd != null and sd.index == _ts_idx and not _ts_blocked:
+		_ts_acc += sd.relative
+		if not _ts_scrolling:
+			if _ts_acc.length() < 8.0:
+				return
+			# Achse und Container beim Überschreiten der Schwelle festlegen
+			_ts_horiz = absf(_ts_acc.x) > absf(_ts_acc.y) * 1.2
+			var move: float = _ts_acc.x if _ts_horiz else _ts_acc.y
+			_ts_sc = _pick_scroll(_ts_horiz, move)
+			if _ts_sc == null:
+				_ts_horiz = not _ts_horiz
+				move = _ts_acc.x if _ts_horiz else _ts_acc.y
+				_ts_sc = _pick_scroll(_ts_horiz, move)
+			if _ts_sc == null:
+				_ts_blocked = true
+				return
+			_ts_scrolling = true
+			U.touch_scrolled = true
+			get_viewport().gui_release_focus()   # bricht ein begonnenes Drücken auf einem Knopf ab
+			_scroll_by(_ts_sc, _ts_horiz, move)   # bereits zurückgelegten Weg nachholen
+		else:
+			var d: float = sd.relative.x if _ts_horiz else sd.relative.y
+			_scroll_by(_ts_sc, _ts_horiz, d)
+			var now := Time.get_ticks_msec() / 1000.0
+			var dt := maxf(now - _ts_last_t, 0.004)
+			_ts_last_t = now
+			var v := d / dt
+			_ts_vel = _ts_vel.lerp(Vector2(v, 0.0) if _ts_horiz else Vector2(0.0, v), 0.45)
+		get_viewport().set_input_as_handled()
 
 
 func _process(delta: float) -> void:
 	# Schwung nach dem Loslassen
-	if _ts_sc != null and not _ts_scrolling and absf(_ts_vel) > 0.5:
-		_ts_sc.scroll_vertical += int(_ts_vel)
-		_ts_vel *= pow(0.02, delta)
+	if _ts_sc != null and is_instance_valid(_ts_sc) and not _ts_scrolling and _ts_vel.length() > 25.0:
+		var v: float = _ts_vel.x if _ts_horiz else _ts_vel.y
+		_scroll_by(_ts_sc, _ts_horiz, v * delta)
+		_ts_vel *= pow(0.04, delta)
 	elif not _ts_scrolling:
-		_ts_vel = 0.0
+		_ts_vel = Vector2.ZERO
 
 
 ## Anzeigegröße (Handy): kleinere virtuelle Höhe = alles größer.

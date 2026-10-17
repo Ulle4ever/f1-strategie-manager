@@ -57,6 +57,31 @@ func team_color(id: String) -> Color:
 	return Color.from_hsv(float(h % 360) / 360.0, 0.6, 0.9)
 
 
+## Auto-Charakter eines Teams (stabil je Team und Zeitraum): df = Abtrieb (+) / wenig Luftwiderstand (-),
+## power = Motorleistung, tyre = Reifenschonung, wet = Regenstärke. Werte -1 .. +1.
+const PROFILES := {
+	"red_bull": {"df": 0.7, "power": -0.1, "tyre": 0.1, "wet": 0.3}, "ferrari": {"df": -0.1, "power": 0.5, "tyre": -0.1, "wet": 0.0},
+	"mercedes": {"df": 0.0, "power": 0.7, "tyre": -0.2, "wet": 0.2}, "mclaren": {"df": 0.3, "power": 0.0, "tyre": 0.4, "wet": 0.1},
+	"williams": {"df": -0.5, "power": 0.2, "tyre": 0.0, "wet": -0.1}, "force_india": {"df": -0.3, "power": 0.3, "tyre": 0.2, "wet": 0.1},
+	"racing_point": {"df": -0.3, "power": 0.3, "tyre": 0.2, "wet": 0.1}, "aston_martin": {"df": -0.2, "power": 0.2, "tyre": 0.1, "wet": 0.0},
+	"haas": {"df": -0.4, "power": 0.3, "tyre": -0.4, "wet": -0.2}, "renault": {"df": 0.3, "power": -0.3, "tyre": 0.0, "wet": 0.0},
+	"alpine": {"df": 0.3, "power": -0.3, "tyre": 0.0, "wet": 0.0}, "sauber": {"df": 0.1, "power": 0.0, "tyre": 0.3, "wet": 0.0},
+	"toro_rosso": {"df": 0.3, "power": -0.2, "tyre": 0.0, "wet": 0.1}, "alphatauri": {"df": 0.3, "power": -0.1, "tyre": 0.0, "wet": 0.0},
+	"rb": {"df": 0.3, "power": -0.1, "tyre": 0.1, "wet": 0.0}, "lotus_f1": {"df": 0.2, "power": 0.0, "tyre": 0.7, "wet": 0.1},
+	"toyota": {"df": -0.2, "power": 0.3, "tyre": 0.0, "wet": 0.0}, "bmw_sauber": {"df": 0.0, "power": 0.5, "tyre": 0.0, "wet": 0.0},
+}
+
+
+func car_profile(team_id: String, year: int) -> Dictionary:
+	var base: Dictionary = PROFILES.get(team_id, {})
+	var out := {}
+	for k in ["df", "power", "tyre", "wet"]:
+		var h := ("%s|%s|%d" % [team_id, k, year / 3]).hash()
+		var noise := (float(h % 2001) / 1000.0 - 1.0) * (0.35 if not base.is_empty() else 0.7)
+		out[k] = clampf(float(base.get(k, 0.0)) + noise, -1.0, 1.0)
+	return out
+
+
 func rules(year: int) -> Dictionary:
 	var pts: Array = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1]
 	if year <= 2002:

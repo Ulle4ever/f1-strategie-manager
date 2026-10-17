@@ -184,6 +184,11 @@ func sim_teams() -> Array:
 	for t in teams:
 		var c: Dictionary = t.duplicate(true)
 		c["pace"] = float(t["pace"]) + float(dev_pace.get(t["id"], 0.0))
+		var prof: Dictionary = DB.car_profile(str(t["id"]), year)
+		if t["id"] == team_id:
+			prof["df"] = clampf(float(prof["df"]) + 0.08 * float(upgrades.get("aero", 0)), -1.0, 1.0)
+			prof["power"] = clampf(float(prof["power"]) + 0.08 * float(upgrades.get("engine", 0)), -1.0, 1.0)
+		c["profile"] = prof
 		if t["id"] == team_id:
 			var lv: Dictionary = upgrades
 			c["mech_mult"] = pow(0.88, float(lv["reliab"]))
@@ -200,10 +205,14 @@ func sim_teams() -> Array:
 	return out
 
 
+## Rundenzahl: echte Distanz, außer die Daten zeigen ein verkürztes/abgebrochenes Rennen oder eine andere Streckenvariante
+## (z. B. Sepang 2009 mit 31 Runden). Dann gilt die Standarddistanz von ca. 305 km (Monaco ca. 260 km).
 func race_laps(race: Dictionary, track) -> int:
 	var l: int = int(race.get("laps", 0))
-	if l <= 0:
-		l = int(ceil(305000.0 / track.length))
+	var target := 260000.0 if track.id == "monaco" else 305000.0
+	var ratio: float = float(l) * track.length / target
+	if l <= 0 or ratio < 0.85 or ratio > 1.07:
+		l = int(ceil(target / track.length))
 	return l
 
 
@@ -415,6 +424,41 @@ func _advance_year() -> void:
 
 # ------------------------------------------------------------------ Speichern
 
+var save_ok := true            # false, wenn Speichern nicht möglich ist (z. B. privater Browser-Modus)
+var last_saved_at := 0         # Unix-Zeit des letzten Speicherns
+
+
+## Kurzbeschreibung des Spielstands für Menüs: {"year", "round", "team", "saved_at"} oder leer.
+static func save_info() -> Dictionary:
+	if not FileAccess.file_exists(SAVE_PATH):
+		return {}
+	var d = JSON.parse_string(FileAccess.get_file_as_string(SAVE_PATH))
+	if typeof(d) != TYPE_DICTIONARY or not d.has("drivers"):
+		return {}
+	return {"year": int(d.get("year", 0)), "round": int(d.get("round_index", 0)), "team": str(d.get("team_id", "")), "saved_at": int(d.get("saved_at", 0))}
+
+
+## Spielstand als Text (Base64) für die Zwischenablage - Sicherung gegen gelöschte Browserdaten.
+func export_text() -> String:
+	if not FileAccess.file_exists(SAVE_PATH):
+		save()
+	return Marshalls.utf8_to_base64(FileAccess.get_file_as_string(SAVE_PATH))
+
+
+## Spielstand aus Sicherungstext wiederherstellen. Rückgabe: true bei Erfolg.
+func import_text(txt: String) -> bool:
+	var raw := Marshalls.base64_to_utf8(txt.strip_edges())
+	var d = JSON.parse_string(raw)
+	if typeof(d) != TYPE_DICTIONARY or not d.has("drivers") or not d.has("team_id"):
+		return false
+	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+	if f == null:
+		return false
+	f.store_string(raw)
+	f.close()
+	return load_game()
+
+
 func save() -> void:
 	var pace := {}
 	for t in teams:
@@ -424,10 +468,16 @@ func save() -> void:
 		"team_points": team_points, "wins": wins, "budget": budget, "upgrades": upgrades, "dev_pace": dev_pace,
 		"history": history, "team_pace": pace, "drivers": drivers, "news": news, "market_log": market_log, "market_open": market_open,
 		"season_log": season_log, "team_meta": team_meta, "dev_spent": dev_spent, "cap_spent_fees": cap_spent_fees, "engines": engines,
+		"saved_at": int(Time.get_unix_time_from_system()),
 	}
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
 	if f != null:
 		f.store_string(JSON.stringify(data))
+		f.close()
+		save_ok = FileAccess.file_exists(SAVE_PATH)
+		last_saved_at = int(data["saved_at"])
+	else:
+		save_ok = false
 
 
 func load_game() -> bool:
