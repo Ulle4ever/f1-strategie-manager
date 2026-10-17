@@ -99,12 +99,13 @@ func _open_year_picker() -> void:
 	if picker != null:
 		return
 	picker = Control.new()
+	picker.add_to_group("modal")
 	U.fill(picker)
 	var dim := ColorRect.new()
 	dim.color = Color(0.05, 0.08, 0.18, 0.55)
 	U.fill(dim)
 	dim.gui_input.connect(func(ev: InputEvent):
-		if ev is InputEventMouseButton and ev.pressed:
+		if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
 			_close_picker())
 	picker.add_child(dim)
 	var center := CenterContainer.new()

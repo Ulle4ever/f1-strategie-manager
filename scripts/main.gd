@@ -34,6 +34,7 @@ var rotate_hint: CanvasLayer
 func _ready() -> void:
 	_theme = U.make_theme()
 	get_window().theme = _theme
+	get_tree().node_added.connect(_no_focus)
 	RenderingServer.set_default_clear_color(U.BG0)
 	if U.is_mobile():
 		apply_scale()
@@ -119,7 +120,12 @@ func _input(event: InputEvent) -> void:
 			_ts_last_t = Time.get_ticks_msec() / 1000.0
 			var res := {"list": [], "blocked": false}
 			if current != null:
-				_find_scroll(current, st.position, res)
+				# Ist ein Dialog offen (Gruppe "modal"), zählen nur Listen innerhalb des Dialogs
+				var search_root: Node = current
+				for ch in current.get_children():
+					if ch.is_in_group("modal") and (ch as Control).visible:
+						search_root = ch
+				_find_scroll(search_root, st.position, res)
 			_ts_list = res["list"]
 			_ts_blocked = res["blocked"] or _ts_list.is_empty()
 		else:
@@ -175,6 +181,12 @@ func _process(delta: float) -> void:
 func apply_scale() -> void:
 	if U.is_mobile():
 		get_window().content_scale_size = U.mobile_base_size()
+
+
+## Knöpfe nehmen keinen Tastaturfokus an (kein Fokus-Zustand mit hellem Text nach dem Tippen).
+func _no_focus(n: Node) -> void:
+	if n is BaseButton:
+		(n as BaseButton).focus_mode = Control.FOCUS_NONE
 
 
 ## Alle Bedienelemente auf Fingergröße bringen.
