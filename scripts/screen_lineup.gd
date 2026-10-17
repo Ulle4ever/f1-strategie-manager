@@ -10,7 +10,7 @@ var main
 
 func _ready() -> void:
 	U.fill(self)
-	add_child(U.backdrop())
+	add_child(U.team_backdrop())
 	var margin := U.screen_margin(self, 22)
 	var root := U.vbox(6 if U.is_mobile() else 12)
 	margin.add_child(root)
@@ -37,7 +37,7 @@ func _ready() -> void:
 	for n in log:
 		if n["kind"] in ["rumor", "info", "rookie"]:
 			continue
-		var st: Array = MarketScreen.KIND_STYLE.get(n["kind"], ["INFO", Color("2b2f3a"), Color("c8cedb")])
+		var st: Array = MarketScreen.KIND_STYLE.get(n["kind"], ["INFO", Color("e6e9f0"), Color("3d465a")])
 		var h := U.hbox(8)
 		var c := U.chip(st[0], st[1], st[2])
 		c.custom_minimum_size = Vector2(108, 0)
@@ -68,7 +68,7 @@ func _ready() -> void:
 		var mine: bool = t["id"] == Game.team_id
 		var p := PanelContainer.new()
 		p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var sb := U.button_style(Color(U.WARN, 0.10) if mine else Color(1, 1, 1, 0.045), t["color"], 6)
+		var sb := U.button_style(Color(U.WARN, 0.10) if mine else U.tint(0.045), t["color"], 6)
 		sb.set_content_margin_all(9)
 		p.add_theme_stylebox_override("panel", sb)
 		var v := U.vbox(2)

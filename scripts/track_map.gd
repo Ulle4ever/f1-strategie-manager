@@ -478,11 +478,11 @@ func _draw() -> void:
 	# Auslaufzonen / Rasen / Sand
 	var rk: String = str(_env.get("kind", ""))
 	if rk in ["desert", "desert_city", "dunes"]:
-		draw_polyline(line, Color(0.44, 0.37, 0.25, 0.55), rw + 70.0, _aa)
-		draw_polyline(line, Color(0.38, 0.31, 0.21, 0.6), rw + 34.0, _aa)
+		draw_polyline(line, Color(0.93, 0.87, 0.72, 0.85), rw + 70.0, _aa)
+		draw_polyline(line, Color(0.88, 0.80, 0.62, 0.9), rw + 34.0, _aa)
 	else:
-		draw_polyline(line, Color(0.06, 0.15, 0.10, 0.50), rw + 70.0, _aa)
-		draw_polyline(line, Color(0.05, 0.11, 0.09, 0.55), rw + 34.0, _aa)
+		draw_polyline(line, Color(0.62, 0.78, 0.58, 0.55), rw + 70.0, _aa)
+		draw_polyline(line, Color(0.72, 0.84, 0.66, 0.75), rw + 34.0, _aa)
 	# Kiesbetten außen an engen Kurven
 	for kb in _kerbs:
 		var pl := PackedVector2Array()
@@ -493,7 +493,7 @@ func _draw() -> void:
 			tt = tt.normalized()
 			pl.append(to_screen(track.pts[i]) - Vector2(-tt.y, tt.x) * float(kb["side"]) * (rw * 0.5 + rw * 0.65))
 		if pl.size() > 1:
-			draw_polyline(pl, Color(0.55, 0.47, 0.32, 0.42), rw * 0.8, _aa)
+			draw_polyline(pl, Color(0.86, 0.77, 0.56, 0.9), rw * 0.8, _aa)
 	# Tribünen an Start/Ziel und in den engsten Kurven
 	_draw_stand(-330.0, 250.0, -1.0, rw)
 	for kb in _kerbs.slice(0, 3):
@@ -503,18 +503,17 @@ func _draw() -> void:
 	if racing:
 		_draw_pit_lane(rw)
 	# Strecke: Schatten, Rand, Asphalt
-	draw_polyline(line, Color(0, 0, 0, 0.35), rw + 11.0, _aa)
-	draw_polyline(line, Color(0.09, 0.11, 0.16), rw + 4.0, _aa)
-	draw_polyline(line, Color(0.48, 0.53, 0.64), rw, _aa)
-	draw_polyline(line, Color(0.17, 0.19, 0.25), rw - 3.5, _aa)
+	draw_polyline(line, Color(0.05, 0.08, 0.2, 0.22), rw + 10.0, _aa)
+	draw_polyline(line, Color(0.99, 0.99, 1.0), rw + 3.5, _aa)
+	draw_polyline(line, Color(0.27, 0.30, 0.37), rw - 1.5, _aa)
 	if racing:
 		# Gummispur wird mit den Runden dunkler, Nässe glänzt
 		var prog := clampf(float(sim.leader_lap()) / maxf(float(sim.laps), 1.0), 0.0, 1.0)
 		if sim.started:
 			draw_polyline(line, Color(0.05, 0.06, 0.08, 0.10 + 0.40 * prog), rw * 0.34, _aa)
 		if sim.wet > 0.08:
-			draw_polyline(line, Color(0.35, 0.55, 0.95, 0.18 * sim.wet), rw - 3.5, _aa)
-			draw_polyline(line, Color(0.75, 0.88, 1.0, 0.16 * sim.wet), rw * 0.18, _aa)
+			draw_polyline(line, Color(0.25, 0.45, 0.90, 0.22 * sim.wet), rw - 3.5, _aa)
+			draw_polyline(line, Color(0.85, 0.93, 1.0, 0.30 * sim.wet), rw * 0.18, _aa)
 	# Randsteine innen an engen Kurven
 	for kb in _kerbs:
 		var seg := PackedVector2Array()
@@ -544,8 +543,8 @@ func _draw() -> void:
 	if show_sectors:
 		for k in 2:
 			var sp := to_screen(track.point_at(track.length * float(k + 1) / 3.0))
-			draw_circle(sp, 4.0, Color(1, 1, 1, 0.55))
-			draw_string(font, sp + Vector2(8, 5), "S%d" % (k + 2), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(1, 1, 1, 0.5))
+			draw_circle(sp, 4.0, U.tint(0.55))
+			draw_string(font, sp + Vector2(8, 5), "S%d" % (k + 2), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, U.tint(0.7))
 	# Start/Ziel-Brücke
 	var p0 := to_screen(track.point_at(0.0))
 	var dir := _tangent_screen(0.0)
@@ -559,7 +558,7 @@ func _draw() -> void:
 	draw_line(p0 - dir * 10.0 - nrm * (half + 2.0), p0 - dir * 10.0 + nrm * (half + 2.0), Color(0.22, 0.25, 0.32), 6.0)
 	draw_circle(p0 - dir * 10.0 - nrm * (half + 2.0), 4.0, Color(0.5, 0.55, 0.65))
 	draw_circle(p0 - dir * 10.0 + nrm * (half + 2.0), 4.0, Color(0.5, 0.55, 0.65))
-	draw_string(font, p0 - nrm * (half + 14.0) - Vector2(14, 0), "START/ZIEL", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(1, 1, 1, 0.55))
+	draw_string(font, p0 - nrm * (half + 14.0) - Vector2(14, 0), "START/ZIEL", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, U.tint(0.7))
 	# Autos
 	if racing:
 		_draw_sim_cars(rw, font)
@@ -567,13 +566,13 @@ func _draw() -> void:
 		_draw_dots(font)
 	# Regen
 	if racing and sim.rain > 0.04:
-		draw_rect(Rect2(Vector2.ZERO, size), Color(0.2, 0.4, 0.9, 0.09 * sim.rain))
+		draw_rect(Rect2(Vector2.ZERO, size), Color(0.2, 0.35, 0.8, 0.12 * sim.rain))
 		var rn := int(60.0 * sim.rain)
 		for i in rn:
 			var h := float(i * 7919 % 1000) / 1000.0
 			var x := fmod(h * size.x + _t * 160.0 * (0.6 + h), size.x + 80.0) - 40.0
 			var y := fmod(float(i * 104729 % 997) / 997.0 * size.y + _t * 520.0, size.y)
-			draw_line(Vector2(x, y), Vector2(x - 6, y + 16), Color(0.7, 0.85, 1.0, 0.35), 1.2)
+			draw_line(Vector2(x, y), Vector2(x - 6, y + 16), Color(0.25, 0.45, 0.85, 0.45), 1.2)
 	if interactive and zoom > 1.35:
 		_draw_minimap()
 
@@ -589,7 +588,7 @@ func _draw_env() -> void:
 	# Insel: Land um die Strecke
 	for l in _env["land"]:
 		if vg.has_point(l["p"]):
-			draw_circle(to_screen(l["p"]), float(l["r"]) * sc, Color(0.09, 0.18, 0.10))
+			draw_circle(to_screen(l["p"]), float(l["r"]) * sc, Color(0.77, 0.88, 0.67))
 	for fd in _env["fields"]:
 		var poly: PackedVector2Array = fd["poly"]
 		if not vg.has_point((poly[0] + poly[poly.size() / 2]) * 0.5):
@@ -650,7 +649,7 @@ func _draw_env() -> void:
 				draw_colored_polygon(q, it["col"])
 				if sc > 0.2:
 					q.append(q[0])
-					draw_polyline(q, Color(1, 1, 1, 0.07), 1.0)
+					draw_polyline(q, U.tint(0.12), 1.0)
 
 
 func _draw_stand(s0: float, s1: float, side: float, rw: float) -> void:
@@ -658,11 +657,11 @@ func _draw_stand(s0: float, s1: float, side: float, rw: float) -> void:
 	var seg := _offset_line(s0, s1, 14.0, off1)
 	if seg.size() < 2:
 		return
-	draw_polyline(seg, Color(0.14, 0.16, 0.22, 0.9), rw * 0.95, _aa)
+	draw_polyline(seg, Color(0.62, 0.66, 0.74, 0.95), rw * 0.95, _aa)
 	var seg2 := _offset_line(s0, s1, 14.0, off1 + side * rw * 0.18)
-	draw_polyline(seg2, Color(0.28, 0.31, 0.40, 0.8), rw * 0.18, _aa)
+	draw_polyline(seg2, Color(0.78, 0.81, 0.88, 0.95), rw * 0.18, _aa)
 	var seg3 := _offset_line(s0, s1, 14.0, off1 - side * rw * 0.18)
-	draw_polyline(seg3, Color(0.22, 0.25, 0.33, 0.8), rw * 0.18, _aa)
+	draw_polyline(seg3, Color(0.70, 0.74, 0.82, 0.95), rw * 0.18, _aa)
 	# Zuschauer als bunte Punkte
 	if zoom > 1.3:
 		var i := 0
@@ -682,9 +681,9 @@ func _draw_pit_lane(rw: float) -> void:
 		s += 8.0
 	if lane.size() < 2:
 		return
-	draw_polyline(lane, Color(0, 0, 0, 0.35), rw * 0.7 + 8.0, _aa)
-	draw_polyline(lane, Color(0.40, 0.44, 0.54), rw * 0.62, _aa)
-	draw_polyline(lane, Color(0.13, 0.15, 0.2), rw * 0.62 - 3.0, _aa)
+	draw_polyline(lane, Color(0.05, 0.08, 0.2, 0.18), rw * 0.7 + 8.0, _aa)
+	draw_polyline(lane, Color(0.97, 0.97, 1.0), rw * 0.62, _aa)
+	draw_polyline(lane, Color(0.45, 0.49, 0.57), rw * 0.62 - 3.0, _aa)
 	# Garagen
 	var gl := clampf(10.0 * _scale * 1.8, 3.0, 26.0)
 	var gd := clampf(rw * 0.75, 6.0, 40.0)
@@ -701,11 +700,11 @@ func _draw_pit_lane(rw: float) -> void:
 				break
 		var poly := PackedVector2Array([center - t * gl * 0.5 - nrm * gd * 0.5, center + t * gl * 0.5 - nrm * gd * 0.5,
 			center + t * gl * 0.5 + nrm * gd * 0.5, center - t * gl * 0.5 + nrm * gd * 0.5])
-		draw_colored_polygon(poly, Color(0.10, 0.12, 0.17, 0.95))
+		draw_colored_polygon(poly, Color(0.56, 0.60, 0.69, 0.98))
 		var strip := PackedVector2Array([poly[0], poly[1], poly[1] + nrm * gd * 0.22, poly[0] + nrm * gd * 0.22])
 		draw_colored_polygon(strip, col)
 	if zoom > 1.2:
-		draw_string(U.font(true), _pit_point(PIT_EXIT * 0.45, 1.0) - Vector2(8, 12) + Vector2(-_tangent_screen(120.0).y, _tangent_screen(120.0).x) * (rw * 1.8), "BOX", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(1, 1, 1, 0.5))
+		draw_string(U.font(true), _pit_point(PIT_EXIT * 0.45, 1.0) - Vector2(8, 12) + Vector2(-_tangent_screen(120.0).y, _tangent_screen(120.0).x) * (rw * 1.8), "BOX", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, U.tint(0.65))
 
 
 func _car_heading(c) -> float:

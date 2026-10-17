@@ -45,7 +45,7 @@ func _draw() -> void:
 	var bh := maxf(size.y - top - (16.0 if show_axis else 4.0), 16.0)
 	var font := U.font(true)
 	var fs := 13 if U.is_mobile() else 14
-	draw_rect(Rect2(0, top, w, bh), Color(1, 1, 1, 0.05))
+	draw_rect(Rect2(0, top, w, bh), U.tint(0.07))
 	for s in segments:
 		var x0: float = w * float(s["a"]) / float(laps)
 		var x1: float = w * float(s["b"]) / float(laps)
@@ -53,9 +53,11 @@ func _draw() -> void:
 			continue
 		var cd: Dictionary = RaceSim.COMPOUNDS[int(s["comp"])]
 		var col: Color = cd["color"]
+		var ink: Color = cd["ink"]
 		var r := Rect2(x0 + 1.0, top, x1 - x0 - 2.0, bh)
-		draw_rect(r, Color(col.r * 0.38, col.g * 0.38, col.b * 0.38, 1.0))
-		draw_rect(Rect2(r.position.x, r.position.y, r.size.x, 3.0), col)
+		var fillc := ink.lerp(Color.WHITE, 0.15) if int(s["comp"]) != 2 else Color(0.62, 0.66, 0.74)
+		draw_rect(r, fillc)
+		draw_rect(Rect2(r.position.x, r.position.y, r.size.x, 3.0), col if int(s["comp"]) != 2 else Color(0.85, 0.88, 0.93))
 		var len_laps: float = float(s["b"] - s["a"])
 		var life: float = float(s["life"])
 		if len_laps > life * 1.02 and life > 0.0:
@@ -73,21 +75,21 @@ func _draw() -> void:
 		# Stopp-Marke am Ende
 		if int(s["b"]) < laps:
 			var mx: float = x1
-			draw_line(Vector2(mx, top - 2.0), Vector2(mx, top + bh), Color.WHITE, 2.0)
-			draw_colored_polygon(PackedVector2Array([Vector2(mx - 4.0, 2.0), Vector2(mx + 4.0, 2.0), Vector2(mx, 10.0)]), Color.WHITE)
+			draw_line(Vector2(mx, top - 2.0), Vector2(mx, top + bh), U.TEXT, 2.0)
+			draw_colored_polygon(PackedVector2Array([Vector2(mx - 4.0, 2.0), Vector2(mx + 4.0, 2.0), Vector2(mx, 10.0)]), U.TEXT)
 			var lt := "R%d" % int(s["b"])
 			var lw := font.get_string_size(lt, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
-			draw_string(font, Vector2(clampf(mx - lw * 0.5, 0.0, w - lw), 12.0), lt, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(1, 1, 1, 0.85))
+			draw_string(font, Vector2(clampf(mx - lw * 0.5, 0.0, w - lw), 12.0), lt, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, U.TEXT)
 	if show_axis:
 		var step := 10 if laps >= 40 else 5
 		var l := 0
 		while l <= laps:
 			var tx: float = w * float(l) / float(laps)
-			draw_line(Vector2(tx, top + bh), Vector2(tx, top + bh + 4.0), Color(1, 1, 1, 0.35), 1.0)
+			draw_line(Vector2(tx, top + bh), Vector2(tx, top + bh + 4.0), U.tint(0.4), 1.0)
 			if l % step == 0 and l > 0 and l < laps - 2:
-				draw_string(U.font(false), Vector2(tx - 6.0, top + bh + 15.0), str(l), HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(1, 1, 1, 0.5))
+				draw_string(U.font(false), Vector2(tx - 6.0, top + bh + 15.0), str(l), HORIZONTAL_ALIGNMENT_LEFT, -1, 11, U.MUTED)
 			l += step
 	if cur_lap > 0:
 		var cx: float = w * clampf(float(cur_lap) / float(laps), 0.0, 1.0)
 		draw_line(Vector2(cx, top - 3.0), Vector2(cx, top + bh + 3.0), U.WARN, 2.0)
-		draw_colored_polygon(PackedVector2Array([Vector2(cx - 4.0, top + bh + 7.0), Vector2(cx + 4.0, top + bh + 7.0), Vector2(cx, top + bh + 2.0)]), U.WARN)
+		draw_colored_polygon(PackedVector2Array([Vector2(cx - 4.0, top + bh + 7.0), Vector2(cx + 4.0, top + bh + 7.0), Vector2(cx, top + bh + 2.0)]), U.ACCENT)

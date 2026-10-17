@@ -50,6 +50,7 @@ var team_meta := {}          # Team-ID -> {prestige, last_rank, score, pace_rank
 var cap := 160.0             # Kostenobergrenze pro Saison (Mio. $): Gehälter + Entwicklung + Provisionen
 var dev_spent := 0.0
 var cap_spent_fees := 0.0
+var crew_form := 0.0          # Form der Boxencrew 0..1 (Stopp-Training), verfällt von Rennen zu Rennen
 var engines := {}            # Fahrer-ID -> {"used": Anzahl Motoren dieser Saison, "wear": Verschleiß 0..1+}
 
 
@@ -170,6 +171,19 @@ func engine_allowance(y: int = -1) -> int:
 	return 4
 
 
+## Boxenstopp-Training: kostet Budget (Kostenobergrenze), hebt die Crew-Form. Rückgabe: Meldung.
+func crew_train() -> String:
+	var cost := 1.0
+	if crew_form >= 0.99:
+		return "Die Crew ist bereits in Topform."
+	if budget < cost or cap_left() < cost:
+		return "Nicht genug Budget oder Kostenobergrenze erreicht."
+	budget -= cost
+	dev_spent += cost
+	crew_form = minf(1.0, crew_form + 0.34)
+	return "Stopp-Training abgeschlossen: Crew-Form %d %%." % int(crew_form * 100.0)
+
+
 ## Rennwochenenden, die ein Motor im Schnitt durchhält.
 func engine_life_races() -> float:
 	var a := engine_allowance()
@@ -201,6 +215,8 @@ func sim_teams() -> Array:
 			d["skill"] = float(d["skill"]) + (float(d.get("morale", 0.62)) - 0.62) * 0.0005
 		c["engine_allowance"] = engine_allowance()
 		c["engine_life"] = engine_life_races()
+		if t["id"] == team_id:
+			c["crew_form"] = crew_form
 		out.append(c)
 	return out
 
@@ -313,6 +329,7 @@ func finish_race(sim) -> Dictionary:
 		if drivers.has(did2):
 			drivers[did2]["morale"] = clampf(float(drivers[did2]["morale"]) + float(c.morale_delta), 0.0, 1.0)
 	weekend_sim = null
+	crew_form *= 0.6
 	round_index += 1
 	Market.update_morale(rows)
 	sync_teams()
@@ -467,7 +484,7 @@ func save() -> void:
 		"version": 2, "year": year, "career_start": career_start, "team_id": team_id, "round_index": round_index, "driver_points": driver_points,
 		"team_points": team_points, "wins": wins, "budget": budget, "upgrades": upgrades, "dev_pace": dev_pace,
 		"history": history, "team_pace": pace, "drivers": drivers, "news": news, "market_log": market_log, "market_open": market_open,
-		"season_log": season_log, "team_meta": team_meta, "dev_spent": dev_spent, "cap_spent_fees": cap_spent_fees, "engines": engines,
+		"season_log": season_log, "team_meta": team_meta, "dev_spent": dev_spent, "cap_spent_fees": cap_spent_fees, "engines": engines, "crew_form": crew_form,
 		"saved_at": int(Time.get_unix_time_from_system()),
 	}
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
@@ -512,6 +529,7 @@ func load_game() -> bool:
 	dev_spent = float(d.get("dev_spent", 0.0))
 	cap_spent_fees = float(d.get("cap_spent_fees", 0.0))
 	engines = d.get("engines", {})
+	crew_form = float(d.get("crew_form", 0.0))
 	sync_teams()
 	market_open = bool(d.get("market_open", false))
 	active = true

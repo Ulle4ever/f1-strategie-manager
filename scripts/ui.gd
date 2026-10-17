@@ -1,25 +1,32 @@
 extends RefCounted
 ## Gemeinsame UI-Hilfen im F1-Broadcast-Stil: Farben, Schrift, Theme, Widget-Fabrik.
 
-const BG0 := Color("090b10")
-const BG1 := Color("141824")
-const PANEL := Color(0.075, 0.09, 0.13, 0.93)
-const PANEL2 := Color("1a202d")
-const PANEL3 := Color("252d3f")
-const LINE := Color(1, 1, 1, 0.09)
-const RADIUS := 9
+const BG0 := Color("f1f3f8")
+const BG1 := Color("e2e8f2")
+const PANEL := Color(1, 1, 1, 0.97)
+const PANEL2 := Color("f3f5fa")
+const PANEL3 := Color("e7ecf5")
+const LINE := Color(0.08, 0.12, 0.25, 0.13)
+const RADIUS := 10
 const ACCENT := Color("e10600")
-const ACCENT_HI := Color("ff2a1f")
-const ACCENT_DARK := Color("7a0300")
-const TEXT := Color("f3f5f9")
-const MUTED := Color("8d96aa")
-const GOOD := Color("2ee27e")
-const WARN := Color("ffc61a")
-const BAD := Color("ff4d42")
-const PURPLE := Color("c05cff")
-const BLUE := Color("3d8bff")
+const ACCENT_HI := Color("f5271c")
+const ACCENT_DARK := Color("a30500")
+const TEXT := Color("141b2d")
+const MUTED := Color("5b657b")
+const ON_DARK := Color("f3f5f9")        # Text auf dunklen Glasflächen (TV-Grafik, Karte)
+const MUTED_DARK := Color("aab3c5")
+const GOOD := Color("0f9d58")
+const WARN := Color("d98200")
+const BAD := Color("d93025")
+const PURPLE := Color("8a3fd1")
+const BLUE := Color("2563eb")
 # alte Namen
 const BG := BG0
+
+## Dezente Tönung für Flächen auf hellem Grund (a = Stärke).
+static func tint(a: float) -> Color:
+	return Color(0.08, 0.12, 0.25, a)
+
 
 static var _font: Font
 static var _font_bold: Font
@@ -130,48 +137,50 @@ static func make_theme() -> Theme:
 	th.set_font("font", "Label", font(false))
 	th.set_font("font", "Button", font(true))
 	th.set_font_size("font_size", "Button", 17)
-	th.set_stylebox("normal", "Button", button_style(PANEL2, Color(1, 1, 1, 0.12), 1))
-	th.set_stylebox("hover", "Button", button_style(PANEL3, Color(ACCENT, 0.85), 1))
-	th.set_stylebox("pressed", "Button", button_style(Color("43141a"), ACCENT_HI, 2))
-	th.set_stylebox("disabled", "Button", button_style(Color(0.07, 0.08, 0.11, 0.8), Color(1, 1, 1, 0.05), 1))
+	th.set_stylebox("normal", "Button", button_style(PANEL2, Color(0.08, 0.12, 0.25, 0.20), 1))
+	th.set_stylebox("hover", "Button", button_style(Color.WHITE, Color(ACCENT, 0.85), 1))
+	th.set_stylebox("pressed", "Button", button_style(Color("ffe6e3"), ACCENT, 2))
+	th.set_stylebox("disabled", "Button", button_style(Color(0.90, 0.92, 0.95, 0.9), Color(0.08, 0.12, 0.25, 0.08), 1))
 	th.set_stylebox("focus", "Button", StyleBoxEmpty.new())
 	th.set_color("font_color", "Button", TEXT)
-	th.set_color("font_hover_color", "Button", Color.WHITE)
-	th.set_color("font_pressed_color", "Button", Color.WHITE)
-	th.set_color("font_disabled_color", "Button", Color("525b6d"))
+	th.set_color("font_hover_color", "Button", TEXT)
+	th.set_color("font_pressed_color", "Button", ACCENT_DARK)
+	th.set_color("font_hover_pressed_color", "Button", ACCENT_DARK)
+	th.set_color("font_disabled_color", "Button", Color("a3abbb"))
 	th.set_stylebox("panel", "PanelContainer", _box(PANEL, RADIUS + 1, LINE, 1))
 	th.set_color("font_color", "Label", TEXT)
-	th.set_stylebox("panel", "PopupMenu", _box(PANEL2, 8, LINE, 1))
+	th.set_stylebox("panel", "PopupMenu", _box(Color.WHITE, 8, LINE, 1))
 	th.set_stylebox("hover", "PopupMenu", _box(PANEL3, 6))
 	th.set_color("font_color", "PopupMenu", TEXT)
-	th.set_color("font_hover_color", "PopupMenu", Color.WHITE)
-	th.set_stylebox("normal", "OptionButton", button_style(PANEL2, Color(1, 1, 1, 0.12), 1))
-	th.set_stylebox("hover", "OptionButton", button_style(PANEL3, Color(ACCENT, 0.85), 1))
-	th.set_stylebox("pressed", "OptionButton", button_style(PANEL3, ACCENT, 1))
+	th.set_color("font_hover_color", "PopupMenu", TEXT)
+	th.set_stylebox("normal", "OptionButton", button_style(PANEL2, Color(0.08, 0.12, 0.25, 0.20), 1))
+	th.set_stylebox("hover", "OptionButton", button_style(Color.WHITE, Color(ACCENT, 0.85), 1))
+	th.set_stylebox("pressed", "OptionButton", button_style(Color.WHITE, ACCENT, 1))
 	th.set_color("font_color", "OptionButton", TEXT)
+	th.set_color("font_hover_color", "OptionButton", TEXT)
 	th.set_stylebox("panel", "TabContainer", _box(PANEL, RADIUS + 1, LINE, 1))
-	var tab_sel := _box(Color("2a1519"), 8, Color(ACCENT, 0.9), 1)
+	var tab_sel := _box(Color.WHITE, 9, Color(ACCENT, 0.9), 1)
 	tab_sel.content_margin_top = 6
 	tab_sel.content_margin_bottom = 6
-	var tab_un := _box(Color(0.1, 0.12, 0.17, 0.9), 8, Color(1, 1, 1, 0.07), 1)
+	var tab_un := _box(Color(0.88, 0.91, 0.96, 0.95), 9, Color(0.08, 0.12, 0.25, 0.08), 1)
 	tab_un.content_margin_top = 6
 	tab_un.content_margin_bottom = 6
-	var tab_hv := _box(PANEL2, 8, Color(1, 1, 1, 0.12), 1)
+	var tab_hv := _box(Color(0.94, 0.96, 0.99), 9, Color(0.08, 0.12, 0.25, 0.16), 1)
 	tab_hv.content_margin_top = 6
 	tab_hv.content_margin_bottom = 6
 	th.set_stylebox("tab_selected", "TabContainer", tab_sel)
 	th.set_stylebox("tab_unselected", "TabContainer", tab_un)
 	th.set_stylebox("tab_hovered", "TabContainer", tab_hv)
-	th.set_color("font_selected_color", "TabContainer", Color.WHITE)
+	th.set_color("font_selected_color", "TabContainer", TEXT)
 	th.set_color("font_unselected_color", "TabContainer", MUTED)
 	th.set_color("font_hovered_color", "TabContainer", TEXT)
 	th.set_font("font", "TabContainer", font(true))
 	th.set_font_size("font_size", "TabContainer", 17)
 	# Scrollbars dezenter
 	var sbar := StyleBoxFlat.new()
-	sbar.bg_color = Color(1, 1, 1, 0.04)
+	sbar.bg_color = tint(0.05)
 	var grab := StyleBoxFlat.new()
-	grab.bg_color = Color(1, 1, 1, 0.22)
+	grab.bg_color = tint(0.30)
 	grab.set_corner_radius_all(3)
 	th.set_stylebox("scroll", "VScrollBar", sbar)
 	th.set_stylebox("grabber", "VScrollBar", grab)
@@ -179,16 +188,16 @@ static func make_theme() -> Theme:
 	th.set_stylebox("grabber_pressed", "VScrollBar", grab)
 	# Fortschrittsbalken
 	var pbg := StyleBoxFlat.new()
-	pbg.bg_color = Color(1, 1, 1, 0.08)
+	pbg.bg_color = tint(0.10)
 	pbg.set_corner_radius_all(5)
 	var pfill := StyleBoxFlat.new()
-	pfill.bg_color = Color.WHITE
+	pfill.bg_color = ACCENT
 	pfill.set_corner_radius_all(5)
 	th.set_stylebox("background", "ProgressBar", pbg)
 	th.set_stylebox("fill", "ProgressBar", pfill)
-	th.set_stylebox("normal", "SpinBox", _box(PANEL2, 7, LINE, 1))
+	th.set_stylebox("normal", "SpinBox", _box(Color.WHITE, 7, Color(0.08, 0.12, 0.25, 0.22), 1))
 	var trk := StyleBoxFlat.new()
-	trk.bg_color = PANEL3
+	trk.bg_color = Color(0.08, 0.12, 0.25, 0.14)
 	trk.set_corner_radius_all(5)
 	trk.content_margin_top = 3
 	trk.content_margin_bottom = 3
@@ -200,8 +209,18 @@ static func make_theme() -> Theme:
 	ga.content_margin_bottom = 3
 	th.set_stylebox("grabber_area", "HSlider", ga)
 	th.set_stylebox("grabber_area_highlight", "HSlider", ga)
+	var le := _box(Color.WHITE, 7, Color(0.08, 0.12, 0.25, 0.25), 1)
+	th.set_stylebox("normal", "LineEdit", le)
+	th.set_stylebox("focus", "LineEdit", _box(Color.WHITE, 7, ACCENT, 1))
+	th.set_stylebox("read_only", "LineEdit", _box(PANEL2, 7, LINE, 1))
+	th.set_color("font_color", "LineEdit", TEXT)
+	th.set_color("caret_color", "LineEdit", ACCENT)
+	th.set_color("selection_color", "LineEdit", Color(ACCENT, 0.25))
+	th.set_color("default_color", "RichTextLabel", TEXT)
+	for sbn in ["normal", "pressed", "hover", "hover_pressed", "disabled", "focus"]:
+		th.set_stylebox(sbn, "CheckBox", StyleBoxEmpty.new())
 	th.set_color("font_color", "CheckBox", TEXT)
-	th.set_color("font_hover_color", "CheckBox", Color.WHITE)
+	th.set_color("font_hover_color", "CheckBox", TEXT)
 	th.set_font("font", "CheckBox", font(false))
 	th.set_icon("checked", "CheckBox", _check_icon(true))
 	th.set_icon("unchecked", "CheckBox", _check_icon(false))
@@ -229,9 +248,9 @@ static func checkbox(text := "") -> CheckBox:
 	c.add_theme_font_override("font", font(false))
 	c.add_theme_font_size_override("font_size", 14)
 	c.add_theme_color_override("font_color", TEXT)
-	c.add_theme_color_override("font_hover_color", Color.WHITE)
-	c.add_theme_color_override("font_pressed_color", Color.WHITE)
-	c.add_theme_color_override("font_hover_pressed_color", Color.WHITE)
+	c.add_theme_color_override("font_hover_color", TEXT)
+	c.add_theme_color_override("font_pressed_color", TEXT)
+	c.add_theme_color_override("font_hover_pressed_color", TEXT)
 	return c
 
 
@@ -239,8 +258,8 @@ static func checkbox(text := "") -> CheckBox:
 static func _check_icon(checked: bool) -> ImageTexture:
 	var img := Image.create(24, 24, false, Image.FORMAT_RGBA8)
 	img.fill(Color(0, 0, 0, 0))
-	var bg := ACCENT if checked else Color("0d1017")
-	var edge := Color("ffffff") if checked else Color("b4bccd")
+	var bg := ACCENT if checked else Color.WHITE
+	var edge := ACCENT_DARK if checked else Color("8791a8")
 	for y in range(2, 22):
 		for x in range(2, 22):
 			var border := x < 4 or x > 19 or y < 4 or y > 19
@@ -280,10 +299,13 @@ static func button(text: String, cb = null, min_w := 0, min_h := 38) -> Button:
 ## Roter Haupt-Button.
 static func primary_button(text: String, cb = null, min_w := 0, min_h := 50) -> Button:
 	var b := button(text, cb, min_w, min_h)
-	b.add_theme_stylebox_override("normal", button_style(Color("e8261b"), Color("ff6a5e"), 1, 11))
-	b.add_theme_stylebox_override("hover", button_style(ACCENT_HI, Color.WHITE, 1, 11))
-	b.add_theme_stylebox_override("pressed", button_style(ACCENT_DARK, Color.WHITE, 1, 11))
-	b.add_theme_stylebox_override("disabled", button_style(Color("2a1414"), Color("3a2020"), 1, 11))
+	b.add_theme_stylebox_override("normal", button_style(Color("e8261b"), Color("c01a10"), 1, 12))
+	b.add_theme_stylebox_override("hover", button_style(ACCENT_HI, ACCENT_DARK, 1, 12))
+	b.add_theme_stylebox_override("pressed", button_style(ACCENT_DARK, ACCENT_DARK, 1, 12))
+	b.add_theme_stylebox_override("disabled", button_style(Color("e9c9c6"), Color("d9b5b1"), 1, 12))
+	b.add_theme_color_override("font_hover_color", Color.WHITE)
+	b.add_theme_color_override("font_pressed_color", Color.WHITE)
+	b.add_theme_color_override("font_disabled_color", Color("fbf2f1"))
 	b.add_theme_font_size_override("font_size", 19)
 	b.add_theme_color_override("font_color", Color.WHITE)
 	return b
@@ -293,20 +315,21 @@ static func panel(margin := 14, accent := Color(0, 0, 0, 0)) -> PanelContainer:
 	var p := PanelContainer.new()
 	var sb := _box(PANEL, RADIUS + 1, LINE, 1)
 	sb.set_content_margin_all(margin)
-	sb.shadow_color = Color(0, 0, 0, 0.30)
-	sb.shadow_size = 6
-	sb.shadow_offset = Vector2(0, 2)
+	sb.shadow_color = Color(0.1, 0.15, 0.3, 0.13)
+	sb.shadow_size = 10
+	sb.shadow_offset = Vector2(0, 3)
 	if accent.a > 0.0:
-		sb.border_width_top = 2
-		sb.border_color = Color(accent, 0.6)
+		sb.set_border_width_all(0)
+		sb.border_width_top = 3
+		sb.border_color = accent
 	p.add_theme_stylebox_override("panel", sb)
 	return p
 
 
 ## Dezente Unterkarte innerhalb eines Panels (für Gruppen von Bedienelementen).
-static func card(margin := 10, tint := Color(1, 1, 1, 0.04), edge := Color(1, 1, 1, 0.07)) -> PanelContainer:
+static func card(margin := 10, tint_col := Color(0.08, 0.12, 0.25, 0.045), edge := Color(0.08, 0.12, 0.25, 0.10)) -> PanelContainer:
 	var p := PanelContainer.new()
-	var sb := _box(tint, 9, edge, 1)
+	var sb := _box(tint_col, 10, edge, 1)
 	sb.set_content_margin_all(margin)
 	p.add_theme_stylebox_override("panel", sb)
 	return p
@@ -345,7 +368,7 @@ static func spacer() -> Control:
 
 static func color_bar(col: Color, w := 6, h := 20) -> ColorRect:
 	var r := ColorRect.new()
-	r.color = col
+	r.color = col.darkened(0.38) if col.get_luminance() > 0.72 else col
 	r.custom_minimum_size = Vector2(w, h)
 	return r
 
@@ -379,11 +402,20 @@ static func fmt_pts(p: float) -> String:
 
 
 ## Dunkler F1-Hintergrund mit Streifen und rotem Akzent; als erstes Kind eines Bildschirms einfügen.
-static func backdrop() -> Control:
+static func backdrop(accent := Color(0, 0, 0, 0)) -> Control:
 	var b = load("res://scripts/backdrop.gd").new()
+	b.accent = accent if accent.a > 0.0 else ACCENT
 	fill(b)
 	b.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return b
+
+
+## Hintergrund in der Farbe des eigenen Teams (während einer Karriere), sonst rot.
+static func team_backdrop() -> Control:
+	var TS = load("res://scripts/team_style.gd")
+	if Game.active and Game.team_id != "":
+		return backdrop(TS.ui_color(Game.team_id))
+	return backdrop()
 
 
 ## Überschriftsleiste mit rotem Schrägbalken. sub = Untertitel.
@@ -451,7 +483,9 @@ static func stat(caption: String, value: String, col := TEXT) -> VBoxContainer:
 
 
 ## Kleine farbige Marke (Chip) mit Text.
-static func chip(text: String, bg := ACCENT, fg := Color.WHITE) -> PanelContainer:
+static func chip(text: String, bg := ACCENT, fg := Color(0, 0, 0, 0)) -> PanelContainer:
+	if fg.a == 0.0:
+		fg = Color.WHITE if bg.get_luminance() < 0.5 or bg.a < 0.9 and bg.get_luminance() < 0.7 else TEXT
 	var p := PanelContainer.new()
 	var sb := _box(bg, 11)
 	sb.content_margin_left = 10

@@ -19,7 +19,7 @@ var _building := false
 
 func _ready() -> void:
 	U.fill(self)
-	add_child(U.backdrop())
+	add_child(U.team_backdrop())
 	sim = Game.weekend_sim
 	var margin := U.screen_margin(self, 22)
 	var root := U.vbox(6 if U.is_mobile() else 12)

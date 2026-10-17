@@ -111,14 +111,14 @@ static func rating_of(d: Dictionary) -> int:
 
 static func rating_color(r: int) -> Color:
 	if r >= 90:
-		return Color("c05cff")
+		return Color("9a3fe0")
 	if r >= 80:
-		return Color("2ee27e")
+		return Color("12a15a")
 	if r >= 70:
-		return Color("9be15b")
+		return Color("4fa817")
 	if r >= 60:
-		return Color("ffc61a")
-	return Color("e08a4a")
+		return Color("d99a00")
+	return Color("d9702a")
 
 
 static func potential_of(d: Dictionary) -> int:

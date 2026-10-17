@@ -29,4 +29,4 @@ func _draw() -> void:
 				draw_circle(Vector2(cx, cy), 21.0, Color(0.16, 0.05, 0.05))
 	var font := U.font(true)
 	var txt := "LIGHTS OUT!" if out else "BEREIT ZUM START"
-	draw_string(font, Vector2(0, y0 + 166), txt, HORIZONTAL_ALIGNMENT_CENTER, size.x, 22, U.WARN if out else U.MUTED)
+	draw_string(font, Vector2(0, y0 + 166), txt, HORIZONTAL_ALIGNMENT_CENTER, size.x, 22, U.WARN if out else U.MUTED_DARK)

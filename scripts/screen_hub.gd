@@ -5,6 +5,9 @@ const U = preload("res://scripts/ui.gd")
 const TrackMap = preload("res://scripts/track_map.gd")
 const Market = preload("res://scripts/market.gd")
 const MarketScreen = preload("res://scripts/screen_market.gd")
+const TeamStyle = preload("res://scripts/team_style.gd")
+const TeamCrest = preload("res://scripts/team_crest.gd")
+const TeamCard = preload("res://scripts/team_card.gd")
 
 var cap_label: Label
 var cap_bar: ProgressBar
@@ -18,7 +21,7 @@ var save_button: Button
 
 func _ready() -> void:
 	U.fill(self)
-	add_child(U.backdrop())
+	add_child(U.team_backdrop())
 	var margin := U.screen_margin(self, 22)
 	var M := U.is_mobile()
 	var root := U.vbox(6 if M else 12)
@@ -30,6 +33,7 @@ func _ready() -> void:
 	var tb := U.title_bar("Saison %d" % Game.year, str(team["name"]))
 	tb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(tb)
+	head.add_child(TeamCrest.make(Game.team_id, 40.0 if M else 52.0))
 	var bud := U.vbox(0)
 	bud.add_child(U.label("BUDGET", 11, U.MUTED, true))
 	budget_label = U.label("", 18 if M else 24, U.GOOD, true)
@@ -51,6 +55,7 @@ func _ready() -> void:
 		var nr := _build_next_race()
 		nr.custom_minimum_size.x = 0.0
 		_scroll(nr, "Rennen")
+	_build_team_profile()
 	_build_calendar()
 	_build_driver_table()
 	_build_team_table()
@@ -86,6 +91,13 @@ func _on_save() -> void:
 		save_button.remove_theme_color_override("font_color")
 
 
+func _build_team_profile() -> void:
+	var card := TeamCard.new()
+	card.setup(Game.team_id)
+	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_scroll(card, "Team")
+
+
 func _refresh_budget() -> void:
 	budget_label.text = "%.1f Mio. $" % Game.budget
 
@@ -97,7 +109,7 @@ func _build_calendar() -> void:
 		var is_next: bool = i == Game.round_index
 		var done: bool = i < Game.round_index
 		var row := PanelContainer.new()
-		var sb := U.button_style(Color(1, 1, 1, 0.035) if not is_next else Color(U.ACCENT, 0.16), U.ACCENT if is_next else (U.GOOD if done else U.LINE), 5)
+		var sb := U.button_style(U.tint(0.035) if not is_next else Color(U.ACCENT, 0.16), U.ACCENT if is_next else (U.GOOD if done else U.LINE), 5)
 		sb.content_margin_top = 5
 		sb.content_margin_bottom = 5
 		row.add_theme_stylebox_override("panel", sb)
@@ -121,9 +133,9 @@ func _build_calendar() -> void:
 	_scroll(box, "Kalender")
 
 
-func _bar_row(pos: int, col: Color, title: String, sub: String, pts: float, maxp: float, mine: bool) -> Control:
+func _bar_row(pos: int, col: Color, title: String, sub: String, pts: float, maxp: float, mine: bool, team_id := "") -> Control:
 	var row := PanelContainer.new()
-	var sb := U.button_style(Color(U.WARN, 0.10) if mine else Color(1, 1, 1, 0.035), col, 6)
+	var sb := U.button_style(Color(U.WARN, 0.10) if mine else U.tint(0.035), col, 6)
 	sb.content_margin_top = 4
 	sb.content_margin_bottom = 4
 	row.add_theme_stylebox_override("panel", sb)
@@ -132,8 +144,10 @@ func _bar_row(pos: int, col: Color, title: String, sub: String, pts: float, maxp
 	var p := U.label(str(pos), 20, U.TEXT, true)
 	p.custom_minimum_size = Vector2(30, 0)
 	h.add_child(p)
+	if team_id != "":
+		h.add_child(TeamCrest.make(team_id, 30.0))
 	var c := U.vbox(0)
-	c.custom_minimum_size = Vector2(260, 0)
+	c.custom_minimum_size = Vector2(230 if team_id != "" else 260, 0)
 	c.add_child(U.label(title, 16, U.WARN if mine else U.TEXT, true))
 	if sub != "":
 		c.add_child(U.label(sub, 12, U.MUTED))
@@ -171,7 +185,7 @@ func _build_team_table() -> void:
 	var maxp: float = st[0]["points"] if st.size() > 0 else 1.0
 	var pos := 1
 	for t in st:
-		box.add_child(_bar_row(pos, t["color"], str(t["name"]).to_upper(), "", t["points"], maxp, t["id"] == Game.team_id))
+		box.add_child(_bar_row(pos, TeamStyle.ui_color(t["id"]), str(t["name"]).to_upper(), "", t["points"], maxp, t["id"] == Game.team_id, t["id"]))
 		pos += 1
 	_scroll(box, "Konstrukteurs-WM")
 
@@ -194,7 +208,7 @@ func _build_development() -> void:
 	for key in Game.UPGRADE_ORDER:
 		var u: Dictionary = Game.UPGRADES[key]
 		var card := PanelContainer.new()
-		var sb := U.button_style(Color(1, 1, 1, 0.045), U.ACCENT, 5)
+		var sb := U.button_style(U.tint(0.045), U.ACCENT, 5)
 		card.add_theme_stylebox_override("panel", sb)
 		var row := U.hbox(14)
 		card.add_child(row)
@@ -262,7 +276,7 @@ func _build_drivers_tab() -> void:
 			mc = U.BAD
 		elif m < 0.45:
 			mt = "Unzufrieden"
-			mc = Color("ff9a3d")
+			mc = Color("c9690a")
 		elif m < 0.55:
 			mt = "Gereizt"
 			mc = U.WARN

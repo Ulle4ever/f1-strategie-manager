@@ -5,11 +5,11 @@ const U = preload("res://scripts/ui.gd")
 const Market = preload("res://scripts/market.gd")
 
 const KIND_STYLE := {
-	"signing": ["VERPFLICHTET", Color("17432c"), Color("2ee27e")], "extension": ["VERLÄNGERT", Color("12284d"), Color("6aa8ff")],
-	"release": ["ABGANG", Color("2b2f3a"), Color("8d96aa")], "retire": ["RÜCKTRITT", Color("4a3a0c"), Color("ffc61a")],
-	"rumor": ["GERÜCHT", Color("3a1d52"), Color("d6a0ff")], "poach": ["ABGEWORBEN", Color("5a0e0b"), Color("ff6a60")],
-	"transfer": ["TRANSFER", Color("5a0e0b"), Color("ff6a60")], "exit": ["KLAUSEL", Color("5a0e0b"), Color("ff6a60")],
-	"info": ["INFO", Color("2b2f3a"), Color("c8cedb")], "rookie": ["NACHWUCHS", Color("12284d"), Color("6aa8ff")],
+	"signing": ["VERPFLICHTET", Color("d6f3e3"), Color("0b7a43")], "extension": ["VERLÄNGERT", Color("dbe8ff"), Color("1d4fb8")],
+	"release": ["ABGANG", Color("e6e9f0"), Color("5b657b")], "retire": ["RÜCKTRITT", Color("fff0c2"), Color("8a5a00")],
+	"rumor": ["GERÜCHT", Color("efdcff"), Color("6b2fb0")], "poach": ["ABGEWORBEN", Color("ffdcd8"), Color("b3261e")],
+	"transfer": ["TRANSFER", Color("ffdcd8"), Color("b3261e")], "exit": ["KLAUSEL", Color("ffdcd8"), Color("b3261e")],
+	"info": ["INFO", Color("e6e9f0"), Color("3d465a")], "rookie": ["NACHWUCHS", Color("dbe8ff"), Color("1d4fb8")],
 }
 
 var main
@@ -44,7 +44,7 @@ var detail_right: VBoxContainer
 
 func _ready() -> void:
 	U.fill(self)
-	add_child(U.backdrop())
+	add_child(U.team_backdrop())
 	var margin := U.screen_margin(self, 20)
 	var M := U.is_mobile()
 	var root := U.vbox(6 if M else 10)
@@ -218,7 +218,7 @@ func _rating_color(r: int) -> Color:
 
 func _rating_box(r: int, size := 40, fsize := 20) -> Control:
 	var p := PanelContainer.new()
-	var sb := U.button_style(Color(0.05, 0.06, 0.09), _rating_color(r), 0, 3)
+	var sb := U.button_style(Color(1, 1, 1, 0.9), _rating_color(r), 2, 6)
 	sb.border_width_bottom = 3
 	sb.border_width_left = 0
 	sb.border_width_top = 0
@@ -237,11 +237,11 @@ func _mood_text(m: float) -> Array:
 	if m >= 0.72:
 		return ["Begeistert", U.GOOD]
 	if m >= 0.55:
-		return ["Zufrieden", Color("9be15b")]
+		return ["Zufrieden", Color("3f9a14")]
 	if m >= 0.40:
 		return ["Gereizt", U.WARN]
 	if m >= 0.30:
-		return ["Unzufrieden", Color("ff9a3d")]
+		return ["Unzufrieden", Color("c9690a")]
 	return ["Wechselwunsch", U.BAD]
 
 
@@ -279,7 +279,7 @@ func _team_card(d: Dictionary) -> Control:
 	var expiring: bool = int(d["contract"]["end"]) <= Game.year
 	var p := PanelContainer.new()
 	var edge := U.GOOD if next and int(d["contract"]["end"]) > Game.year + 0 and not expiring else U.WARN
-	var sb := U.button_style(Color(1, 1, 1, 0.05) if d != selected else Color(U.WARN, 0.14), edge, 5)
+	var sb := U.button_style(U.tint(0.05) if d != selected else Color(U.WARN, 0.14), edge, 5)
 	sb.set_content_margin_all(9)
 	p.add_theme_stylebox_override("panel", sb)
 	p.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -391,7 +391,7 @@ func _refresh_list() -> void:
 func _list_row(d: Dictionary) -> Control:
 	var p := PanelContainer.new()
 	var is_sel: bool = d == selected
-	var sb := U.button_style(Color(U.ACCENT, 0.16) if is_sel else Color(1, 1, 1, 0.035), U.ACCENT if is_sel else U.LINE, 3)
+	var sb := U.button_style(Color(U.ACCENT, 0.16) if is_sel else U.tint(0.035), U.ACCENT if is_sel else U.LINE, 3)
 	sb.content_margin_top = 4
 	sb.content_margin_bottom = 4
 	p.add_theme_stylebox_override("panel", sb)
@@ -443,7 +443,7 @@ func _refresh_news() -> void:
 	for n in Game.news:
 		var st: Array = KIND_STYLE.get(n["kind"], KIND_STYLE["info"])
 		var row := PanelContainer.new()
-		var sb := U.button_style(Color(1, 1, 1, 0.03), st[2], 3)
+		var sb := U.button_style(U.tint(0.03), st[2], 3)
 		sb.content_margin_top = 4
 		sb.content_margin_bottom = 4
 		row.add_theme_stylebox_override("panel", sb)
@@ -536,7 +536,7 @@ func _refresh_detail() -> void:
 		var trow := HFlowContainer.new()
 		trow.add_theme_constant_override("h_separation", 6)
 		for t in tl:
-			trow.add_child(U.chip(str(t), Color("2b3350"), Color("c8d3ff")))
+			trow.add_child(U.chip(str(t), Color("e1e7fb"), Color("2a3a82")))
 		detail_left.add_child(trow)
 	var status_txt := ""
 	if d["status"] == "retired":

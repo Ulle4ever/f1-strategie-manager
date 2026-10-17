@@ -58,6 +58,17 @@ Die Autos sind Punkte auf der Streckenkarte (Ansicht von oben).
 - **Speichern:** Die Zentrale hat die Schaltfläche "Speichern" (zeigt "Gespeichert" bzw. warnt, wenn der Browser nichts speichert, z. B. im privaten Modus). Auf dem Startbildschirm: "Sicherung kopieren/einfügen" als Backup in der Zwischenablage.
 - **App:** Im Web-Export ist die Seite als installierbare App (PWA) eingerichtet; auf dem Startbildschirm gibt es "App installieren" (Android/Chrome/Edge direkt, iPhone/iPad über Teilen > Zum Home-Bildschirm) sowie "Schärfe" (Render-Auflösung 1x bis 3x).
 
+## Strategie-Zentrale, Teams und Look
+- **Heller, moderner Look:** helle Karten mit Schatten, abgerundete Ecken, Teamfarbe als Akzent im Hintergrund jedes Bildschirms, helle Karte im Kartenstil (Straße mit weißem Rand, Landschaft, Wasser). Die TV-Grafik auf der Karte bleibt dunkles Glas.
+- **Teams:** Jedes Team hat ein selbst gezeichnetes Wappen (Form, Farbfeld, Muster, Kürzel; keine Originallogos wegen der Markenrechte), eine Livree für die Autodarstellung, Standort, Gründungsjahr, Titel und einen Charakter-Text
+  (`team_style.gd`, `team_card.gd`). Die Zentrale hat einen Reiter "Team" mit Profilkarte, Autoprofil und Fahrern; Start, Konstrukteurs-WM, Siegerpodest und Wochenende zeigen Wappen.
+- **Strategie im Wochenende** (`strategy_panel.gd`), vier Reiter je Fahrer:
+  - *Plan:* Rundenzeit-Vorhersage als Diagramm (Basiszeit, Tankgewicht, Reifenabbau, Stopps), Stint-Zeitleiste, je Stint Reifenkarte mit Haltbarkeit (genau nach Reifentest, sonst geschätzt), Tempo gegenüber Soft, Abbau pro Runde, Rundenzeit Start/Ende, verfügbare Sätze; Tank mit Gewichtswirkung, Reichweite und Reifenverschleiß.
+  - *Reifen:* Reifensätze pro Wochenende (ab 2007: z. B. 2 Soft, 3 Medium, 8 Hard; Training und Qualifying verbrauchen Sätze, gebrauchte Sätze starten mit Vorbelastung), Bedarf des Plans gegen Bestand.
+  - *Varianten:* A (ausgewogen), B (wenig Stopps), C (offensiv) werden per Suche berechnet, mit Vergleichsdiagramm und "Vorschau": mehrere Rennläufe mit Zufall (Safety Car, Gegner, Ausfälle) liefern Durchschnittsplatz, Streuung und Punktechance.
+  - *Regeln:* Wenn-Dann-Regeln (Safety Car: Stopp, Regen/Abtrocknen: Reifenwechsel, Konter-Stopp, Sprit sparen) und Boxencrew (Stopp-Training 1 Mio. $ verbessert Standzeit und senkt Pannenrisiko, die Form sinkt von Rennen zu Rennen).
+- **Im Rennen:** Funkanweisungen (Push 3 Runden, Reifen managen, Lift & Coast), Fahrer-Rückmeldung zum Reifenzustand, Sätze-Anzeige im Reifenwahl-Fenster, Regeln auch im Reiter "Taktik" schaltbar.
+
 ## Karte, Kamera und TV-Grafik
 - **Kamera:** Mausrad zoomt (bis 16x), mit gedrückter Maustaste wird verschoben, ein Klick auf ein Auto wählt es. Voreinstellungen oben links (Gesamt, Auto 1, Auto 2, Führender, + / -),
   Tasten 1 bis 4 im Rennen. Folgemodus mit weicher Kamerafahrt, Minikarte beim Heranzoomen.

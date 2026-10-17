@@ -81,6 +81,9 @@ var sc_label: Label
 var radar_label: Label
 var double_btn: Button
 var stint_bar
+var radio_buttons: Array = []
+var radio_label: Label
+var rule_checks: Dictionary = {}
 var fuel_label: Label
 var fuel_bar: ProgressBar
 var style_hint: Label
@@ -106,7 +109,7 @@ var _plan_key := ""
 
 func _ready() -> void:
 	U.fill(self)
-	add_child(U.backdrop())
+	add_child(U.team_backdrop())
 	var margin := U.screen_margin(self, 10)
 	var M := U.is_mobile()
 	var root := U.vbox(4 if M else 8)
@@ -141,6 +144,7 @@ func _ready() -> void:
 	var lp := U.panel(8)
 	lp.custom_minimum_size = Vector2(0, 62 if M else 150)
 	log_label = RichTextLabel.new()
+	log_label.add_theme_color_override("default_color", U.TEXT)
 	log_label.bbcode_enabled = true
 	log_label.scroll_active = false
 	log_label.add_theme_font_size_override("normal_font_size", 14)
@@ -234,7 +238,7 @@ func _build_top() -> Control:
 	var h := U.hbox(4 if U.is_mobile() else 14)
 	p.add_child(h)
 	var M := U.is_mobile()
-	lap_label = U.label("", 17 if M else 28, U.TEXT, true)
+	lap_label = U.label("", 16 if M else 28, U.TEXT, true)
 	h.add_child(lap_label)
 	time_label = U.label("", 16, U.MUTED)
 	time_label.visible = not M
@@ -254,16 +258,25 @@ func _build_top() -> Control:
 		b.text = SPEED_NAMES_SHORT[i] if U.is_mobile() else SPEED_NAMES[i]
 		b.toggle_mode = true
 		b.custom_minimum_size = Vector2(34 if M else 54, 36)
+		if M:
+			b.add_theme_font_size_override("font_size", 14)
 		b.pressed.connect(_set_speed.bind(i))
 		h.add_child(b)
 		speed_buttons.append(b)
-	h.add_child(U.button("Ende", _skip_to_end, 52 if M else 64, 36))
+	var end_b := U.button("Ende", _skip_to_end, 52 if M else 64, 36)
+	if M:
+		end_b.add_theme_font_size_override("font_size", 14)
+	h.add_child(end_b)
 	var cb := U.checkbox()
 	cb.text = "Auto" if U.is_mobile() else "Auto-Slow"
+	if U.is_mobile():
+		cb.add_theme_font_size_override("font_size", 12)
 	cb.button_pressed = true
 	cb.toggled.connect(func(v): auto_slow = v)
 	h.add_child(cb)
 	var tvcb := U.checkbox("TV" if M else "TV-Grafik")
+	if M:
+		tvcb.add_theme_font_size_override("font_size", 12)
 	tvcb.button_pressed = true
 	tvcb.tooltip_text = "Fahrerkarte, Rundenzeiten, Zweikampf-Banner und Laufband ein- oder ausblenden"
 	tvcb.toggled.connect(func(v): tv.visible = v)
@@ -385,6 +398,25 @@ func _build_car_tab() -> Control:
 		follow_buttons.append(b)
 	follow_hint = _wrap_label("", 11, U.MUTED)
 	v.add_child(follow_hint)
+
+	v.add_child(U.section("Funkanweisung an den Fahrer", 12))
+	var rrow := HFlowContainer.new()
+	rrow.add_theme_constant_override("h_separation", 4)
+	rrow.add_theme_constant_override("v_separation", 4)
+	v.add_child(rrow)
+	var rdefs := [["push", "Push\n3 Runden"], ["manage", "Reifen managen\n5 Runden"], ["lico", "Lift & Coast\n5 Runden"], ["normal", "Normal"]]
+	for d in rdefs:
+		var b := Button.new()
+		b.text = d[1]
+		b.toggle_mode = true
+		b.custom_minimum_size = Vector2(84, 46)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.add_theme_font_size_override("font_size", 12)
+		b.pressed.connect(_on_radio.bind(str(d[0])))
+		rrow.add_child(b)
+		radio_buttons.append({"btn": b, "kind": str(d[0])})
+	radio_label = _wrap_label("", 11, U.MUTED)
+	v.add_child(radio_label)
 	return t[0]
 
 
@@ -411,11 +443,11 @@ func _build_pit_tab() -> Control:
 		var cd: Dictionary = RaceSim.COMPOUNDS[k]
 		b.toggle_mode = true
 		b.text = cd["name"]
-		b.custom_minimum_size = Vector2(62, 50)
-		b.add_theme_color_override("font_color", cd["color"])
-		b.add_theme_color_override("font_pressed_color", cd["color"])
-		b.add_theme_color_override("font_hover_color", cd["color"])
-		b.add_theme_color_override("font_disabled_color", Color(cd["color"], 0.28))
+		b.custom_minimum_size = Vector2(62, 62)
+		b.add_theme_color_override("font_color", cd["ink"])
+		b.add_theme_color_override("font_pressed_color", cd["ink"])
+		b.add_theme_color_override("font_hover_color", cd["ink"])
+		b.add_theme_color_override("font_disabled_color", Color(cd["ink"], 0.35))
 		b.add_theme_font_size_override("font_size", 13)
 		b.pressed.connect(_on_pit_sel.bind(k))
 		brow.add_child(b)
@@ -474,6 +506,13 @@ func _build_tactics_tab() -> Control:
 	tv.add_child(U.section("Empfehlungen", 12))
 	advice_box = U.vbox(5)
 	tv.add_child(advice_box)
+	tv.add_child(U.section("Wenn-Dann-Regeln (automatisch)", 12))
+	var rdefs2 := [["sc_pit", "Safety Car: Stopp holen"], ["rain_switch", "Regen: Regenreifen"], ["dry_switch", "Abtrocknen: Slicks"], ["defend", "Konter-Stopp"], ["fuel_save", "Sprit automatisch sparen"]]
+	for d2 in rdefs2:
+		var cb := U.checkbox(str(d2[1]))
+		cb.toggled.connect(_on_rule.bind(str(d2[0])))
+		tv.add_child(cb)
+		rule_checks[str(d2[0])] = cb
 	tv.add_child(HSeparator.new())
 
 	# Energie / Motor
@@ -562,6 +601,17 @@ func _on_energy_mode(i: int) -> void:
 		sim.set_engine_mode(selected, i)
 
 
+func _on_radio(kind: String) -> void:
+	if selected != null and selected.is_player and selected.state == 1:
+		sim.radio_order(selected, kind)
+
+
+func _on_rule(on: bool, key: String) -> void:
+	for c in sim.cars:
+		if c.is_player:
+			sim.set_rule(c, key, on)
+
+
 func _on_follow(on: bool) -> void:
 	if selected != null and selected.is_player:
 		selected.follow = on
@@ -584,7 +634,7 @@ func _on_order(i: int) -> void:
 
 
 func _radio(text: String) -> void:
-	log_lines.append("[color=#6b7488]R%02d[/color]  [color=#ffc61a]%s[/color]" % [sim.leader_lap(), text])
+	log_lines.append("[color=#8a93a8]R%02d[/color]  [color=#b86f00]%s[/color]" % [sim.leader_lap(), text])
 
 
 func _on_uc_pit() -> void:
@@ -814,7 +864,7 @@ func _update_car_pit(c) -> void:
 	var life: float = sim.life_eff(c.compound)
 	var left := clampf(1.0 - c.tyre_wear / life, 0.0, 1.0)
 	tyre_label.text = "%s  |  %d Runden alt  |  Rest %d %%" % [cd["name"], c.tyre_age_laps, int(left * 100.0)]
-	tyre_label.add_theme_color_override("font_color", cd["color"])
+	tyre_label.add_theme_color_override("font_color", cd["ink"])
 	tyre_bar.value = left * 100.0
 	var fc: Color = Color(1, 0.3, 0.25).lerp(Color(0.2, 0.9, 0.45), clampf(left * 1.5, 0.0, 1.0))
 	tyre_bar.add_theme_stylebox_override("fill", U.button_style(fc, fc, 0, 5))
@@ -848,6 +898,15 @@ func _update_car_pit(c) -> void:
 			style_hint.text = sn[1]
 		2:
 			style_hint.text = sn[2] % [RaceSim.STYLE_PACE[2] * 100.0, 32]
+	for rb in radio_buttons:
+		rb["btn"].set_pressed_no_signal(c.radio_kind == rb["kind"] or (rb["kind"] == "normal" and c.radio_kind == ""))
+		rb["btn"].disabled = c.state != 1
+	if c.radio_kind != "":
+		radio_label.text = "Aktiv bis Ende Runde %d." % c.radio_until
+	else:
+		radio_label.text = "Push: schneller, mehr Verschleiß. Reifen managen: langsamer, schont. Lift & Coast: spart Sprit. Der Fahrer meldet sich bei nachlassenden Reifen."
+	for key in rule_checks.keys():
+		rule_checks[key].set_pressed_no_signal(bool(c.rules.get(key, false)))
 	follow_buttons[0].set_pressed_no_signal(not c.follow)
 	follow_buttons[1].set_pressed_no_signal(c.follow)
 	var fh := "Dranbleiben: Windschatten auf Geraden, mehr Überholchancen, aber verwirbelte Luft kostet in Kurven Reifen."
@@ -878,6 +937,9 @@ func _update_car_pit(c) -> void:
 		var o: Dictionary = sim.compound_outlook(c, k)
 		var t: String = RaceSim.COMPOUNDS[k]["name"]
 		t += "\n%d Rd%s" % [int(o["life"]), (" OK" if o["to_end"] else "")]
+		if not sim.tyre_unlimited():
+			var cnt: Dictionary = sim.tyre_count(c, k)
+			t += "\n%d Sätze" % int(cnt["free"])
 		if k == sug:
 			t += " *"
 		pit_buttons[k].text = t
@@ -902,7 +964,7 @@ func _update_car_pit(c) -> void:
 			if int(s["lap"]) > c.floor_laps:
 				var row := U.hbox(6)
 				row.add_child(U.label("Ende Runde %d" % int(s["lap"]), 13, U.TEXT, true))
-				row.add_child(U.label(RaceSim.COMPOUNDS[int(s["comp"])]["name"], 13, RaceSim.COMPOUNDS[int(s["comp"])]["color"], true))
+				row.add_child(U.label(RaceSim.COMPOUNDS[int(s["comp"])]["name"], 13, RaceSim.COMPOUNDS[int(s["comp"])]["ink"], true))
 				row.add_child(U.spacer())
 				row.add_child(U.button("x", _on_unplan.bind(int(s["lap"])), 34, 30))
 				pit_plan_box.add_child(row)
@@ -1079,20 +1141,20 @@ func _skip_to_end(blocking := false) -> void:
 func _event_color(kind: String) -> String:
 	match kind:
 		"sc":
-			return "#ffc61a"
+			return "#b86f00"
 		"dnf":
-			return "#ff4d42"
+			return "#d93025"
 		"weather":
-			return "#3d8bff"
+			return "#1f5fd6"
 		"fastest":
-			return "#c05cff"
+			return "#8a3fd1"
 		"pass":
-			return "#2ee27e"
+			return "#0f9d58"
 		"pit":
-			return "#e6e9ef"
+			return "#2b3347"
 		"radio":
-			return "#7fd1ff"
-	return "#9aa3b5"
+			return "#1d6fb8"
+	return "#5b657b"
 
 
 func _after_tick(allow_slow := true) -> void:
@@ -1100,7 +1162,7 @@ func _after_tick(allow_slow := true) -> void:
 		var e: Dictionary = sim.events[ev_index]
 		ev_index += 1
 		var k: String = e["kind"]
-		log_lines.append("[color=#6b7488]R%02d[/color]  [color=%s]%s[/color]" % [e["lap"], _event_color(k), e["text"]])
+		log_lines.append("[color=#8a93a8]R%02d[/color]  [color=%s]%s[/color]" % [e["lap"], _event_color(k), e["text"]])
 		if allow_slow:
 			if k == "sc":
 				_banner_msg(str(e["text"]), 3.5, U.WARN)
@@ -1109,7 +1171,7 @@ func _after_tick(allow_slow := true) -> void:
 			elif k == "dnf" and e["car"] >= 0 and sim.cars[e["car"]].is_player:
 				_banner_msg(str(e["text"]), 3.5, U.BAD)
 			elif k == "radio" and e["car"] >= 0 and (sim.cars[e["car"]].is_player or (sim.mate_of(sim.cars[e["car"]]) != null and sim.mate_of(sim.cars[e["car"]]).is_player)):
-				_banner_msg(str(e["text"]), 3.0, Color("7fd1ff"))
+				_banner_msg(str(e["text"]), 3.0, Color("1d6fb8"))
 			if auto_slow and speed_idx > 2:
 				var relevant: bool = k == "sc" or k == "weather" or (k == "radio" and e["car"] >= 0 and sim.cars[e["car"]].is_player)
 				if k == "dnf" and e["car"] >= 0 and sim.cars[e["car"]].is_player:
@@ -1124,7 +1186,7 @@ func _after_tick(allow_slow := true) -> void:
 			var key := "%d_%d" % [c.index, c.pit_stops]
 			if c.tyre_wear > life * 0.9 and not alerted.has(key):
 				alerted[key] = true
-				log_lines.append("[color=#6b7488]R%02d[/color]  [color=#ffc61a]Funk %s: Reifen am Ende (%s, %d Runden alt)[/color]" % [sim.leader_lap(), c.code, RaceSim.COMPOUNDS[c.compound]["name"], c.tyre_age_laps])
+				log_lines.append("[color=#8a93a8]R%02d[/color]  [color=#b86f00]Funk %s: Reifen am Ende (%s, %d Runden alt)[/color]" % [sim.leader_lap(), c.code, RaceSim.COMPOUNDS[c.compound]["name"], c.tyre_age_laps])
 				if allow_slow and auto_slow and speed_idx > 2:
 					_set_speed(2)
 
@@ -1137,7 +1199,7 @@ func _on_style(i: int) -> void:
 func _on_pit(k: int) -> void:
 	if selected != null and selected.is_player and selected.state == 1:
 		sim.request_pit(selected, k)
-		log_lines.append("[color=#6b7488]R%02d[/color]  [color=#ffc61a]Funk an %s: Box, Box! Reifen: %s[/color]" % [sim.leader_lap(), selected.code, RaceSim.COMPOUNDS[k]["name"]])
+		log_lines.append("[color=#8a93a8]R%02d[/color]  [color=#b86f00]Funk an %s: Box, Box! Reifen: %s[/color]" % [sim.leader_lap(), selected.code, RaceSim.COMPOUNDS[k]["name"]])
 
 
 func _on_cancel_pit() -> void:
@@ -1156,28 +1218,28 @@ func _on_results() -> void:
 
 func _update_ui() -> void:
 	var lap: int = sim.leader_lap() if sim.started else 1
-	lap_label.text = "RUNDE %d / %d" % [lap, sim.laps]
+	lap_label.text = ("RUNDE %d/%d" if U.is_mobile() else "RUNDE %d / %d") % [lap, sim.laps]
 	time_label.text = sim.fmt_race_time(sim.time)
-	var chip_bg := Color("14562f")
+	var chip_bg := Color("d6f3e3")
 	var chip_fg := U.GOOD
 	var chip_text := "GRÜN"
 	match sim.status:
 		1:
 			chip_text = "VSC"
-			chip_bg = Color("6b5200")
+			chip_bg = Color("ffe9b0")
 			chip_fg = U.WARN
 		2:
 			chip_text = "SAFETY CAR"
-			chip_bg = Color("6b5200")
+			chip_bg = Color("ffe9b0")
 			chip_fg = U.WARN
 	if sim.leader_finished and not sim.over:
 		chip_text = "ZIELFLAGGE"
-		chip_bg = Color("2a2f3b")
-		chip_fg = Color.WHITE
+		chip_bg = Color("e3e7ef")
+		chip_fg = U.TEXT
 	if not sim.started:
 		chip_text = "STARTAUFSTELLUNG"
-		chip_bg = Color("2a2f3b")
-		chip_fg = Color.WHITE
+		chip_bg = Color("e3e7ef")
+		chip_fg = U.TEXT
 	if U.is_mobile():
 		chip_text = {"STARTAUFSTELLUNG": "START", "SAFETY CAR": "SC", "ZIELFLAGGE": "ZIEL"}.get(chip_text, chip_text)
 	status_label.text = chip_text

@@ -4,16 +4,16 @@ extends RefCounted
 ## deterministisch aus der Strecken-ID erzeugt, damit es beim Verschieben und Zoomen mitwandert.
 
 const KINDS := {
-	"desert": {"ground": Color(0.30, 0.25, 0.17), "dune": 0.55, "scrub": 1.0, "patch": [Color(0.33, 0.27, 0.18), Color(0.27, 0.22, 0.15)]},
-	"forest": {"ground": Color(0.065, 0.14, 0.085), "tree": 1.0, "tcol": [Color(0.07, 0.20, 0.10), Color(0.09, 0.25, 0.12), Color(0.06, 0.17, 0.09)]},
-	"farm": {"ground": Color(0.10, 0.17, 0.10), "field": 1.0, "tree": 0.18, "fcol": [Color(0.13, 0.22, 0.11), Color(0.17, 0.25, 0.12), Color(0.20, 0.24, 0.12), Color(0.11, 0.18, 0.10)], "tcol": [Color(0.07, 0.19, 0.09), Color(0.09, 0.22, 0.11)]},
-	"dry": {"ground": Color(0.20, 0.18, 0.11), "field": 0.9, "scrub": 0.7, "tree": 0.05, "fcol": [Color(0.24, 0.21, 0.12), Color(0.19, 0.17, 0.10), Color(0.26, 0.22, 0.13)], "tcol": [Color(0.12, 0.17, 0.09)]},
-	"city": {"ground": Color(0.105, 0.115, 0.15), "bld": 1.0, "tree": 0.12, "bcol": [Color(0.17, 0.19, 0.25), Color(0.20, 0.22, 0.29), Color(0.15, 0.17, 0.22)], "tcol": [Color(0.07, 0.19, 0.10)]},
-	"suburb": {"ground": Color(0.115, 0.14, 0.12), "bld": 0.35, "tree": 0.5, "field": 0.3, "bcol": [Color(0.19, 0.20, 0.25), Color(0.22, 0.22, 0.26)], "tcol": [Color(0.07, 0.21, 0.10), Color(0.09, 0.24, 0.12)], "fcol": [Color(0.12, 0.19, 0.11), Color(0.15, 0.20, 0.12)]},
-	"tropical": {"ground": Color(0.06, 0.16, 0.09), "palm": 0.8, "tree": 0.9, "tcol": [Color(0.05, 0.22, 0.10), Color(0.07, 0.27, 0.12)], "bld": 0.08, "bcol": [Color(0.17, 0.19, 0.24)]},
-	"dunes": {"ground": Color(0.26, 0.23, 0.15), "dune": 0.7, "scrub": 0.8, "tree": 0.25, "tcol": [Color(0.10, 0.18, 0.09)], "patch": [Color(0.29, 0.25, 0.16), Color(0.14, 0.20, 0.11)]},
-	"desert_city": {"ground": Color(0.29, 0.24, 0.17), "dune": 0.35, "scrub": 0.6, "bld": 0.5, "bcol": [Color(0.20, 0.20, 0.26), Color(0.24, 0.23, 0.28)], "patch": [Color(0.31, 0.26, 0.18)]},
-	"island": {"ground": Color(0.07, 0.19, 0.30), "tree": 0.5, "field": 0.4, "tcol": [Color(0.07, 0.20, 0.10), Color(0.09, 0.24, 0.12)], "fcol": [Color(0.12, 0.20, 0.11)], "bld": 0.25, "bcol": [Color(0.19, 0.20, 0.26)]},
+	"desert": {"ground": Color(0.92, 0.85, 0.68), "dune": 0.55, "scrub": 1.0, "patch": [Color(0.90, 0.82, 0.64), Color(0.95, 0.89, 0.74)]},
+	"forest": {"ground": Color(0.60, 0.76, 0.57), "tree": 1.0, "tcol": [Color(0.30, 0.55, 0.32), Color(0.36, 0.62, 0.36), Color(0.26, 0.50, 0.30)]},
+	"farm": {"ground": Color(0.81, 0.89, 0.67), "field": 1.0, "tree": 0.18, "fcol": [Color(0.75, 0.86, 0.61), Color(0.87, 0.91, 0.67), Color(0.91, 0.89, 0.63), Color(0.69, 0.83, 0.59)], "tcol": [Color(0.35, 0.60, 0.36), Color(0.40, 0.66, 0.40)]},
+	"dry": {"ground": Color(0.89, 0.85, 0.69), "field": 0.9, "scrub": 0.7, "tree": 0.05, "fcol": [Color(0.91, 0.87, 0.67), Color(0.85, 0.81, 0.63), Color(0.94, 0.89, 0.71)], "tcol": [Color(0.50, 0.64, 0.40)]},
+	"city": {"ground": Color(0.90, 0.91, 0.93), "bld": 1.0, "tree": 0.12, "bcol": [Color(0.76, 0.79, 0.85), Color(0.82, 0.84, 0.89), Color(0.72, 0.75, 0.82)], "tcol": [Color(0.45, 0.70, 0.45)]},
+	"suburb": {"ground": Color(0.85, 0.91, 0.83), "bld": 0.35, "tree": 0.5, "field": 0.3, "bcol": [Color(0.78, 0.80, 0.86), Color(0.84, 0.84, 0.88)], "tcol": [Color(0.40, 0.66, 0.42), Color(0.46, 0.72, 0.46)], "fcol": [Color(0.79, 0.89, 0.73), Color(0.85, 0.91, 0.75)]},
+	"tropical": {"ground": Color(0.56, 0.77, 0.53), "palm": 0.8, "tree": 0.9, "tcol": [Color(0.28, 0.58, 0.32), Color(0.33, 0.64, 0.36)], "bld": 0.08, "bcol": [Color(0.78, 0.80, 0.86)]},
+	"dunes": {"ground": Color(0.93, 0.87, 0.71), "dune": 0.7, "scrub": 0.8, "tree": 0.25, "tcol": [Color(0.46, 0.64, 0.42)], "patch": [Color(0.94, 0.89, 0.75), Color(0.75, 0.85, 0.63)]},
+	"desert_city": {"ground": Color(0.92, 0.86, 0.71), "dune": 0.35, "scrub": 0.6, "bld": 0.5, "bcol": [Color(0.78, 0.80, 0.86), Color(0.84, 0.83, 0.88)], "patch": [Color(0.94, 0.88, 0.73)]},
+	"island": {"ground": Color(0.60, 0.79, 0.93), "tree": 0.5, "field": 0.4, "tcol": [Color(0.35, 0.60, 0.36), Color(0.40, 0.66, 0.40)], "fcol": [Color(0.74, 0.86, 0.62)], "bld": 0.25, "bcol": [Color(0.78, 0.80, 0.86)]},
 }
 
 # kind, Küste(n): [Himmelsrichtung des Wassers in Grad (0 = Nord, 90 = Ost), Lage der Küste 0..1.2 (1 = am Rand der Strecke)], lake = See im Innenraum (Anteil)
@@ -59,8 +59,8 @@ const TRACKS := {
 	"zandvoort": {"kind": "dunes", "coast": [[280.0, 0.92]]},
 }
 
-const WATER := Color(0.085, 0.21, 0.36)
-const WATER_EDGE := Color(0.20, 0.42, 0.62)
+const WATER := Color(0.60, 0.79, 0.93)
+const WATER_EDGE := Color(0.40, 0.64, 0.85)
 
 
 ## Umgebung für eine Strecke bauen. mobile = weniger Objekte.
@@ -151,13 +151,13 @@ static func _build(track, mobile: bool) -> Dictionary:
 		var p := Vector2(area.position.x + rng.randf() * w, area.position.y + rng.randf() * h)
 		if _blocked(p, corridor, waters, env, 60.0):
 			continue
-		items.append({"t": "palm", "p": p, "r": rng.randf_range(10.0, 16.0), "col": Color(0.08, 0.30, 0.13)})
+		items.append({"t": "palm", "p": p, "r": rng.randf_range(10.0, 16.0), "col": Color(0.20, 0.52, 0.28)})
 	var n_scrub := int(float(kd.get("scrub", 0.0)) * asz / 6500.0 * scale_n)
 	for i in mini(n_scrub, 700):
 		var p := Vector2(area.position.x + rng.randf() * w, area.position.y + rng.randf() * h)
 		if _blocked(p, corridor, waters, env, 50.0):
 			continue
-		items.append({"t": "scrub", "p": p, "r": rng.randf_range(4.0, 9.0), "col": Color(0.17, 0.20, 0.10, 0.9)})
+		items.append({"t": "scrub", "p": p, "r": rng.randf_range(4.0, 9.0), "col": Color(0.55, 0.58, 0.38, 0.9)})
 	var n_dune := int(float(kd.get("dune", 0.0)) * asz / 52000.0 * scale_n)
 	for i in mini(n_dune, 160):
 		var p := Vector2(area.position.x + rng.randf() * w, area.position.y + rng.randf() * h)
@@ -169,7 +169,7 @@ static func _build(track, mobile: bool) -> Dictionary:
 		for k in 9:
 			var u := float(k) / 8.0 - 0.5
 			pts.append(p + Vector2(cos(ang), sin(ang)) * u * ln + Vector2(-sin(ang), cos(ang)) * (u * u * -ln * 0.35))
-		items.append({"t": "dune", "pts": pts, "col": Color(0.40, 0.33, 0.22, 0.55), "w": rng.randf_range(10.0, 22.0)})
+		items.append({"t": "dune", "pts": pts, "col": Color(0.78, 0.68, 0.48, 0.6), "w": rng.randf_range(10.0, 22.0)})
 	# Gebäude auf Straßenraster
 	if kd.has("bld"):
 		var bcol: Array = kd["bcol"]

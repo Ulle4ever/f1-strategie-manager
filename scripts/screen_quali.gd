@@ -40,7 +40,7 @@ const TICK_BUDGET_US := 14000
 
 func _ready() -> void:
 	U.fill(self)
-	add_child(U.backdrop())
+	add_child(U.team_backdrop())
 	sim = Game.weekend_sim
 	qsim = QualiSim.new()
 	qsim.setup(sim)
@@ -74,6 +74,7 @@ func _ready() -> void:
 	var lp := U.panel(8)
 	lp.custom_minimum_size = Vector2(0, 56 if M else 140)
 	log_label = RichTextLabel.new()
+	log_label.add_theme_color_override("default_color", U.TEXT)
 	log_label.bbcode_enabled = true
 	log_label.scroll_active = false
 	log_label.add_theme_font_size_override("normal_font_size", 14)
@@ -241,7 +242,7 @@ func _on_risk(card: Dictionary, i: int) -> void:
 func _on_go(card: Dictionary) -> void:
 	var q = card["q"]
 	if qsim.send_out(q, int(card["comp"]), int(card["risk"])):
-		log_lines.append("[color=#ffc61a]Funk an %s: Raus auf die Strecke, %s, Risiko %s.[/color]" % [q.car.code, RaceSim.COMPOUNDS[int(card["comp"])]["name"], RISK_NAMES[int(card["risk"])]])
+		log_lines.append("[color=#b86f00]Funk an %s: Raus auf die Strecke, %s, Risiko %s.[/color]" % [q.car.code, RaceSim.COMPOUNDS[int(card["comp"])]["name"], RISK_NAMES[int(card["risk"])]])
 
 
 func _select_default() -> void:
@@ -302,13 +303,13 @@ func _collect_events(allow_slow: bool) -> void:
 		var col := "#c8cfdc"
 		match e["kind"]:
 			"crash":
-				col = "#ff4d42"
+				col = "#d93025"
 			"mistake":
 				col = "#ff9a3d"
 			"lap":
-				col = "#2ee27e"
+				col = "#0f9d58"
 			"weather":
-				col = "#3d8bff"
+				col = "#1f5fd6"
 		var m := "%s  %s" % [_fmt_clock(qsim.time), e["text"]]
 		log_lines.append("[color=%s]%s[/color]" % [col, m])
 		if allow_slow and auto_slow and speed_idx > 2 and (e["kind"] == "crash" or e["kind"] == "weather" or (e["kind"] == "lap" and e["player"])):
@@ -328,7 +329,7 @@ func _check_alerts() -> void:
 				var key := "%s_%d_%d" % [q.car.code, qsim.phase_idx, q.runs]
 				if not warned.has(key):
 					warned[key] = true
-					log_lines.append("[color=#ffc61a]Funk: %s - letzte Chance für eine Runde (noch %s)![/color]" % [q.car.code, _fmt_clock(latest)])
+					log_lines.append("[color=#b86f00]Funk: %s - letzte Chance für eine Runde (noch %s)![/color]" % [q.car.code, _fmt_clock(latest)])
 					_set_speed(2)
 
 

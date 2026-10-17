@@ -2,13 +2,14 @@ extends Control
 ## Rennergebnis: Podium, Klassifikation, Punkte, Einnahmen, Meisterschaftsstand.
 
 const U = preload("res://scripts/ui.gd")
+const TeamCrest = preload("res://scripts/team_crest.gd")
 
 var main
 
 
 func _ready() -> void:
 	U.fill(self)
-	add_child(U.backdrop())
+	add_child(U.team_backdrop())
 	var margin := U.screen_margin(self, 22)
 	var M := U.is_mobile()
 	var root := U.vbox(6 if M else 12)
@@ -103,7 +104,7 @@ func _ready() -> void:
 func _podium(rows: Array) -> Control:
 	var box := U.hbox(12)
 	var order := [1, 0, 2]   # Silber, Gold, Bronze nebeneinander
-	var cols_c := [Color("c9ced8"), Color("ffd24a"), Color("d08a52")]
+	var cols_c := [Color("aeb6c6"), Color("f2b800"), Color("c77b3c")]
 	var heights := [96, 120, 84]
 	for k in 3:
 		var idx: int = order[k]
@@ -111,7 +112,7 @@ func _podium(rows: Array) -> Control:
 			continue
 		var r: Dictionary = rows[idx]
 		var p := U.panel(10)
-		var sb := U.button_style(Color(0.1, 0.12, 0.17, 0.95), r["color"], 0, 3)
+		var sb := U.button_style(Color(1, 1, 1, 0.92), r["color"], 2, 8)
 		sb.border_width_top = 5
 		sb.border_color = cols_c[k]
 		sb.set_content_margin_all(10)
@@ -122,7 +123,7 @@ func _podium(rows: Array) -> Control:
 		p.add_child(h)
 		var big := U.label("P%d" % (idx + 1), 40, cols_c[k], true)
 		h.add_child(big)
-		h.add_child(U.color_bar(r["color"], 6, 54))
+		h.add_child(TeamCrest.make(str(r["team_id"]), 46.0))
 		var v := U.vbox(0)
 		v.add_child(U.label("%s %s" % [r["code"], r["name"]], 20, U.WARN if r["player"] else U.TEXT, true))
 		v.add_child(U.label(str(r["team"]).to_upper(), 12, U.MUTED, true))

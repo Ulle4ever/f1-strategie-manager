@@ -7,6 +7,8 @@ const RaceSim = preload("res://scripts/race_sim.gd")
 const StintBar = preload("res://scripts/stint_bar.gd")
 const WeatherPanel = preload("res://scripts/weather_panel.gd")
 const BiasBar = preload("res://scripts/bias_bar.gd")
+const TeamCrest = preload("res://scripts/team_crest.gd")
+const StrategyPanel = preload("res://scripts/strategy_panel.gd")
 
 var main
 var sim
@@ -18,7 +20,7 @@ var editors := []
 
 func _ready() -> void:
 	U.fill(self)
-	add_child(U.backdrop())
+	add_child(U.team_backdrop())
 	race = Game.current_race()
 	track = DB.track(race["circuitId"])
 	var margin := U.screen_margin(self, 22)
@@ -43,6 +45,7 @@ func _ready() -> void:
 	var tb := U.title_bar("Rennwochenende", str(race["name"]))
 	tb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(tb)
+	head.add_child(TeamCrest.make(Game.team_id, 40.0 if U.is_mobile() else 50.0))
 	head.add_child(U.button("Zurück", func(): main.show_hub(), 120, 42))
 
 	var entries := _left_entries()
@@ -50,7 +53,7 @@ func _ready() -> void:
 		entries.append({"name": "Qualifying", "node": _quali_intro_panel(), "grow": true})
 	else:
 		entries.append({"name": "Startaufstellung", "node": _grid_panel(), "grow": true, "self_scroll": true})
-		entries.append({"name": "Strategie", "node": _strategy_panel(), "min": 430.0, "self_scroll": true})
+		entries.append({"name": "Strategie", "node": _strategy_panel(), "min": 400.0, "self_scroll": true})
 	var cols := U.columns(entries, 14)
 	root.add_child(cols)
 	if sim.quali_done:
@@ -83,7 +86,7 @@ func _left_entries() -> Array:
 			{"name": "Auto", "node": _wrap(_fit_content(), U.WARN, 12)},
 		]
 	var p := U.panel(12, U.ACCENT)
-	p.custom_minimum_size = Vector2(390, 0)
+	p.custom_minimum_size = Vector2(360, 0)
 	var tc := TabContainer.new()
 	tc.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	for e in [["Strecke", _info_content()], ["Wetter", _weather_content()], ["Auto", _fit_content()]]:
@@ -95,7 +98,7 @@ func _left_entries() -> Array:
 		sc.add_child(inner)
 		tc.add_child(sc)
 	p.add_child(tc)
-	return [{"name": "Strecke", "node": p, "min": 390.0}]
+	return [{"name": "Strecke", "node": p, "min": 360.0}]
 
 
 func _weather_content() -> Control:
@@ -370,290 +373,16 @@ func _grid_panel() -> Control:
 			note.add_child(U.chip("-%d" % c.grid_penalty, U.ACCENT_DARK))
 		if c.forced_start >= 0:
 			var cd: Dictionary = RaceSim.COMPOUNDS[c.forced_start]
-			var cl := U.label(cd["short"], 14, cd["color"], true)
+			var cl := U.label(cd["short"], 14, cd["ink"], true)
 			note.add_child(cl)
 		g.add_child(note)
 	return p
 
 
 func _strategy_panel() -> Control:
-	var p := U.panel(14, U.ACCENT)
-	p.custom_minimum_size = Vector2(430, 0)
-	var sc := ScrollContainer.new()
-	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	p.add_child(sc)
-	var v := U.vbox(10)
-	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	sc.add_child(v)
-	v.add_child(U.section("Strategie", 14))
-	var intro := "Zeitleiste: Farbe = Reifenmischung, weiße Marke = Boxenstopp, rote Schraffur = Reifen halten nicht so lange."
-	if sim.rules["refuel"]:
-		intro += " Nachtanken erlaubt: Jeder Stopp bekommt eine eigene Spritmenge."
-	var il := U.label(intro, 12, U.MUTED)
-	il.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	v.add_child(il)
-	for c in sim.cars:
-		if c.is_player:
-			v.add_child(_build_editor(c))
-	return p
-
-
-## Reihe aus Mischungs-Knöpfen (nur ein Knopf aktiv). Rückgabe: {"row": HBox, "btns": Array}
-func _comp_row(selected: int, cb: Callable, disabled_except := -1) -> Dictionary:
-	var row := HFlowContainer.new()
-	row.add_theme_constant_override("h_separation", 4)
-	row.add_theme_constant_override("v_separation", 4)
-	var btns: Array = []
-	for k in RaceSim.COMPOUNDS.size():
-		var cd: Dictionary = RaceSim.COMPOUNDS[k]
-		var b := Button.new()
-		b.toggle_mode = true
-		b.text = cd["name"] if k >= RaceSim.DRY_COUNT else "%s %s" % [cd["name"], _life_txt(k)]
-		b.custom_minimum_size = Vector2(0, 32)
-		b.add_theme_font_size_override("font_size", 13)
-		b.add_theme_color_override("font_color", cd["color"])
-		b.add_theme_color_override("font_pressed_color", cd["color"])
-		b.add_theme_color_override("font_hover_color", cd["color"])
-		b.add_theme_color_override("font_disabled_color", Color(cd["color"], 0.28))
-		b.button_pressed = k == selected
-		b.pressed.connect(cb.bind(k))
-		if disabled_except >= 0 and k != disabled_except:
-			b.disabled = true
-		row.add_child(b)
-		btns.append(b)
-	return {"row": row, "btns": btns}
-
-
-func _build_editor(c) -> Control:
-	var e := {"car": c, "start": c.compound, "plan": c.plan.duplicate(true), "extra": c.fuel_extra, "stop_lbls": []}
-	var card := U.card(10)
-	var box := U.vbox(8)
-	card.add_child(box)
-	var head := U.hbox(8)
-	head.add_child(U.color_bar(c.color, 6, 26))
-	head.add_child(U.label("%s" % c.driver_name, 19, U.TEXT, true))
-	head.add_child(U.spacer())
-	head.add_child(U.chip("Start P%d" % c.grid, U.PANEL3))
-	box.add_child(head)
-	var tl := StintBar.new()
-	box.add_child(tl)
-	e["timeline"] = tl
-	box.add_child(U.label("Start-Reifen", 12, U.MUTED, true))
-	var sr := _comp_row(int(e["start"]), _on_start_comp.bind(e), c.forced_start)
-	box.add_child(sr["row"])
-	e["start_buttons"] = sr["btns"]
-	if c.forced_start >= 0:
-		box.add_child(U.label("Pflicht: Start auf dem Q2-Reifen (Top 10).", 12, U.WARN))
-	var stops := U.vbox(6)
-	box.add_child(stops)
-	e["stops_box"] = stops
-	var arow := U.hbox(8)
-	arow.add_child(U.button("+ Boxenstopp", _on_add_stop.bind(e), 0, 34))
-	arow.add_child(U.button("KI-Empfehlung", _on_reset.bind(e), 0, 34))
-	box.add_child(arow)
-	# Sprit
-	box.add_child(HSeparator.new())
-	box.add_child(U.section("Tank", 12))
-	var frow := U.hbox(8)
-	var fl := U.label("Reserve beim Start (Runden)", 13)
-	fl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	frow.add_child(fl)
-	var fsp := SpinBox.new()
-	fsp.min_value = -4.0
-	fsp.max_value = 12.0 if sim.rules["refuel"] else 6.0
-	fsp.step = 0.5
-	fsp.value = float(e["extra"])
-	fsp.value_changed.connect(_on_fuel_extra.bind(e))
-	frow.add_child(fsp)
-	box.add_child(frow)
-	e["fuel_spin"] = fsp
-	var fi := U.label("", 13, U.TEXT)
-	fi.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	box.add_child(fi)
-	e["fuel_info"] = fi
-	var est := U.label("", 14, U.GOOD, true)
-	est.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	box.add_child(est)
-	e["est"] = est
-	var warn := U.label("", 12, U.BAD)
-	warn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	box.add_child(warn)
-	e["warn"] = warn
-	editors.append(e)
-	_rebuild_stops(e)
-	return card
-
-
-func _rebuild_stops(e: Dictionary) -> void:
-	var stops: VBoxContainer = e["stops_box"]
-	U.clear(stops)
-	e["stop_lbls"] = []
-	var plan: Array = e["plan"]
-	plan.sort_custom(func(a, b): return int(a["lap"]) < int(b["lap"]))
-	for i in plan.size():
-		var s: Dictionary = plan[i]
-		var sc := U.card(8, Color(1, 1, 1, 0.035))
-		var col := U.vbox(5)
-		sc.add_child(col)
-		var r1 := U.hbox(8)
-		r1.add_child(U.label("STOPP %d" % (i + 1), 13, U.MUTED, true))
-		r1.add_child(U.spacer())
-		r1.add_child(U.label("Ende Runde", 13))
-		var sp := SpinBox.new()
-		sp.min_value = 1
-		sp.max_value = maxi(1, laps - 1)
-		sp.value = int(s["lap"])
-		sp.value_changed.connect(_on_stop_lap.bind(e, s))
-		r1.add_child(sp)
-		r1.add_child(U.button("x", _on_remove.bind(e, s), 34, 32))
-		col.add_child(r1)
-		var cr := _comp_row(int(s["comp"]), _on_stop_comp.bind(e, s))
-		col.add_child(cr["row"])
-		s["_btns"] = cr["btns"]
-		if sim.rules["refuel"]:
-			var r3 := U.hbox(8)
-			var tl := U.label("Tanken: +Reserve (Runden)", 13)
-			tl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			r3.add_child(tl)
-			var fs := SpinBox.new()
-			fs.min_value = -3.0
-			fs.max_value = 12.0
-			fs.step = 0.5
-			fs.value = float(s.get("fuel", 0.0))
-			fs.value_changed.connect(_on_stop_fuel.bind(e, s))
-			r3.add_child(fs)
-			col.add_child(r3)
-			var il := U.label("", 12, U.MUTED)
-			il.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			col.add_child(il)
-			e["stop_lbls"].append({"s": s, "lbl": il})
-		stops.add_child(sc)
-	for k in RaceSim.COMPOUNDS.size():
-		e["start_buttons"][k].set_pressed_no_signal(k == int(e["start"]))
-	_apply(e)
-
-
-## Plan an die Simulation übergeben und Anzeige (Zeitleiste, Tank, Schätzung, Warnungen) aktualisieren.
-func _apply(e: Dictionary) -> void:
-	var c = e["car"]
-	var plan: Array = e["plan"]
-	var clean: Array = []
-	for s in plan:
-		clean.append({"lap": int(s["lap"]), "comp": int(s["comp"]), "fuel": float(s.get("fuel", 0.0))})
-	sim.set_fuel_extra(c, float(e["extra"]))
-	sim.set_plan(c, int(e["start"]), clean)
-	e["timeline"].set_plan(laps, int(e["start"]), clean, func(k): return sim.life_eff(k))
-	var t: float = sim.estimate_time(c, int(e["start"]), clean)
-	e["est"].text = "Geschätzte Renndauer: %s   (%d Stopp%s)" % [sim.fmt_race_time(t), plan.size(), "" if plan.size() == 1 else "s"]
-	var warns: Array = []
-	var used := {int(e["start"]): true}
-	for s in plan:
-		used[int(s["comp"])] = true
-	if int(sim.rules["min_compounds"]) >= 2 and used.size() < 2 and not sim.rain_seen:
-		warns.append("Regel: mindestens zwei verschiedene Mischungen nötig, sonst erzwingt das Team einen Zusatzstopp.")
-	# Reifen je Stint
-	var sorted: Array = clean.duplicate()
-	sorted.sort_custom(func(a, b): return int(a["lap"]) < int(b["lap"]))
-	var a := 0
-	var comp := int(e["start"])
-	var idx := 0
-	for s in sorted:
-		var len_l: int = int(s["lap"]) - a
-		var life: float = sim.life_eff(comp)
-		if float(len_l) > life * 1.1:
-			warns.append("Stint %d: %s hält nur ca. %d Runden, geplant sind %d." % [idx + 1, RaceSim.COMPOUNDS[comp]["name"], int(life), len_l])
-		a = int(s["lap"])
-		comp = int(s["comp"])
-		idx += 1
-	var last_len: int = laps - a
-	if float(last_len) > sim.life_eff(comp) * 1.1:
-		warns.append("Letzter Stint: %s hält nur ca. %d Runden, geplant sind %d." % [RaceSim.COMPOUNDS[comp]["name"], int(sim.life_eff(comp)), last_len])
-	# Sprit
-	var burn: float = sim.burn_per_lap
-	var first_stop := laps
-	if sim.rules["refuel"] and not sorted.is_empty():
-		first_stop = int(sorted[0]["lap"])
-	var f0: float = c.fuel
-	var range0: float = (f0 - 0.3) / burn
-	var pen: float = f0 * RaceSim.FUEL_TIME * sim.scale_time
-	var ftxt := "Start: %.1f kg = %.1f Runden Reichweite (Bedarf bis %s: %d). Gewicht kostet %.1f s pro Runde." % [f0, range0, "Stopp 1" if sim.rules["refuel"] and not sorted.is_empty() else "Ziel", first_stop, pen]
-	if range0 < float(first_stop):
-		ftxt += "\nZU WENIG SPRIT: Der Tank wird vor %s leer! Mit Fahrstil 'Sparen' (-6 %%) reicht es nur knapp." % ("Stopp 1" if first_stop < laps else "dem Ziel")
-		warns.append("Tank reicht nicht bis zum ersten Stopp/Ziel.")
-		e["fuel_info"].add_theme_color_override("font_color", U.BAD)
-	elif range0 < float(first_stop) + 0.8:
-		e["fuel_info"].add_theme_color_override("font_color", U.WARN)
-	else:
-		e["fuel_info"].add_theme_color_override("font_color", U.TEXT)
-	e["fuel_info"].text = ftxt
-	if sim.rules["refuel"]:
-		for entry in e["stop_lbls"]:
-			var st: Dictionary = entry["s"]
-			var nxt := laps
-			for s2 in sorted:
-				if int(s2["lap"]) > int(st["lap"]):
-					nxt = mini(nxt, int(s2["lap"]))
-			var need := nxt - int(st["lap"])
-			var kg: float = sim.fuel_for_laps(float(need) + float(st.get("fuel", 0.0)))
-			var rng_l: float = (kg - 0.3) / burn
-			var add_s: float = maxf(0.0, kg - 2.0) / 9.0 + 1.2
-			entry["lbl"].text = "Tank danach %.1f kg = %.1f Rd. (Bedarf %d)  |  Standzeit ca. %.1f s" % [kg, rng_l, need, add_s]
-			entry["lbl"].add_theme_color_override("font_color", U.BAD if rng_l < float(need) else U.MUTED)
-			if rng_l < float(need):
-				warns.append("Stopp bei Runde %d: Tank reicht nicht bis zum nächsten Stopp/Ziel." % int(st["lap"]))
-	e["warn"].text = "\n".join(warns)
-
-
-func _on_start_comp(e: Dictionary, k: int) -> void:
-	e["start"] = k
-	_rebuild_stops(e)
-
-
-func _on_stop_lap(v: float, e: Dictionary, s: Dictionary) -> void:
-	s["lap"] = int(v)
-	_apply(e)
-
-
-func _on_stop_comp(e: Dictionary, s: Dictionary, k: int) -> void:
-	s["comp"] = k
-	var btns: Array = s.get("_btns", [])
-	for i in btns.size():
-		btns[i].set_pressed_no_signal(i == k)
-	_apply(e)
-
-
-func _on_stop_fuel(v: float, e: Dictionary, s: Dictionary) -> void:
-	s["fuel"] = v
-	_apply(e)
-
-
-func _on_fuel_extra(v: float, e: Dictionary) -> void:
-	e["extra"] = v
-	_apply(e)
-
-
-func _on_remove(e: Dictionary, s: Dictionary) -> void:
-	e["plan"].erase(s)
-	_rebuild_stops(e)
-
-
-func _on_add_stop(e: Dictionary) -> void:
-	var plan: Array = e["plan"]
-	var last := 0
-	for s in plan:
-		last = maxi(last, int(s["lap"]))
-	var lap := clampi(last + int(laps / (plan.size() + 2)), 2, maxi(2, laps - 1))
-	plan.append({"lap": lap, "comp": 1, "fuel": 0.0})
-	_rebuild_stops(e)
-
-
-func _on_reset(e: Dictionary) -> void:
-	var p: Dictionary = sim.default_plan(e["car"])
-	e["start"] = p["start"]
-	e["plan"] = p["plan"].duplicate(true)
-	e["extra"] = 0.0
-	e["fuel_spin"].set_value_no_signal(0.0)
-	_rebuild_stops(e)
+	var sp = StrategyPanel.new()
+	sp.setup(sim, laps)
+	return sp
 
 
 func _on_start() -> void:

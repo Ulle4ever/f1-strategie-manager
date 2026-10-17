@@ -29,16 +29,16 @@ func _draw() -> void:
 	var w := size.x
 	var y := 12.0
 	var font := U.font(false)
-	draw_rect(Rect2(0, y - 3, w, 6), Color(1, 1, 1, 0.09))
-	draw_rect(Rect2(w * 0.5 - 1, y - 6, 2, 12), Color(1, 1, 1, 0.25))
+	draw_rect(Rect2(0, y - 3, w, 6), U.tint(0.12))
+	draw_rect(Rect2(w * 0.5 - 1, y - 6, 2, 12), U.tint(0.35))
 	var tx: float = w * (track_value * 0.5 + 0.5)
 	var cx: float = w * (car_value * 0.5 + 0.5)
 	# Passung: Verbindungslinie zwischen den Markern
 	var ok := absf(car_value - track_value) < 0.5
 	draw_line(Vector2(tx, y), Vector2(cx, y), U.GOOD if ok else U.BAD, 3.0)
-	draw_colored_polygon(PackedVector2Array([Vector2(tx, y - 7), Vector2(tx + 6, y), Vector2(tx, y + 7), Vector2(tx - 6, y)]), Color.WHITE)
+	draw_colored_polygon(PackedVector2Array([Vector2(tx, y - 7), Vector2(tx + 6, y), Vector2(tx, y + 7), Vector2(tx - 6, y)]), U.TEXT)
 	draw_circle(Vector2(cx, y), 6.0, car_color)
-	draw_arc(Vector2(cx, y), 6.0, 0.0, TAU, 20, Color(0, 0, 0, 0.7), 1.5)
-	draw_string(font, Vector2(0, 31), left_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(1, 1, 1, 0.5))
+	draw_arc(Vector2(cx, y), 6.0, 0.0, TAU, 20, Color.WHITE, 1.5)
+	draw_string(font, Vector2(0, 31), left_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, U.MUTED)
 	var rw := font.get_string_size(right_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
-	draw_string(font, Vector2(w - rw, 31), right_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(1, 1, 1, 0.5))
+	draw_string(font, Vector2(w - rw, 31), right_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, U.MUTED)

@@ -29,7 +29,7 @@ func _draw() -> void:
 	_rank = sim.ranking()
 	var leader = _rank[0]
 	# Kopf
-	draw_rect(Rect2(0, 0, size.x, 26), Color(0, 0, 0, 0.35))
+	draw_rect(Rect2(0, 0, size.x, 26), U.tint(0.07))
 	draw_string(fb, Vector2(10, 18), "POS", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, U.MUTED)
 	draw_string(fb, Vector2(66, 18), "FAHRER", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, U.MUTED)
 	draw_string(fb, Vector2(138, 18), "ABSTAND", HORIZONTAL_ALIGNMENT_RIGHT, 78, 12, U.MUTED)
@@ -43,19 +43,19 @@ func _draw() -> void:
 		if _last_rank.has(c.index) and _last_rank[c.index] != i and not out:
 			_flash[c.index] = [signi(_last_rank[c.index] - i), now + 4.0]
 		_last_rank[c.index] = i
-		var bg := Color(1, 1, 1, 0.045) if i % 2 == 0 else Color(1, 1, 1, 0.02)
+		var bg := U.tint(0.045) if i % 2 == 0 else U.tint(0.02)
 		draw_rect(Rect2(0, y, size.x, ROW_H - 2), bg)
 		if c.is_player:
 			draw_rect(Rect2(0, y, size.x, ROW_H - 2), Color(U.WARN, 0.14))
 			draw_rect(Rect2(0, y, 3, ROW_H - 2), U.WARN)
 		if c == selected:
-			draw_rect(Rect2(0, y, size.x, ROW_H - 2), Color(1, 1, 1, 0.10))
-			draw_rect(Rect2(size.x - 3, y, 3, ROW_H - 2), Color.WHITE)
+			draw_rect(Rect2(0, y, size.x, ROW_H - 2), U.tint(0.10))
+			draw_rect(Rect2(size.x - 3, y, 3, ROW_H - 2), U.ACCENT)
 		var dim := 0.45 if out else 1.0
 		# Positionsfeld
-		var pc := Color.WHITE if i > 0 else U.WARN
+		var pc := Color("dfe4ee") if i > 0 else Color("ffd24a")
 		draw_rect(Rect2(8, y + 3, 28, ROW_H - 8), Color(pc, dim))
-		draw_string(fb, Vector2(8, y + 20), str(i + 1), HORIZONTAL_ALIGNMENT_CENTER, 28, 16, Color(0.05, 0.05, 0.08))
+		draw_string(fb, Vector2(8, y + 20), str(i + 1), HORIZONTAL_ALIGNMENT_CENTER, 28, 16, U.TEXT)
 		# Teamfarbe + Kürzel
 		draw_rect(Rect2(41, y + 3, 5, ROW_H - 8), Color(c.color, dim))
 		draw_string(fb, Vector2(52, y + 20), c.code, HORIZONTAL_ALIGNMENT_LEFT, -1, 17, Color(U.TEXT, dim) if not c.is_player else U.WARN)
@@ -91,6 +91,7 @@ func _draw() -> void:
 		if not out:
 			var cd: Dictionary = RaceSim.COMPOUNDS[c.compound]
 			draw_circle(Vector2(296, y + 14), 8.5, cd["color"])
+			draw_arc(Vector2(296, y + 14), 8.5, 0.0, TAU, 20, U.tint(0.45), 1.2)
 			draw_circle(Vector2(296, y + 14), 5.0, Color(0.06, 0.07, 0.1))
 			draw_string(fb, Vector2(290, y + 19), cd["short"], HORIZONTAL_ALIGNMENT_LEFT, -1, 11, cd["color"])
 			draw_string(f, Vector2(310, y + 19), "%d" % c.tyre_age_laps, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(U.TEXT, dim))

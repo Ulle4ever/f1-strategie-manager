@@ -14,6 +14,7 @@ const LineupScreen = preload("res://scripts/screen_lineup.gd")
 const PracticeScreen = preload("res://scripts/screen_practice.gd")
 
 var current: Node = null
+var _theme: Theme = null
 
 # Wisch-Scrollen am Handy: Wisch auf Knöpfen und Karten scrollt die darunterliegende Liste (mit Schwung).
 # Es wird die innerste Liste gewählt, die in Wischrichtung noch scrollen kann (sonst die äußere); Bruchteile von Pixeln gehen nicht verloren.
@@ -31,7 +32,8 @@ var rotate_hint: CanvasLayer
 
 
 func _ready() -> void:
-	get_window().theme = U.make_theme()
+	_theme = U.make_theme()
+	get_window().theme = _theme
 	RenderingServer.set_default_clear_color(U.BG0)
 	if U.is_mobile():
 		apply_scale()
@@ -214,6 +216,7 @@ func _switch(node: Control) -> void:
 	if current != null:
 		current.queue_free()
 	current = node
+	node.theme = _theme    # main ist ein Node: das Fenster-Theme würde sonst nicht an die Bildschirme vererbt
 	node.set("main", self)
 	node.modulate.a = 0.0
 	add_child(node)

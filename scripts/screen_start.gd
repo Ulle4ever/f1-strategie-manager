@@ -2,6 +2,8 @@ extends Control
 ## Startbildschirm: Saison (2000-2026) wählen, Team als Karte auswählen, Spielstand laden.
 
 const U = preload("res://scripts/ui.gd")
+const TeamStyle = preload("res://scripts/team_style.gd")
+const TeamCrest = preload("res://scripts/team_crest.gd")
 
 var main
 var year_option: OptionButton
@@ -107,26 +109,23 @@ func _on_year(_i: int) -> void:
 		b.toggle_mode = true
 		b.custom_minimum_size = Vector2(0, 62 if U.is_mobile() else 82)
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var col: Color = t["color"]
-		b.add_theme_stylebox_override("normal", U.button_style(U.PANEL2, col, 10))
-		b.add_theme_stylebox_override("hover", U.button_style(U.PANEL3, col, 14))
-		var pressed := U.button_style(Color("2c1315"), col, 14)
-		pressed.border_width_top = 2
-		pressed.border_width_right = 2
-		pressed.border_width_bottom = 2
-		pressed.border_color = col
+		var col: Color = TeamStyle.ui_color(t["id"])
+		b.add_theme_stylebox_override("normal", U.button_style(Color.WHITE.lerp(col, 0.07), Color(col, 0.55), 1))
+		b.add_theme_stylebox_override("hover", U.button_style(Color.WHITE.lerp(col, 0.14), col, 2))
+		var pressed := U.button_style(Color.WHITE.lerp(col, 0.22), col, 2)
 		b.add_theme_stylebox_override("pressed", pressed)
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 14)
 		U.fill(row)
-		row.offset_left = 28
+		row.offset_left = 14
 		row.offset_right = -12
 		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var rk := U.label(str(rank), 26 if U.is_mobile() else 34, Color(1, 1, 1, 0.22), true)
-		rk.custom_minimum_size = Vector2(34 if U.is_mobile() else 46, 0)
+		var rk := U.label(str(rank), 22 if U.is_mobile() else 28, U.tint(0.28), true)
+		rk.custom_minimum_size = Vector2(30 if U.is_mobile() else 38, 0)
 		rk.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		rk.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		row.add_child(rk)
+		row.add_child(TeamCrest.make(t["id"], 40.0 if U.is_mobile() else 54.0))
 		var info := VBoxContainer.new()
 		info.add_theme_constant_override("separation", 0)
 		info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -148,7 +147,7 @@ func _on_year(_i: int) -> void:
 		bar.show_percentage = false
 		bar.max_value = 100.0
 		bar.value = 8.0 + 92.0 * (float(t["pace"]) - worst) / maxf(best - worst, 0.0001)
-		var fillbox := U.button_style(col, col, 0, 2)
+		var fillbox := U.button_style(col, col, 0, 5)
 		bar.add_theme_stylebox_override("fill", fillbox)
 		bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		row.add_child(bar)
