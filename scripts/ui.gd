@@ -130,6 +130,30 @@ static func button_style(bg: Color, edge: Color, left := 4, radius := RADIUS) ->
 	return sb
 
 
+## Reiter-Stile mit einstellbarem seitlichem Abstand (für schmale Bereiche mit vielen Reitern).
+static func tab_style(kind: String, pad := 8) -> StyleBoxFlat:
+	var sb: StyleBoxFlat
+	match kind:
+		"selected":
+			sb = _box(Color.WHITE, 9, Color(ACCENT, 0.9), 1)
+		"hover":
+			sb = _box(Color(0.94, 0.96, 0.99), 9, Color(0.08, 0.12, 0.25, 0.16), 1)
+		_:
+			sb = _box(Color(0.88, 0.91, 0.96, 0.95), 9, Color(0.08, 0.12, 0.25, 0.08), 1)
+	sb.content_margin_left = pad
+	sb.content_margin_right = pad
+	sb.content_margin_top = 6
+	sb.content_margin_bottom = 6
+	return sb
+
+
+static func compact_tabs(tc: TabContainer, pad := 8, font_size := 14) -> void:
+	tc.add_theme_stylebox_override("tab_selected", tab_style("selected", pad))
+	tc.add_theme_stylebox_override("tab_unselected", tab_style("unselected", pad))
+	tc.add_theme_stylebox_override("tab_hovered", tab_style("hover", pad))
+	tc.add_theme_font_size_override("font_size", font_size)
+
+
 static func make_theme() -> Theme:
 	var th := Theme.new()
 	th.default_font = font(false)

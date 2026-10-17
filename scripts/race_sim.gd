@@ -206,6 +206,8 @@ var sc_count := 0
 var pass_total := 0           # Überholmanöver auf der Strecke (ohne Boxen)
 var pass_first_lap := 0
 var vis_frac := 1.0           # Darstellung: Bruchteil des letzten Zeitschritts (für flüssige Bewegung)
+var status_serial := 0          # zählt Safety-Car-/VSC-Phasen (für Entscheidungskarten)
+var sc_marks: Array = []      # [{"lap", "end", "kind"}] Safety-Car-/VSC-Phasen für die Zeitleiste
 var tyre_inv := {}            # Auto-Index -> Reifensätze [{"comp", "used" (Runden), "raced"}]
 var crew_form := 0.0          # Form der Boxencrew des Spielers 0..1 (Stopp-Training)
 var _src := {}                # Eingaben von setup() für Vorschau-Läufe
@@ -1621,15 +1623,21 @@ func _retire(c: RaceCar, reason: String) -> void:
 			status = Status.SC
 			status_laps_left = rng.randi_range(3, 5)
 			sc_count += 1
+			status_serial += 1
+			sc_marks.append({"lap": leader_lap(), "end": leader_lap() + status_laps_left, "kind": 2})
 			make_log("sc", "SAFETY CAR!")
 		elif r < p_sc:
 			status = Status.VSC
 			status_laps_left = 2
+			status_serial += 1
+			sc_marks.append({"lap": leader_lap(), "end": leader_lap() + 2, "kind": 1})
 			make_log("sc", "Virtual Safety Car")
 
 
 func _update_status() -> void:
 	if status != Status.GREEN and status_laps_left <= 0:
+		if not sc_marks.is_empty():
+			sc_marks[sc_marks.size() - 1]["end"] = leader_lap()
 		if status == Status.SC:
 			make_log("sc", "Safety Car kommt in die Box - Restart!")
 		else:
@@ -2015,6 +2023,109 @@ func stint_segments(c: RaceCar, cur: int) -> Array:
 		comp = int(s["comp"])
 	segs.append({"a": a, "b": laps, "comp": comp, "life": life_eff(comp)})
 	return segs
+
+
+## Geschätzte Lage eines Gegners für das Gegner-Radar: Reifenrest, Stopp-Erwartung, Gefahr.
+## {"rest" (0..1), "laps_left", "stop_lap" (-1 = bis Ziel), "text", "threat" (Undercut-Gefahr für c), "threat_margin"}
+func rival_outlook(r: RaceCar, c: RaceCar) -> Dictionary:
+	var fl := leader_lap()
+	var remaining := laps - fl
+	var life := life_eff(r.compound)
+	var rate := maxf(wear_rate_now(r), 0.2)
+	var laps_left := maxf(0.0, (life - r.tyre_wear) / rate)
+	var rest := clampf(1.0 - r.tyre_wear / life, 0.0, 1.0)
+	var res := {"rest": rest, "laps_left": laps_left, "stop_lap": -1, "text": "", "threat": false, "threat_margin": -9.0}
+	if r.state == State.PIT:
+		res["text"] = "in der Box"
+		return res
+	if r.compound >= DRY_COUNT:
+		res["text"] = "Regenreifen"
+	elif laps_left >= float(remaining) + 0.5:
+		res["text"] = "kommt wohl ohne Stopp ins Ziel"
+	else:
+		var sl: int = fl + maxi(1, int(laps_left * 0.8))
+		res["stop_lap"] = sl
+		res["text"] = "Stopp um Runde %d erwartet" % sl
+	# Gefahr: Gegner direkt hinter c mit Undercut-Potenzial
+	if r != c and r.state == State.RACING and c.state == State.RACING and r.dist < c.dist and r.gap_ahead < 4.0 and car_behind(c) == r and remaining > 6:
+		var comp := _choose_comp(r, remaining)
+		var adv := tyre_loss(c) - fresh_loss(comp)
+		var margin := 2.0 * adv - r.gap_ahead - 0.8
+		res["threat_margin"] = margin
+		res["threat"] = margin > 0.0
+	return res
+
+
+## Entscheidungskarte für ein Spielerauto: {"key", "kind", "level", "title", "text", "options": [{"label", "action", "hint"}]} oder leer.
+## Aktionen: "pit:<Mischung>", "later:<Runden>:<Mischung>", "stay".
+func decision_for(c: RaceCar) -> Dictionary:
+	if c.state != State.RACING or c.pit_requested or not started:
+		return {}
+	var fl := leader_lap()
+	var remaining := laps - fl
+	if remaining < 5:
+		return {}
+	var life := life_eff(c.compound)
+	var fr := c.tyre_wear / life
+	var base := "%d|%d" % [c.index, c.pit_stops]
+	var comp := suggest_comp(c)
+	var cname: String = COMPOUNDS[comp]["name"]
+	# 1) Safety Car / VSC
+	if status != Status.GREEN and fr > 0.3 and remaining > 6:
+		var rj := rejoin_info(c)
+		var normal: float = track.pit_loss * float(rules["pit_loss_scale"])
+		var ahead_txt := ""
+		if rj["ahead"] != null:
+			ahead_txt = " hinter %s" % rj["ahead"].code
+		return {"key": "%s|sc|%d" % [base, status_serial], "kind": "sc", "level": "warn",
+			"title": "%s: Stopp jetzt günstig?" % ("Safety Car" if status == Status.SC else "Virtuelles Safety Car"),
+			"text": "Reifen zu %d %% verbraucht." % int(fr * 100.0),
+			"options": [
+				{"label": "Stopp: %s" % cname, "action": "pit:%d" % comp, "hint": "Verlust nur %.0f s statt %.0f s, Rückkehr P%d%s" % [pit_cost_now(), normal, int(rj["pos"]), ahead_txt]},
+				{"label": "Draußen bleiben", "action": "stay", "hint": "Später kostet der Stopp %.0f s, Reifen halten noch ca. %d Rd." % [normal, int(maxf(0.0, (life - c.tyre_wear) / maxf(wear_rate_now(c), 0.2)))]},
+			]}
+	# 2) Nässe: falsche Reifen
+	var rc := recommended_compound()
+	if rc >= 0 and c.compound != rc:
+		var rn: String = COMPOUNDS[rc]["name"]
+		return {"key": "%s|wet|%d" % [base, int(wet * 4.0)], "kind": "rain", "level": "bad",
+			"title": "Falsche Reifen für die Nässe",
+			"text": "Streckennässe %d %%: %s wäre jetzt richtig." % [int(wet * 100.0), rn],
+			"options": [
+				{"label": "Wechsel auf %s" % rn, "action": "pit:%d" % rc, "hint": "Mit den jetzigen Reifen verlierst du ca. %.0f s pro Runde" % maxf(0.0, wet_penalty(c.compound) - wet_penalty(rc))},
+				{"label": "Noch warten", "action": "stay", "hint": "Risiko: Zeitverlust und Ausrutscher"},
+			]}
+	# 3) Regen im Anmarsch (Wette)
+	var rd := rain_radar()
+	if float(rd["eta"]) > 0.0 and float(rd["eta"]) < 7.0 and c.compound < DRY_COUNT and float(rd["prob"]) > 0.6 and wet < 0.1:
+		return {"key": "%s|radar|%d" % [base, int(float(rd["eta"]) / 3.0)], "kind": "rain", "level": "warn",
+			"title": "Regen in ca. %d min" % int(rd["eta"]),
+			"text": "Wahrscheinlichkeit %d %%. Fehlalarme sind möglich." % int(float(rd["prob"]) * 100.0),
+			"options": [
+				{"label": "Wette: auf Inter", "action": "pit:3", "hint": "Gewinn, wenn es regnet; Verlust bei Fehlalarm"},
+				{"label": "Abwarten", "action": "stay", "hint": "Sicher, aber ein späterer Stopp kostet Zeit"},
+			]}
+	# 4) Reifen am Ende
+	if fr > 0.92 and c.compound < DRY_COUNT:
+		return {"key": "%s|tyre" % base, "kind": "tyre", "level": "bad",
+			"title": "Reifen am Ende",
+			"text": "%d %% verbraucht, Rundenzeit bricht ein (%.1f s pro Runde Verlust)." % [int(fr * 100.0), tyre_loss(c)],
+			"options": [
+				{"label": "Stopp: %s" % cname, "action": "pit:%d" % comp, "hint": "Frische Reifen bringen ca. %.1f s pro Runde" % (tyre_loss(c) - fresh_loss(comp))},
+				{"label": "Noch 3 Runden", "action": "later:3:%d" % comp, "hint": "Kostet ca. %.0f s Rundenzeit, falls kein Safety Car kommt" % (tyre_loss(c) * 3.0)},
+			]}
+	# 5) Undercut-Gefahr
+	var th := threat_info(c)
+	if bool(th["has"]) and float(th["margin"]) > 0.3 and fr > 0.4 and status == Status.GREEN and remaining > 8:
+		var bc: RaceCar = th["car"]
+		return {"key": "%s|thr|%s|%d" % [base, bc.code, fl / 6], "kind": "threat", "level": "warn",
+			"title": "%s droht mit Undercut" % bc.code,
+			"text": "%.1f s hinter dir, mit frischen Reifen holt er ca. %+.1f s." % [float(th["gap"]), float(th["margin"])],
+			"options": [
+				{"label": "Konter-Stopp: %s" % cname, "action": "pit:%d" % comp, "hint": "Du bleibst vor ihm, wenn die Box frei ist"},
+				{"label": "Position halten", "action": "stay", "hint": "Er kann bei seinem Stopp vorbeiziehen"},
+			]}
+	return {}
 
 
 ## Taktik-Empfehlungen für ein Spielerauto: [{"level": bad|warn|good|info, "title", "text", "action", "label"}], wichtigste zuerst.

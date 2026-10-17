@@ -81,6 +81,22 @@ var sc_label: Label
 var radar_label: Label
 var double_btn: Button
 var stint_bar
+var quick_box: Button
+var quick_buttons: Array = []
+var quick_plan: Button
+var quick_info: Label
+var decision_layer: Control
+var decision_card: PanelContainer
+var decision_box: VBoxContainer
+var decision_data: Dictionary = {}
+var decision_car = null
+var decision_seen := {}
+var _dec_check_t := 0.0
+var ov_info: Label
+var ov_bars: Dictionary = {}
+var ov_radar_box: VBoxContainer
+var ov_radar_key := ""
+var _ov_last := 0
 var radio_buttons: Array = []
 var radio_label: Label
 var rule_checks: Dictionary = {}
@@ -149,6 +165,8 @@ func _ready() -> void:
 	tv.sim = sim
 	mp.add_child(tv)
 	center.add_child(mp)
+	center.add_child(_build_quick_bar())
+	_build_decision_layer(null if M else mp)   # Handy: Karte über dem ganzen Bildschirm (sichtbar auf jedem Reiter)
 	var lp := U.panel(8)
 	lp.custom_minimum_size = Vector2(0, 62 if M else 150)
 	log_label = RichTextLabel.new()
@@ -292,6 +310,325 @@ func _build_top() -> Control:
 	return p
 
 
+# ------------------------------------------------------------------ Schnellleiste
+
+func _action_car():
+	if selected != null and selected.is_player:
+		return selected
+	for c in sim.cars:
+		if c.is_player:
+			return c
+	return null
+
+
+func _build_quick_bar() -> Control:
+	var M := U.is_mobile()
+	var p := U.panel(5)
+	var h := U.hbox(4)
+	p.add_child(h)
+	quick_box = U.primary_button("BOX", _on_quick_box, 0, 38 if M else 42)
+	quick_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	quick_box.size_flags_stretch_ratio = 2.2
+	quick_box.add_theme_font_size_override("font_size", 14 if M else 17)
+	h.add_child(quick_box)
+	var defs := [["push", "Push"], ["manage", "Schonen"], ["lico", "Sparen"]]
+	for d in defs:
+		var b := Button.new()
+		b.toggle_mode = true
+		b.text = d[1]
+		b.custom_minimum_size = Vector2(0, 38 if M else 42)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.add_theme_font_size_override("font_size", 13 if M else 15)
+		b.pressed.connect(_on_quick_radio.bind(str(d[0])))
+		h.add_child(b)
+		quick_buttons.append({"btn": b, "kind": str(d[0])})
+	quick_plan = U.button("Plan", _on_quick_plan, 0, 38 if M else 42)
+	quick_plan.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	quick_plan.add_theme_font_size_override("font_size", 13 if M else 15)
+	h.add_child(quick_plan)
+	return p
+
+
+func _on_quick_box() -> void:
+	var c = _action_car()
+	if c == null or c.state != 1:
+		return
+	if c.pit_requested:
+		sim.cancel_pit(c)
+		_radio("Funk an %s: Stopp zurückgenommen." % c.code)
+		return
+	var comp: int = sim.suggest_comp(c)
+	sim.request_pit(c, comp)
+	_radio("Funk an %s: Box, Box! Reifen: %s" % [c.code, RaceSim.COMPOUNDS[comp]["name"]])
+	_banner_msg("Box diese Runde: %s" % RaceSim.COMPOUNDS[comp]["name"], 2.0, U.GOOD)
+
+
+func _on_quick_radio(kind: String) -> void:
+	var c = _action_car()
+	if c == null or c.state != 1:
+		return
+	# erneutes Tippen auf den aktiven Modus beendet ihn
+	if c.radio_kind == kind:
+		sim.radio_order(c, "normal")
+	else:
+		sim.radio_order(c, kind)
+
+
+func _open_pit_tab() -> void:
+	if U.is_mobile() and race_main_tabs != null:
+		race_main_tabs.current_tab = 2
+	for i in race_tabs.get_tab_count():
+		if race_tabs.get_tab_title(i) == "Boxen":
+			race_tabs.current_tab = i
+
+
+func _on_quick_plan() -> void:
+	_open_pit_tab()
+
+
+func _update_quick() -> void:
+	var c = _action_car()
+	if c == null:
+		return
+	var racing: bool = c.state == 1
+	if c.pit_requested:
+		quick_box.text = "BOX ANGEFORDERT (zurücknehmen)"
+	elif c.state == 2:
+		quick_box.text = "IN DER BOX"
+	else:
+		quick_box.text = "BOX: %s" % RaceSim.COMPOUNDS[sim.suggest_comp(c)]["name"] if racing else "BOX"
+	quick_box.disabled = not racing and not c.pit_requested
+	for q in quick_buttons:
+		q["btn"].set_pressed_no_signal(c.radio_kind == q["kind"])
+		q["btn"].disabled = not racing
+	var nxt := -1
+	for s in c.plan:
+		if int(s["lap"]) > c.floor_laps and (nxt < 0 or int(s["lap"]) < nxt):
+			nxt = int(s["lap"])
+	quick_plan.text = ("Plan: R%d" % nxt) if nxt > 0 else "Plan"
+
+
+# ------------------------------------------------------------------ Entscheidungskarten
+
+func _build_decision_layer(parent: Control) -> void:
+	decision_layer = Control.new()
+	U.fill(decision_layer)
+	decision_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if parent != null:
+		parent.add_child(decision_layer)
+	else:
+		add_child(decision_layer)
+	decision_card = U.panel(10, U.WARN)
+	decision_card.visible = false
+	decision_card.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	decision_card.custom_minimum_size = Vector2(300.0 if U.is_mobile() else 380.0, 0)
+	decision_box = U.vbox(5)
+	decision_card.add_child(decision_box)
+	decision_layer.add_child(decision_card)
+
+
+## Karte unten mittig über der Kartenfläche platzieren (Höhe richtet sich nach dem Inhalt).
+func _place_decision() -> void:
+	if not decision_card.visible:
+		return
+	var cw: float = decision_card.custom_minimum_size.x
+	decision_card.size = Vector2(cw, 0)
+	var par := decision_layer.size
+	if U.is_mobile():
+		decision_card.position = Vector2((par.x - cw) * 0.5, maxf(4.0, (par.y - decision_card.size.y) * 0.5 + 18.0))
+	else:
+		decision_card.position = Vector2((par.x - cw) * 0.5, maxf(4.0, par.y - decision_card.size.y - 56.0))
+
+
+func _hide_decision() -> void:
+	decision_card.visible = false
+	decision_data = {}
+	decision_car = null
+
+
+func _show_decision(c, d: Dictionary) -> void:
+	decision_data = d
+	decision_car = c
+	decision_seen[d["key"]] = true
+	U.clear(decision_box)
+	var col := {"bad": U.BAD, "warn": U.WARN, "good": U.GOOD, "info": U.BLUE}[d["level"]] as Color
+	var head := U.hbox(6)
+	head.add_child(U.color_bar(col, 5, 20))
+	var tl := U.label("%s  |  %s" % [c.code, d["title"]], 15, col, true)
+	tl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	head.add_child(tl)
+	decision_box.add_child(head)
+	decision_box.add_child(_wrap_label(str(d["text"]), 12, U.TEXT))
+	for o in d["options"]:
+		var b := U.button(str(o["label"]), _on_decision.bind(str(o["action"])), 0, 36)
+		b.add_theme_font_size_override("font_size", 14)
+		if str(o["action"]).begins_with("pit") or str(o["action"]).begins_with("later"):
+			b.add_theme_stylebox_override("normal", U.button_style(Color(col, 0.14), col, 1))
+		decision_box.add_child(b)
+		decision_box.add_child(_wrap_label(str(o["hint"]), 11, U.MUTED))
+	decision_card.visible = true
+	_place_decision.call_deferred()
+	get_tree().create_timer(0.06).timeout.connect(_place_decision)
+	get_tree().create_timer(0.3).timeout.connect(_place_decision)
+	if auto_slow and speed_idx > 2:
+		_set_speed(2)
+
+
+func _on_decision(action: String) -> void:
+	var c = decision_car
+	if c != null and c.is_player and c.state == 1:
+		var parts := action.split(":")
+		match parts[0]:
+			"pit":
+				var comp := int(parts[1])
+				sim.request_pit(c, comp)
+				_radio("Funk an %s: Box, Box! Reifen: %s" % [c.code, RaceSim.COMPOUNDS[comp]["name"]])
+				_banner_msg("Box diese Runde: %s" % RaceSim.COMPOUNDS[comp]["name"], 2.0, U.GOOD)
+			"later":
+				var n := int(parts[1])
+				var comp2 := int(parts[2])
+				var lap: int = c.floor_laps + 1 + n
+				if lap < sim.laps:
+					sim.schedule_pit(c, lap, comp2)
+					_radio("Funk an %s: Stopp für Ende Runde %d eingeplant (%s)." % [c.code, lap, RaceSim.COMPOUNDS[comp2]["name"]])
+					_plan_key = "x"
+	_hide_decision()
+
+
+## Prüft (ein paar Mal pro Sekunde), ob eine Entscheidungskarte angezeigt werden soll oder nicht mehr gilt.
+func _check_decisions(delta: float) -> void:
+	_dec_check_t += delta
+	if _dec_check_t < 0.4:
+		return
+	_dec_check_t = 0.0
+	if sim == null or not sim.started or sim.over:
+		if decision_card.visible:
+			_hide_decision()
+		return
+	if decision_card.visible:
+		var cur: Dictionary = sim.decision_for(decision_car) if decision_car != null else {}
+		if cur.is_empty() or str(cur["key"]) != str(decision_data["key"]):
+			_hide_decision()
+		return
+	if lights_phase != 2:
+		return
+	for c in sim.cars:
+		if not c.is_player:
+			continue
+		var d: Dictionary = sim.decision_for(c)
+		if not d.is_empty() and not decision_seen.has(d["key"]):
+			_show_decision(c, d)
+			return
+
+
+# ------------------------------------------------------------------ Reiter Lage: Rennplan und Gegner-Radar
+
+func _build_overview_tab() -> Control:
+	var t := _scroll_tab("Lage")
+	var v: VBoxContainer = t[1]
+	v.add_child(U.section("Rennplan", 12))
+	ov_info = _wrap_label("", 13, U.TEXT, true)
+	v.add_child(ov_info)
+	for c in sim.cars:
+		if c.is_player:
+			var row := U.vbox(2)
+			var lb := U.hbox(6)
+			lb.add_child(U.color_bar(c.color, 5, 16))
+			lb.add_child(U.label("%s" % c.driver_name, 13, U.TEXT, true))
+			row.add_child(lb)
+			var bar = StintBar.new()
+			bar.make_interactive()
+			bar.stop_clicked.connect(_on_bar_stop.bind(c))
+			row.add_child(bar)
+			v.add_child(row)
+			ov_bars[c.index] = bar
+	v.add_child(_wrap_label("Tipp auf eine Stopp-Marke öffnet die Änderung. Blau: erwarteter Regen, gelb: Safety Car.", 11, U.MUTED))
+	v.add_child(U.section("Gegner-Radar", 12))
+	ov_radar_box = U.vbox(3)
+	v.add_child(ov_radar_box)
+	return t[0]
+
+
+func _on_bar_stop(lap: int, c) -> void:
+	_select(c)
+	for s in c.plan:
+		if int(s["lap"]) == lap:
+			_on_edit_plan(lap, int(s["comp"]))
+			_open_pit_tab()
+			return
+
+
+func _update_overview() -> void:
+	var c = selected if selected != null else _action_car()
+	if c == null:
+		return
+	var rain: Array = []
+	var fr: Dictionary = sim.forecast_report(16)
+	for b in fr.get("bins", []):
+		rain.append({"lap0": int(b["lap0"]), "lap1": int(b["lap1"]), "i": float(b["i"])})
+	for pc in sim.cars:
+		if pc.is_player and ov_bars.has(pc.index):
+			var bar = ov_bars[pc.index]
+			bar.laps = sim.laps
+			bar.segments = sim.stint_segments(pc, pc.floor_laps)
+			bar.set_cur_lap(pc.floor_laps)
+			bar.set_extras(rain, sim.sc_marks)
+			bar.queue_redraw()
+	var rk: Array = sim.ranking()
+	var pos := rk.find(c)
+	var txt := "%s: P%d" % [c.code, pos + 1]
+	if c.state == 1:
+		var nxt := -1
+		for s in c.plan:
+			if int(s["lap"]) > c.floor_laps and (nxt < 0 or int(s["lap"]) < nxt):
+				nxt = int(s["lap"])
+		txt += "  |  Reifen %s, %d Rd. alt" % [RaceSim.COMPOUNDS[c.compound]["name"], c.tyre_age_laps]
+		txt += ("  |  nächster Stopp: Ende R%d" % nxt) if nxt > 0 else "  |  kein Stopp geplant"
+	ov_info.text = txt
+	# Gegner-Radar: Autos rund um die eigene Position
+	var rows: Array = []
+	for i in range(maxi(0, pos - 4), mini(rk.size(), pos + 5)):
+		var r = rk[i]
+		if r == c or r.state == 3 or r.state == 4:
+			continue
+		var o: Dictionary = sim.rival_outlook(r, c)
+		rows.append({"r": r, "o": o, "rank": i + 1})
+	var key := ""
+	for e in rows:
+		var rr = e["r"]
+		key += "%s|%d|%d|%s|%d;" % [rr.code, rr.compound, rr.tyre_age_laps, str(e["o"]["stop_lap"]), int(absf(rr.gap_leader - c.gap_leader) * 2.0)]
+	if key == ov_radar_key:
+		return
+	ov_radar_key = key
+	U.clear(ov_radar_box)
+	if rows.is_empty():
+		ov_radar_box.add_child(_wrap_label("Keine Gegner in der Nähe.", 12, U.MUTED))
+		return
+	for e in rows:
+		var r = e["r"]
+		var o: Dictionary = e["o"]
+		var card := U.card(6, Color(U.BAD, 0.08) if bool(o["threat"]) else U.tint(0.035), Color(U.BAD, 0.5) if bool(o["threat"]) else U.tint(0.08))
+		var h := U.hbox(6)
+		card.add_child(h)
+		var rl := U.label("P%d" % int(e["rank"]), 13, U.MUTED, true)
+		rl.custom_minimum_size = Vector2(30, 0)
+		h.add_child(rl)
+		h.add_child(U.color_bar(r.color, 5, 28))
+		var mid := U.vbox(0)
+		mid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var gap: float = r.gap_leader - c.gap_leader
+		var gtxt := ("%.1f s vor dir" % -gap) if gap < 0.0 else ("%.1f s hinter dir" % gap)
+		mid.add_child(U.label("%s   %s" % [r.code, gtxt], 14, U.TEXT, true))
+		var cd: Dictionary = RaceSim.COMPOUNDS[r.compound]
+		var sub := _wrap_label("%s %d Rd.  |  %d %% Rest  |  %s" % [cd["name"], r.tyre_age_laps, int(float(o["rest"]) * 100.0), o["text"]], 11, U.MUTED)
+		mid.add_child(sub)
+		h.add_child(mid)
+		if bool(o["threat"]):
+			h.add_child(U.chip("UNDERCUT", U.BAD, Color.WHITE))
+		ov_radar_box.add_child(card)
+
+
 func _scroll_tab(tab_name: String) -> Array:
 	var sc := ScrollContainer.new()
 	sc.name = tab_name
@@ -334,9 +671,9 @@ func _build_control_panel() -> Control:
 	th.add_child(car_sub)
 	race_tabs = TabContainer.new()
 	race_tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	if U.is_mobile():
-		race_tabs.add_theme_font_size_override("font_size", 14)
+	U.compact_tabs(race_tabs, 8, 14)
 	v.add_child(race_tabs)
+	race_tabs.add_child(_build_overview_tab())
 	race_tabs.add_child(_build_car_tab())
 	race_tabs.add_child(_build_pit_tab())
 	race_tabs.add_child(_build_tactics_tab())
@@ -1216,6 +1553,8 @@ func _lights_out() -> void:
 func _process(delta: float) -> void:
 	if sim == null:
 		return
+	if decision_card != null:
+		_check_decisions(delta)
 	if banner_t > 0.0:
 		banner_t -= delta
 		if banner_t < 0.6:
@@ -1433,3 +1772,8 @@ func _update_ui() -> void:
 	_update_car_pit(c)
 	_update_tactics()
 	weather_panel.refresh(sim)
+	_update_quick()
+	var now_ms := Time.get_ticks_msec()
+	if now_ms - _ov_last > 500:
+		_ov_last = now_ms
+		_update_overview()

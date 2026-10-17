@@ -5,7 +5,13 @@ extends Control
 const U = preload("res://scripts/ui.gd")
 const RaceSim = preload("res://scripts/race_sim.gd")
 
+signal stop_clicked(lap: int)
+
 var laps := 50
+var interactive := false
+var rain_bins: Array = []       # [{"lap0", "lap1", "i"}]  erwarteter Regen
+var sc_marks: Array = []        # [{"lap", "end", "kind"}]
+var _stop_xs: Array = []        # [{"x", "lap"}] für Antippen
 var segments: Array = []      # [{"a": Start (Runde, 0-basiert), "b": Ende, "comp": Mischung, "life": Haltbarkeit in Runden}]
 var cur_lap := 0              # 0 = kein Marker
 var show_axis := true
@@ -33,6 +39,35 @@ func set_plan(p_laps: int, start_comp: int, plan: Array, life_fn: Callable) -> v
 	queue_redraw()
 
 
+## Zusatzstreifen unter der Zeitleiste (Regenprognose, Safety Car).
+func set_extras(rain: Array, sc: Array) -> void:
+	var has := not rain.is_empty() or not sc.is_empty()
+	var key := str(rain) + str(sc)
+	if key == str(rain_bins) + str(sc_marks):
+		return
+	rain_bins = rain
+	sc_marks = sc
+	custom_minimum_size.y = 68.0 if has else 54.0
+	queue_redraw()
+
+
+func make_interactive() -> void:
+	interactive = true
+	mouse_filter = Control.MOUSE_FILTER_STOP
+
+
+func _gui_input(event: InputEvent) -> void:
+	if not interactive:
+		return
+	var mb := event as InputEventMouseButton
+	if mb != null and mb.button_index == MOUSE_BUTTON_LEFT and not mb.pressed and not U.touch_scrolled:
+		for s in _stop_xs:
+			if absf(mb.position.x - float(s["x"])) <= 16.0:
+				stop_clicked.emit(int(s["lap"]))
+				accept_event()
+				return
+
+
 func set_cur_lap(l: int) -> void:
 	if l != cur_lap:
 		cur_lap = l
@@ -46,6 +81,7 @@ func _draw() -> void:
 	var font := U.font(true)
 	var fs := 13 if U.is_mobile() else 14
 	draw_rect(Rect2(0, top, w, bh), U.tint(0.07))
+	_stop_xs = []
 	for s in segments:
 		var x0: float = w * float(s["a"]) / float(laps)
 		var x1: float = w * float(s["b"]) / float(laps)
@@ -75,6 +111,7 @@ func _draw() -> void:
 		# Stopp-Marke am Ende
 		if int(s["b"]) < laps:
 			var mx: float = x1
+			_stop_xs.append({"x": mx, "lap": int(s["b"])})
 			draw_line(Vector2(mx, top - 2.0), Vector2(mx, top + bh), U.TEXT, 2.0)
 			draw_colored_polygon(PackedVector2Array([Vector2(mx - 4.0, 2.0), Vector2(mx + 4.0, 2.0), Vector2(mx, 10.0)]), U.TEXT)
 			var lt := "R%d" % int(s["b"])
@@ -89,6 +126,21 @@ func _draw() -> void:
 			if l % step == 0 and l > 0 and l < laps - 2:
 				draw_string(U.font(false), Vector2(tx - 6.0, top + bh + 15.0), str(l), HORIZONTAL_ALIGNMENT_LEFT, -1, 11, U.MUTED)
 			l += step
+	# Zusatzstreifen: erwarteter Regen (blau) und Safety-Car-Phasen (gelb)
+	if not rain_bins.is_empty() or not sc_marks.is_empty():
+		var ey := top + bh + 20.0
+		draw_rect(Rect2(0, ey, w, 8.0), U.tint(0.05))
+		for rb in rain_bins:
+			var ri: float = float(rb["i"])
+			if ri > 0.05:
+				var rx0: float = w * float(int(rb["lap0"]) - 1) / float(laps)
+				var rx1: float = w * float(int(rb["lap1"])) / float(laps)
+				draw_rect(Rect2(rx0, ey, maxf(rx1 - rx0, 2.0), 8.0), Color(0.20, 0.45, 0.92, 0.25 + 0.6 * sqrt(clampf(ri, 0.0, 1.0))))
+		for sm in sc_marks:
+			var sx0: float = w * float(int(sm["lap"]) - 1) / float(laps)
+			var sx1: float = w * float(int(sm["end"])) / float(laps)
+			draw_rect(Rect2(sx0, ey - 2.0, maxf(sx1 - sx0, 3.0), 12.0), Color(U.WARN, 0.9))
+			draw_string(U.font(true), Vector2(sx0 + 1.0, ey + 20.0), "SC" if int(sm["kind"]) == 2 else "VSC", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, U.WARN)
 	if cur_lap > 0:
 		var cx: float = w * clampf(float(cur_lap) / float(laps), 0.0, 1.0)
 		draw_line(Vector2(cx, top - 3.0), Vector2(cx, top + bh + 3.0), U.WARN, 2.0)
