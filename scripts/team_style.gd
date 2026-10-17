@@ -112,10 +112,15 @@ static func _shape_points(shape: String) -> PackedVector2Array:
 static func draw_crest(ci: CanvasItem, c: Vector2, r: float, id: String) -> void:
 	var lg := logo(id)
 	if lg != null:
+		# Logo auf weißer Platte mit Ring in Teamfarbe (einheitlicher Look, auch für weiße oder dunkle Logos)
+		var team_col: Color = ui_color(id)
+		ci.draw_circle(c + Vector2(0, r * 0.06), r * 1.02, Color(0.05, 0.08, 0.2, 0.16))
+		ci.draw_circle(c, r, team_col)
+		ci.draw_circle(c, r * 0.9, Color.WHITE)
 		var sz := lg.get_size()
-		var k := minf(2.0 * r / maxf(sz.x, 1.0), 2.0 * r / maxf(sz.y, 1.0))
-		var rect := Rect2(c - sz * k * 0.5, sz * k)
-		ci.draw_texture_rect(lg, rect, false)
+		var box := r * 1.38
+		var k := minf(box / maxf(sz.x, 1.0), box / maxf(sz.y, 1.0))
+		ci.draw_texture_rect(lg, Rect2(c - sz * k * 0.5, sz * k), false)
 		return
 	var inf := info(id)
 	var col: Color = DB.team_color(id)

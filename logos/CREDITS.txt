@@ -1,0 +1,55 @@
+Quellen der Team-Logos (Wikimedia Commons). Lizenzangaben laut Commons zum Zeitpunkt des Abrufs.
+Die Logos sind Marken der jeweiligen Teams und dienen hier nur der Darstellung im Spiel.
+
+mclaren.png  <-  File:McLaren Speedmark.svg
+  Lizenz: Public domain  |  Urheber: Ved havet
+  Seite: https://commons.wikimedia.org/wiki/File%3AMcLaren_Speedmark.svg
+
+mercedes.png  <-  File:Mercedes-AMG Petronas F1 Team logo (2026).svg
+  Lizenz: Public domain  |  Urheber: Mercedes-AMG Petronas F1 Team
+  Seite: https://commons.wikimedia.org/wiki/File%3AMercedes-AMG_Petronas_F1_Team_logo_(2026).svg
+
+alpine.png  <-  File:Alpine F1 Team Logo.svg
+  Lizenz: Public domain  |  Urheber: Alpine F1 Team
+  Seite: https://commons.wikimedia.org/wiki/File%3AAlpine_F1_Team_Logo.svg
+
+audi.png  <-  File:Audif1.com logo17 (cropped).svg
+  Lizenz: Public domain  |  Urheber: Audi Revolut F1 Team / Sauber Motorsports AG
+  Seite: https://commons.wikimedia.org/wiki/File%3AAudif1.com_logo17_(cropped).svg
+
+sauber.png  <-  File:Logo Sauber F1.png
+  Lizenz: Public domain  |  Urheber: Juanchocarbonero
+  Seite: https://commons.wikimedia.org/wiki/File%3ALogo_Sauber_F1.png
+
+haas.png  <-  File:Haas F1 Team Logo.svg
+  Lizenz: Public domain  |  Urheber: Haas F1 Team
+  Seite: https://commons.wikimedia.org/wiki/File%3AHaas_F1_Team_Logo.svg
+
+williams.png  <-  File:Williams Racing Monogram.png
+  Lizenz: CC BY-SA 4.0  |  Urheber: DJClements
+  Seite: https://commons.wikimedia.org/wiki/File%3AWilliams_Racing_Monogram.png
+
+super_aguri.png  <-  File:Super Aguri logo.svg
+  Lizenz: Public domain  |  Urheber: Flyz1
+  Seite: https://commons.wikimedia.org/wiki/File%3ASuper_Aguri_logo.svg
+
+arrows.png  <-  File:Arrows Grand Prix logo.png
+  Lizenz: Public domain  |  Urheber: Arrows Grand Prix International
+  Seite: https://commons.wikimedia.org/wiki/File%3AArrows_Grand_Prix_logo.png
+
+manor.png  <-  File:Logo Manor F1.png
+  Lizenz: Public domain  |  Urheber: Juanchocarbonero
+  Seite: https://commons.wikimedia.org/wiki/File%3ALogo_Manor_F1.png
+
+caterham.jpg  <-  File:Caterham F1 Team logo.jpg
+  Lizenz: Public domain  |  Urheber: Caterham F1 Team
+  Seite: https://commons.wikimedia.org/wiki/File%3ACaterham_F1_Team_logo.jpg
+
+cadillac.png  <-  File:Cadillac Formula 1 Team logo.png
+  Lizenz: CC0  |  Urheber: TedNauru
+  Seite: https://commons.wikimedia.org/wiki/File%3ACadillac_Formula_1_Team_logo.png
+
+virgin.png  <-  File:Virginracing.png
+  Lizenz: Public domain  |  Urheber: Unknown authorUnknown author
+  Seite: https://commons.wikimedia.org/wiki/File%3AVirginracing.png
+
