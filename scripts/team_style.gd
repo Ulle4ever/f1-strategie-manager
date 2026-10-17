@@ -58,6 +58,23 @@ static func ui_color(id: String) -> Color:
 	return c
 
 
+static var _logo_cache := {}
+
+
+## Eigenes Logo, falls als Datei vorhanden: res://logos/<team-id>.png (oder .webp/.jpg). Sonst null.
+static func logo(id: String) -> Texture2D:
+	if _logo_cache.has(id):
+		return _logo_cache[id]
+	var tex: Texture2D = null
+	for ext in ["png", "webp", "jpg", "svg"]:
+		var p := "res://logos/%s.%s" % [id, ext]
+		if ResourceLoader.exists(p):
+			tex = load(p)
+			break
+	_logo_cache[id] = tex
+	return tex
+
+
 static func info(id: String) -> Dictionary:
 	if INFO.has(id):
 		return INFO[id]
@@ -93,6 +110,13 @@ static func _shape_points(shape: String) -> PackedVector2Array:
 
 ## Wappen zeichnen (mittig bei c, Radius r). Eigenes Design: Form, Farbfeld, Muster und Kürzel.
 static func draw_crest(ci: CanvasItem, c: Vector2, r: float, id: String) -> void:
+	var lg := logo(id)
+	if lg != null:
+		var sz := lg.get_size()
+		var k := minf(2.0 * r / maxf(sz.x, 1.0), 2.0 * r / maxf(sz.y, 1.0))
+		var rect := Rect2(c - sz * k * 0.5, sz * k)
+		ci.draw_texture_rect(lg, rect, false)
+		return
 	var inf := info(id)
 	var col: Color = DB.team_color(id)
 	var sec := second_color(id)

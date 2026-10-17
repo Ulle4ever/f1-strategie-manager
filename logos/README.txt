@@ -1,0 +1,3 @@
+Eigene Team-Logos: Bilddatei hier ablegen und nach der Team-ID benennen, z. B. ferrari.png, mclaren.png, red_bull.png.
+Erlaubt: png, webp, jpg, svg (am besten quadratisch, transparenter Hintergrund). Fehlt eine Datei, zeichnet das Spiel das eigene Wappen.
+Team-IDs: ferrari, mclaren, williams, mercedes, red_bull, renault, alpine, aston_martin, haas, sauber, audi, toro_rosso, alphatauri, rb, force_india, racing_point, lotus_f1, toyota, bmw_sauber, honda, brawn, benetton, jordan, jaguar, bar, arrows, minardi, prost, super_aguri, mf1, spyker, lotus_racing, hrt, virgin, marussia, caterham, manor, cadillac.

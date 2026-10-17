@@ -178,10 +178,15 @@ static func make_theme() -> Theme:
 	th.set_font_size("font_size", "TabContainer", 17)
 	# Scrollbars dezenter
 	var sbar := StyleBoxFlat.new()
-	sbar.bg_color = tint(0.05)
+	sbar.bg_color = tint(0.07)
+	sbar.content_margin_left = 6
+	sbar.content_margin_right = 6
+	sbar.set_corner_radius_all(4)
 	var grab := StyleBoxFlat.new()
-	grab.bg_color = tint(0.30)
-	grab.set_corner_radius_all(3)
+	grab.bg_color = tint(0.42)
+	grab.set_corner_radius_all(4)
+	grab.content_margin_left = 6
+	grab.content_margin_right = 6
 	th.set_stylebox("scroll", "VScrollBar", sbar)
 	th.set_stylebox("grabber", "VScrollBar", grab)
 	th.set_stylebox("grabber_highlight", "VScrollBar", grab)

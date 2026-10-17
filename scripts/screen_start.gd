@@ -14,6 +14,8 @@ var selected_label: Label
 var selected_team := ""
 var team_buttons := {}
 var size_button: Button
+var year_button: Button
+var picker: Control = null
 var teams: Array = []
 
 
@@ -41,7 +43,11 @@ func _ready() -> void:
 		year_option.add_item(str(y), y)
 	year_option.select(0)
 	year_option.item_selected.connect(_on_year)
+	year_option.visible = false          # Datenmodell; Auswahl über den eigenen Auswahldialog (Popup-Listen sind am Handy unzuverlässig)
 	top.add_child(year_option)
+	year_button = U.button("%d  v" % year_option.get_selected_id(), _open_year_picker, 130 if M else 150, 42)
+	year_button.add_theme_font_size_override("font_size", 20 if M else 22)
+	top.add_child(year_button)
 	info_label = U.label("", 16, U.MUTED)
 	info_label.visible = not M
 	top.add_child(info_label)
@@ -88,8 +94,77 @@ func _ready() -> void:
 	_on_year(0)
 
 
+## Saison-Auswahl als eigener Dialog mit scrollbarem Raster.
+func _open_year_picker() -> void:
+	if picker != null:
+		return
+	picker = Control.new()
+	U.fill(picker)
+	var dim := ColorRect.new()
+	dim.color = Color(0.05, 0.08, 0.18, 0.55)
+	U.fill(dim)
+	dim.gui_input.connect(func(ev: InputEvent):
+		if ev is InputEventMouseButton and ev.pressed:
+			_close_picker())
+	picker.add_child(dim)
+	var center := CenterContainer.new()
+	U.fill(center)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	picker.add_child(center)
+	var panel := U.panel(12, U.ACCENT)
+	var M := U.is_mobile()
+	panel.custom_minimum_size = Vector2(360 if M else 520, 0)
+	center.add_child(panel)
+	var v := U.vbox(8)
+	panel.add_child(v)
+	var head := U.hbox(8)
+	head.add_child(U.heading("Saison wählen", 18))
+	head.add_child(U.spacer())
+	head.add_child(U.button("Schließen", _close_picker, 0, 36))
+	v.add_child(head)
+	var sc := ScrollContainer.new()
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	sc.custom_minimum_size = Vector2(0, minf(get_viewport_rect().size.y * 0.62, 360.0))
+	v.add_child(sc)
+	var g := GridContainer.new()
+	g.columns = 4 if M else 5
+	g.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	g.add_theme_constant_override("h_separation", 6)
+	g.add_theme_constant_override("v_separation", 6)
+	sc.add_child(g)
+	var cur := year_option.get_selected_id()
+	for i in year_option.item_count:
+		var y := year_option.get_item_id(i)
+		var b := Button.new()
+		b.text = str(y)
+		b.toggle_mode = true
+		b.button_pressed = y == cur
+		b.custom_minimum_size = Vector2(0, 46)
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.add_theme_font_size_override("font_size", 18)
+		b.pressed.connect(_pick_year.bind(i))
+		g.add_child(b)
+	add_child(picker)
+
+
+func _pick_year(idx: int) -> void:
+	if U.touch_scrolled:
+		return
+	year_option.select(idx)
+	_on_year(idx)
+	_close_picker()
+
+
+func _close_picker() -> void:
+	if picker != null:
+		picker.queue_free()
+		picker = null
+
+
 func _on_year(_i: int) -> void:
 	var y := year_option.get_selected_id()
+	if year_button != null:
+		year_button.text = "%d  v" % y
 	teams = DB.build_teams(y)
 	var cal: Array = DB.season(y)["calendar"]
 	info_label.text = "%d Rennen  |  %d Teams" % [cal.size(), teams.size()]
