@@ -369,6 +369,39 @@ static func card(margin := 10, tint_col := Color(0.08, 0.12, 0.25, 0.045), edge 
 	return p
 
 
+## Antippbare Auswahlkarte: Titel und Erklärung in einer Fläche. strong = hervorgehobene Hauptaktion in der Farbe accent.
+static func option_card(title: String, hint: String, accent: Color, cb: Callable, strong := false) -> PanelContainer:
+	var p := PanelContainer.new()
+	var sbx := _box(Color(accent, 0.11) if strong else tint(0.045), 10, Color(accent, 0.7) if strong else Color(0.08, 0.12, 0.25, 0.16), 1)
+	sbx.content_margin_left = 11
+	sbx.content_margin_right = 11
+	sbx.content_margin_top = 7
+	sbx.content_margin_bottom = 7
+	p.add_theme_stylebox_override("panel", sbx)
+	var v := vbox(1)
+	var t := label(title, 15, TEXT, true)
+	t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(t)
+	if hint != "":
+		var h := label(hint, 11, MUTED)
+		h.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(h)
+	p.add_child(v)
+	var b := Button.new()
+	b.flat = true
+	b.focus_mode = Control.FOCUS_NONE
+	var hov := _box(Color(accent, 0.08), 10)
+	var prs := _box(Color(accent, 0.18), 10)
+	var emp := StyleBoxEmpty.new()
+	b.add_theme_stylebox_override("normal", emp)
+	b.add_theme_stylebox_override("focus", emp)
+	b.add_theme_stylebox_override("hover", hov)
+	b.add_theme_stylebox_override("pressed", prs)
+	b.pressed.connect(cb)
+	p.add_child(b)
+	return p
+
+
 ## Abschnittsüberschrift mit kleinem roten Marker.
 static func section(text: String, size := 12) -> Control:
 	var h := hbox(6)

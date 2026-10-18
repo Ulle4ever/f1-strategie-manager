@@ -147,7 +147,7 @@ func build_teams(year: int) -> Array:
 			if team_pts > 0.0 and chosen.size() > 1:
 				share = float(d["points"]) / team_pts
 			var conf := minf(1.0, races / 10.0)
-			var skill := clampf(share - 0.5, -0.5, 0.5) * 0.012 * conf
+			var skill := clampf(share - 0.5, -0.5, 0.5) * 0.016 * conf
 			var qskill := clampf(grid_avg - float(d["avgGrid"]), -4.0, 4.0) * 0.0006 * conf
 			var crash_rate := (maxf(0.0, float(d["dnf"]) - float(d["mech"])) + 0.4) / (races + 8.0)
 			team["drivers"].append({

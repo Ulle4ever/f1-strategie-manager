@@ -14,6 +14,9 @@ var sc_marks: Array = []        # [{"lap", "end", "kind"}]
 var _stop_xs: Array = []        # [{"x", "lap"}] für Antippen
 var segments: Array = []      # [{"a": Start (Runde, 0-basiert), "b": Ende, "comp": Mischung, "life": Haltbarkeit in Runden}]
 var cur_lap := 0              # 0 = kein Marker
+var win_open := 0               # empfohlenes Stopp-Fenster (Stopp am Ende dieser Runden), 0 = keins
+var win_ideal := 0
+var win_close := 0
 var show_axis := true
 
 
@@ -48,6 +51,15 @@ func set_extras(rain: Array, sc: Array) -> void:
 	rain_bins = rain
 	sc_marks = sc
 	custom_minimum_size.y = 68.0 if has else 54.0
+	queue_redraw()
+
+
+func set_window(a: int, ideal: int, b: int) -> void:
+	if a == win_open and b == win_close and ideal == win_ideal:
+		return
+	win_open = a
+	win_ideal = ideal
+	win_close = b
 	queue_redraw()
 
 
@@ -117,6 +129,14 @@ func _draw() -> void:
 			var lt := "R%d" % int(s["b"])
 			var lw := font.get_string_size(lt, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
 			draw_string(font, Vector2(clampf(mx - lw * 0.5, 0.0, w - lw), 12.0), lt, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, U.TEXT)
+	if win_close > 0 and win_close > win_open:
+		var wx0: float = w * float(win_open) / float(laps)
+		var wx1: float = w * minf(float(win_close), float(laps)) / float(laps)
+		draw_rect(Rect2(wx0, top, wx1 - wx0, bh), Color(U.GOOD, 0.20))
+		draw_line(Vector2(wx0, top), Vector2(wx0, top + bh), U.GOOD, 2.0)
+		draw_line(Vector2(wx1, top), Vector2(wx1, top + bh), U.GOOD, 2.0)
+		var ix: float = w * float(win_ideal) / float(laps)
+		draw_colored_polygon(PackedVector2Array([Vector2(ix - 5.0, top + bh * 0.5), Vector2(ix, top + bh * 0.5 - 5.0), Vector2(ix + 5.0, top + bh * 0.5), Vector2(ix, top + bh * 0.5 + 5.0)]), U.GOOD)
 	if show_axis:
 		var step := 10 if laps >= 40 else 5
 		var l := 0

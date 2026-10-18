@@ -169,6 +169,10 @@ class RaceCar:
 	var fb_stage := 0
 	var set_used := 0.0        # Vorbelastung des montierten Reifensatzes (Runden)
 	var last_pit_lap := -99
+	var plan_note := ""        # Hinweis nach automatischer Plan-Anpassung (Anzeige im Boxen-Fenster)
+	var trouble_t := 0.0       # Sekunden Langsamfahrt nach Dreher, Kontakt oder Reifenschaden
+	var stint_form := 0.0      # Form auf dem aktuellen Reifensatz (Reifenfenster, Verkehr, Gefühl), wechselt mit jedem Stopp
+	var launch := 0.0          # Startreaktion: positiv = guter Start, negativ = Durchdrehen/Verschalten
 
 
 var track
@@ -206,6 +210,7 @@ var sc_count := 0
 var pass_total := 0           # Überholmanöver auf der Strecke (ohne Boxen)
 var pass_first_lap := 0
 var vis_frac := 1.0           # Darstellung: Bruchteil des letzten Zeitschritts (für flüssige Bewegung)
+var incidents_on := true         # Zwischenfälle (Dreher, Schaden, Reifenschaden) ein; Tests schalten sie ab
 var status_serial := 0          # zählt Safety-Car-/VSC-Phasen (für Entscheidungskarten)
 var sc_marks: Array = []      # [{"lap", "end", "kind"}] Safety-Car-/VSC-Phasen für die Zeitleiste
 var tyre_inv := {}            # Auto-Index -> Reifensätze [{"comp", "used" (Runden), "raced"}]
@@ -252,8 +257,8 @@ func setup(p_year: int, p_track, teams: Array, p_laps: int, p_player_team: Strin
 	tyre_noise = [rng.randfn(0.0, 0.14), rng.randfn(0.0, 0.14), rng.randfn(0.0, 0.14)]
 	_setup_ghost()
 	for t in teams:
-		var form := rng.randfn(0.0, 0.0013)
-		var affinity := rng.randfn(0.0, 0.0015)
+		var form := rng.randfn(0.0, 0.0018)
+		var affinity := rng.randfn(0.0, 0.0020)
 		var team_react := clampf(rng.randfn(0.72, 0.15), 0.4, 1.0)
 		var quality := clampf((float(t["pace"]) - worst_pace) / maxf(best_pace - worst_pace, 0.001), 0.0, 1.0)
 		var team_err := absf(rng.randfn(0.0, 0.40 - 0.22 * quality))
@@ -275,9 +280,15 @@ func setup(p_year: int, p_track, teams: Array, p_laps: int, p_player_team: Strin
 			c.fit = track_fit(prof)
 			c.team_wet = float(prof.get("wet", 0.0))
 			c.tyre_care = float(prof.get("tyre", 0.0))
-			var race_dev := rng.randfn(0.0, 0.0016)      # Rennpace weicht von der Qualifying-Pace ab (Mischfeld, mehr Überholungen)
+			# Tagesform des Fahrers: Rennpace weicht von der Qualifying-Pace ab (Mischfeld, mehr Überholungen), mit seltenen schlechten und guten Tagen
+			var race_dev := rng.randfn(0.0, 0.0043)
+			var day := rng.randf()
+			if day < 0.10:
+				race_dev -= absf(rng.randfn(0.0, 0.0035))
+			elif day > 0.95:
+				race_dev += absf(rng.randfn(0.0, 0.0015))
 			c.pace_base = float(t["pace"]) * (1.0 + float(d["skill"]) + form + affinity + c.fit + race_dev)
-			c.qpace = float(t["pace"]) * (1.0 + float(d["skill"]) * 0.6 + float(d["qskill"]) + form + affinity + c.fit)
+			c.qpace = float(t["pace"]) * (1.0 + float(d["skill"]) * 0.6 + float(d["qskill"]) + form + affinity + c.fit + race_dev * 0.35 + rng.randfn(0.0, 0.0026))
 			c.mech_rate = float(t["mech_rate"]) * float(t.get("mech_mult", 1.0))
 			c.crash_rate = float(d["crash_rate"])
 			c.pit_skill = float(t.get("pit_skill", 0.0))
@@ -854,7 +865,7 @@ func grid_order() -> Array:
 
 # ------------------------------------------------------------------ KI-Strategie / Planung
 
-func default_plan(c: RaceCar) -> Dictionary:
+func default_plan(c: RaceCar, force_stops := -1) -> Dictionary:
 	# Rückgabe: {"start": compound, "plan": [...]}
 	var min_c: int = rules["min_compounds"]
 	var stops := 1
@@ -867,6 +878,8 @@ func default_plan(c: RaceCar) -> Dictionary:
 			stops += 1
 		if laps < 28:
 			stops = clampi(stops, 0, 1)
+	if force_stops >= 0:
+		stops = force_stops
 	var comps: Array = []
 	var start: int = c.forced_start if c.forced_start >= 0 else _pick_start_compound(float(laps) / float(stops + 1))
 	comps.append(start)
@@ -890,7 +903,7 @@ func default_plan(c: RaceCar) -> Dictionary:
 			comps[comps.size() - 1] = (comps[comps.size() - 1] + 1) % 3
 	var plan: Array = []
 	for k in stops:
-		var lap := int(round(stint * (k + 1) + rng.randf_range(-2.0, 2.0)))
+		var lap := int(round(stint * (k + 1) + rng.randf_range(-3.5, 3.5)))
 		lap = clampi(lap, 3 + k, laps - 3)
 		plan.append({"lap": lap, "comp": comps[k + 1]})
 	return {"start": start, "plan": plan}
@@ -917,6 +930,9 @@ func _pick_start_compound(stint: float) -> int:
 
 func _plan_ai(c: RaceCar) -> void:
 	var p := default_plan(c)
+	var mt := mate_of(c)
+	if mt != null and mt.index < c.index and not mt.plan.is_empty() and not c.is_player and not mt.is_player and wet < 0.2:
+		p = _split_from_mate(c, mt, p)
 	c.compound = p["start"]
 	c.plan = p["plan"]
 	c.used_compounds = [c.compound]
@@ -924,6 +940,38 @@ func _plan_ai(c: RaceCar) -> void:
 	c.ai_wet_t = clampf(rng.randfn(0.17, 0.05), 0.07, 0.3)
 	c.ai_dry_t = clampf(rng.randfn(0.12, 0.04), 0.04, 0.2)
 	c.fuel = _fuel_for_stint(c, 0)
+
+
+## Teams verteilen ihre Autos gern auf verschiedene Strategien (früh/spät, andere Startmischung, anderer Stopp-Anzahl).
+func _split_from_mate(c: RaceCar, mt: RaceCar, p: Dictionary) -> Dictionary:
+	var plan: Array = p["plan"]
+	var same_start: bool = int(p["start"]) == mt.compound
+	var near := false
+	if plan.size() == mt.plan.size() and not plan.is_empty():
+		near = absi(int(plan[0]["lap"]) - int(mt.plan[0]["lap"])) <= 4
+	if not (same_start or near) or rng.randf() > 0.75:
+		return p
+	var mode := rng.randi() % 3
+	if mode == 0 and not plan.is_empty():
+		var shift: int = rng.randi_range(4, 7) * (1 if rng.randf() < 0.5 else -1)
+		var prev := 2
+		var out: Array = []
+		for s in plan:
+			var lap := clampi(int(s["lap"]) + shift, prev + 4, laps - 3)
+			out.append({"lap": lap, "comp": s["comp"]})
+			prev = lap
+		if out[out.size() - 1]["lap"] <= prev - 4 or out[0]["lap"] < 3:
+			return p
+		return {"start": p["start"], "plan": out}
+	if mode == 1:
+		var q := default_plan(c, plan.size() + (1 if plan.size() < 3 and rng.randf() < 0.5 else (-1 if plan.size() > 1 else 0)))
+		return q
+	var alt := default_plan(c)
+	if int(alt["start"]) == mt.compound:
+		alt["start"] = (int(alt["start"]) + 1) % DRY_COUNT
+		if life_eff(int(alt["start"])) < float(laps) / float(int(alt["plan"].size()) + 1) * 0.92:
+			return p
+	return alt
 
 
 func _next_stop_lap(c: RaceCar, after_lap: int) -> int:
@@ -1014,6 +1062,10 @@ func start_race() -> void:
 		c.state = State.RACING
 		c.lap_start = 0.0
 		c.lap_noise = rng.randfn(0.0, track.lap_ref * 0.002)
+		c.stint_form = rng.randfn(0.0, 0.0012)
+		c.launch = rng.randfn(0.0, 0.040) + 0.03 * c.start_trait
+		if rng.randf() < 0.06:
+			c.launch -= rng.randf_range(0.08, 0.16)      # schlechter Start: Durchdrehen oder Motor abgewürgt
 		if c.used_compounds.is_empty():
 			c.used_compounds = [c.compound]
 	for c in cars:
@@ -1058,7 +1110,7 @@ func ers_eff(c: RaceCar) -> int:
 
 func lap_pace(c: RaceCar) -> float:
 	var loss := tyre_loss(c) + c.fuel * FUEL_TIME * scale_time + c.lap_noise
-	var sp: float = STYLE_PACE[c.style]
+	var sp: float = STYLE_PACE[c.style] + c.stint_form
 	if has_ers():
 		sp += ERS_PACE[ers_eff(c)]
 	else:
@@ -1116,6 +1168,9 @@ func tick(dt: float) -> void:
 		var c: RaceCar = active[k]
 		c.prev_dist = c.dist
 		var p := lap_pace(c)
+		if c.trouble_t > 0.0:
+			p *= 0.34
+			c.trouble_t = maxf(0.0, c.trouble_t - dt)
 		var vr: float = track.speed_at(c.dist + 6.0)
 		var v: float = vr * p
 		c.tow = 0.0
@@ -1130,7 +1185,7 @@ func tick(dt: float) -> void:
 					c.tow = fq * sp
 					v *= 1.0 + TOW_MAX * fq * sp - DIRTY_MAX * fq * (1.0 - sp)
 		if time < 16.0:
-			v *= clampf(0.22 + time / 20.0, 0.0, 1.0)
+			v *= clampf(0.22 + time / 20.0, 0.0, 1.0) * (1.0 + c.launch * clampf(1.0 - time / 12.0, 0.0, 1.0))
 		if status == Status.SC:
 			v = minf(v, track.speed_at(c.dist) * 0.42)
 		elif status == Status.VSC:
@@ -1231,6 +1286,7 @@ func tick(dt: float) -> void:
 			_on_line(c, fl, old, nd)
 	_update_gaps()
 	_roll_failures(dt, active)
+	_roll_incidents(dt, active)
 	_pit_timers(dt)
 	_update_status()
 	_check_over()
@@ -1482,8 +1538,10 @@ func _choose_comp(c: RaceCar, remaining: int) -> int:
 
 
 func _enter_pit(c: RaceCar, comp: int, fl: int) -> void:
+	c.plan_note = ""
+	_adapt_plan(c, fl, comp)      # zuerst den Plan anpassen: Tankmenge und Folgestopps hängen davon ab
 	var crew_gain: float = 0.25 * crew_form if c.is_player else 0.0
-	var stationary: float = float(rules["stationary"]) + rng.randfn(0.0, 0.35) + c.pit_skill - crew_gain
+	var stationary: float = float(rules["stationary"]) + rng.randfn(0.0, 0.45) + c.pit_skill - crew_gain
 	c.fb_stage = 0
 	var fuel_add := 0.0
 	var new_fuel := c.fuel
@@ -1494,7 +1552,12 @@ func _enter_pit(c: RaceCar, comp: int, fl: int) -> void:
 		c.pit_fuel_laps = -1.0
 		stationary = 1.2 + fuel_add / 9.0 + rng.randfn(0.0, 0.4) + c.pit_skill - crew_gain
 	stationary = maxf(1.6, stationary)
-	if rng.randf() < 0.025 * (1.0 - 0.6 * (crew_form if c.is_player else 0.0)):
+	var slow_r := rng.randf()
+	var slow_k := 1.0 - 0.6 * (crew_form if c.is_player else 0.0)
+	if slow_r < 0.008 * slow_k:
+		stationary += rng.randf_range(8.0, 14.0)
+		make_log("pit", "Radmutter klemmt: sehr langer Stopp für %s" % c.code, c)
+	elif slow_r < 0.04 * slow_k:
 		stationary += rng.randf_range(2.5, 7.0)
 		make_log("pit", "Langsamer Boxenstopp für %s" % c.code, c)
 	var loss: float = track.pit_loss * float(rules["pit_loss_scale"]) - PIT_STATIONARY_BASE - 0.5 + stationary
@@ -1520,15 +1583,95 @@ func _enter_pit(c: RaceCar, comp: int, fl: int) -> void:
 	c.pit_comp = comp
 	c.pit_requested = false
 	c.fuel_after_pit = new_fuel
+	c.plan = c.plan.filter(func(s): return int(s["lap"]) > fl)      # abgehakte Stopps entfernen (Tank-Extras sind gelesen)
 	make_log("pit", "Boxenstopp %s: %s -> %s (%.1f s)" % [c.code, COMPOUNDS[c.compound]["name"], COMPOUNDS[comp]["name"], stationary], c)
 	_trigger_covers(c, fl)
-	if not rules["refuel"]:
-		var keep: Array = []
-		var horizon: int = fl + int(life_eff(comp) * 0.4)
-		for s in c.plan:
-			if int(s["lap"]) > horizon:
-				keep.append(s)
-		c.plan = keep
+
+
+## Wirkung eines Stopps am Ende von Runde fl auf den Plan, ohne etwas zu ändern.
+## Ein geplanter Stopp wird abgehakt. Ein vorgezogener oder verspäteter (ungeplanter) Stopp ersetzt den nächsten geplanten,
+## sonst stünde der kurz danach noch einmal an. Spätere Stopps bleiben unverändert.
+## Rückgabe: {"replaced" (Runde oder -1), "keep" (Plan danach), "next" (nächster Stopp danach, laps = keiner)}
+func adapt_info(c: RaceCar, fl: int, comp: int) -> Dictionary:
+	var planned_now := false
+	var nxt_lap := -1
+	for s in c.plan:
+		var l := int(s["lap"])
+		if l == fl:
+			planned_now = true
+		elif l > fl and (nxt_lap < 0 or l < nxt_lap):
+			nxt_lap = l
+	var replaced := -1
+	var horizon: float = maxf(5.0, life_eff(comp) * 0.4)
+	if not planned_now and nxt_lap > 0:
+		var reach: float = horizon
+		if rules["refuel"]:
+			reach = maxf(6.0, 0.5 * float(nxt_lap - c.stint_start))
+		if float(nxt_lap - fl) <= reach:
+			replaced = nxt_lap
+	var keep: Array = []
+	var next_stop := laps
+	for s in c.plan:
+		var l := int(s["lap"])
+		if l < fl or l == replaced:
+			continue
+		if l > fl and not rules["refuel"] and float(l - fl) <= horizon:
+			continue      # frische Reifen halten noch lange: ein Stopp direkt danach wäre sinnlos
+		keep.append(s)
+		if l > fl:
+			next_stop = mini(next_stop, l)
+	return {"replaced": replaced, "keep": keep, "next": next_stop}
+
+
+## Nach einem Stopp den Plan anpassen (siehe adapt_info). Rückgabe: ersetzter Stopp (Runde) oder -1.
+func _adapt_plan(c: RaceCar, fl: int, comp: int) -> int:
+	var info := adapt_info(c, fl, comp)
+	c.plan = info["keep"]
+	var replaced := int(info["replaced"])
+	if replaced > 0:
+		c.plan_note = "Stopp R%d entfällt: der Stopp jetzt ersetzt ihn." % replaced
+		if c.is_player:
+			make_log("info", "Plan angepasst: geplanter Stopp in Runde %d entfällt." % replaced, c)
+	return replaced
+
+
+## Prüft jeden geplanten Stint gegen die Reifenhaltbarkeit. Einträge: {"lap" (Stopp am Ende dieser Runde, laps = Ziel), "comp" (neue Mischung, -1 = Ziel),
+## "stint_comp", "run" (Runden bis dahin), "cap" (so lange hält der Reifen), "state" ("ok", "tight", "long")}
+func plan_check(c: RaceCar) -> Array:
+	var out: Array = []
+	var fl: int = maxi(c.floor_laps, 0)
+	var rate := maxf(wear_rate_now(c), 0.2)
+	var stops: Array = []
+	for s in c.plan:
+		if int(s["lap"]) > fl:
+			stops.append(s)
+	stops.sort_custom(func(x, y): return int(x["lap"]) < int(y["lap"]))
+	var comp := c.compound
+	var from_lap := fl
+	var used := c.tyre_wear
+	var fuel_laps: float = fuel_range(c) if rules["refuel"] else 99.0       # der Tank reicht bis zum ersten Stopp nur so weit (danach wird neu getankt)
+	for s in stops:
+		var run := float(int(s["lap"]) - from_lap)
+		out.append(_stint_entry(int(s["lap"]), int(s["comp"]), comp, run, (life_eff(comp) - used) / rate, fuel_laps))
+		from_lap = int(s["lap"])
+		comp = int(s["comp"])
+		used = 0.0
+		fuel_laps = 99.0
+	out.append(_stint_entry(laps, -1, comp, float(laps - from_lap), (life_eff(comp) - used) / rate, fuel_laps))
+	return out
+
+
+func _stint_entry(lap: int, comp: int, stint_comp: int, run: float, cap: float, fuel_cap := 99.0) -> Dictionary:
+	var st := "ok"
+	if stint_comp >= DRY_COUNT:
+		st = "ok"
+	elif cap < run - 0.5:
+		st = "long"
+	elif cap < run + 1.5:
+		st = "tight"
+	if fuel_cap < run - 0.3:
+		st = "fuel"
+	return {"lap": lap, "comp": comp, "stint_comp": stint_comp, "run": run, "cap": cap, "fuel_cap": fuel_cap, "state": st}
 
 
 func _fuel_for_stint_after_pit(c: RaceCar, fl: int) -> float:
@@ -1570,6 +1713,7 @@ func _pit_timers(dt: float) -> void:
 					c.set_used = float(ft2["used"])
 					c.tyre_wear = c.set_used * 0.8
 				c.pit_stops += 1
+				c.stint_form = rng.randfn(0.0, 0.0012)
 				c.dist += PIT_EXIT_DIST
 				c.prev_dist = c.dist
 				c.damage = 0.0
@@ -1602,6 +1746,51 @@ func _roll_failures(dt: float, active: Array) -> void:
 			_retire(c, "Technischer Defekt")
 		elif r < hm + hc:
 			_retire(c, "Unfall")
+
+
+## Kleine Zwischenfälle ohne Ausfall: Dreher/Verbremser, Kontakt mit Flügelschaden, Reifenschaden. Sie mischen das Feld durch,
+## auch Teamkollegen (jeder Fahrer hat seine eigenen Momente). Bei Gelb/Safety Car passiert nichts.
+func _roll_incidents(dt: float, active: Array) -> void:
+	if status != Status.GREEN or leader_finished or not incidents_on:
+		return
+	var lt: float = track.lap_ref * 1.04
+	var first_lap: bool = time < lt * 1.05
+	var remaining := laps - leader_lap()
+	if remaining < 2:
+		return
+	for c in active:
+		if c.trouble_t > 0.0 or c.state != State.RACING:
+			continue
+		var per_race: float = 0.26 * (1.0 + 0.5 * (c.aggr - 0.5)) * (1.0 + 1.6 * wet) * (1.25 - 0.5 * c.cons)
+		if c.compound < DRY_COUNT and wet > 0.25:
+			per_race *= 1.0 + 3.0 * (wet - 0.25)
+		var h: float = per_race / float(laps) / lt * dt
+		if first_lap:
+			h *= 3.5
+		if rng.randf() >= h:
+			continue
+		var r := rng.randf()
+		if r < 0.62:
+			c.trouble_t = rng.randf_range(3.5, 8.0)
+			c.tyre_wear += rng.randf_range(0.2, 0.6)         # Bremsplatten
+			if c.is_player:
+				make_log("radio", "Funk %s: Verbremser, neben die Strecke! Wir verlieren einige Sekunden." % c.code, c)
+		elif r < 0.90:
+			c.trouble_t = rng.randf_range(1.5, 3.5)
+			c.damage = maxf(c.damage, rng.randf_range(0.004, 0.011))
+			if c.is_player:
+				make_log("radio", "Funk %s: Kontakt, der Frontflügel ist beschädigt (ca. %.1f s pro Runde)." % [c.code, c.damage * track.lap_ref], c)
+			elif c.react_lap < 0 and remaining > 5:
+				c.react_lap = leader_lap() + 1
+				c.react_comp = _choose_comp(c, remaining - 1)
+		else:
+			c.trouble_t = rng.randf_range(8.0, 14.0)
+			c.damage = maxf(c.damage, 0.006)
+			if remaining > 3:
+				c.pit_requested = true
+				c.pit_comp = _choose_comp(c, remaining - 1)
+			if c.is_player:
+				make_log("radio", "Funk %s: Reifenschaden! Wir holen dich sofort rein." % c.code, c)
 
 
 func _retire(c: RaceCar, reason: String) -> void:
@@ -1874,7 +2063,7 @@ func _ai_team_orders(c: RaceCar, fl: int) -> void:
 	var late := fl > int(float(laps) * 0.55)
 	if faster > 0.25 and late and rng.randf() < 0.35:
 		_issue_swap(c, m)
-	elif c.duel_laps >= 3 and rng.randf() < 0.22:
+	elif c.duel_laps >= 3 and rng.randf() < 0.14:
 		_issue_hold(c, m)
 
 
@@ -2070,6 +2259,16 @@ func decision_for(c: RaceCar) -> Dictionary:
 	var base := "%d|%d" % [c.index, c.pit_stops]
 	var comp := suggest_comp(c)
 	var cname: String = COMPOUNDS[comp]["name"]
+	# 0) Schaden am Auto
+	if c.damage >= 0.003 and remaining > 8:
+		var lap_cost: float = c.damage * track.lap_ref
+		return {"key": "%s|dmg" % base, "kind": "damage", "level": "bad",
+			"title": "Schaden am Auto",
+			"text": "Der Frontflügel ist beschädigt und kostet ca. %.1f s pro Runde, bis ein Stopp ihn tauscht." % lap_cost,
+			"options": [
+				{"label": "Stopp: %s" % cname, "action": "pit:%d" % comp, "hint": "Neuer Flügel. Stopp kostet %.0f s, Weiterfahren bis ins Ziel ca. %.0f s." % [pit_cost_now(), lap_cost * float(remaining)]},
+				{"label": "Weiterfahren", "action": "stay", "hint": "Nur sinnvoll, wenn ohnehin bald ein Stopp ansteht."},
+			]}
 	# 1) Safety Car / VSC
 	if status != Status.GREEN and fr > 0.3 and remaining > 6:
 		var rj := rejoin_info(c)
@@ -2141,6 +2340,9 @@ func advice(c: RaceCar) -> Array:
 	if have < need:
 		var act := "style_save" if c.style != 0 else ("pit_now" if rules["refuel"] else "")
 		out.append({"level": "bad", "title": "Sprit knapp", "text": "Der Tank reicht noch %.1f Runden, bis Stopp/Ziel fehlen %.1f. %s" % [have, need - have, "Fahrstil Sparen verbraucht ca. 6 % weniger." if c.style != 0 else "Früher an die Box."], "action": act, "label": "Sparen" if act == "style_save" else "Jetzt stoppen"})
+	# Schaden
+	if c.damage >= 0.003 and remaining > 6 and not c.pit_requested:
+		out.append({"level": "bad", "title": "Schaden am Auto", "text": "Der Frontflügel kostet ca. %.1f s pro Runde. Ein Stopp tauscht ihn." % (c.damage * track.lap_ref), "action": "pit_now", "label": "Jetzt stoppen"})
 	# Wetter
 	var rc := recommended_compound()
 	if rc >= 0 and c.compound != rc and not c.pit_requested:
