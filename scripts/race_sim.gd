@@ -39,7 +39,8 @@ const ENG_WEAR := [0.75, 1.0, 1.45]
 const ENG_FUEL := [0.95, 1.0, 1.02]
 const DOUBLE_STOP_WAIT := 2.4
 const CONTACT_RISK := 0.010
-const TOW_RANGE := 1.25         # Windschatten wirkt bis etwa 1,25 s Abstand
+const SC_CLOSE_GAP := 26.0      # Abstand im Safety-Car-Zug (m), ab dem nicht mehr aufgeschlossen wird
+const TOW_RANGE := 1.25        # Windschatten wirkt bis etwa 1,25 s Abstand
 const TOW_MAX := 0.024          # max. Geschwindigkeitsgewinn im Windschatten (auf schnellen Geraden)
 const DIRTY_MAX := 0.011        # Verlust durch verwirbelte Luft in langsamen Kurven
 const FUEL_CAP_REFUEL := 150.0
@@ -1308,7 +1309,13 @@ func tick(dt: float) -> void:
 		if time < 16.0:
 			v *= clampf(0.22 + time / 20.0, 0.0, 1.0) * (1.0 + c.launch * clampf(1.0 - time / 12.0, 0.0, 1.0))
 		if status == Status.SC:
-			v = minf(v, track.speed_at(c.dist) * 0.42)
+			# Der Führende fährt hinter dem Safety Car; alle anderen schließen zügig auf,
+			# bis das Feld als geschlossener Zug zusammensteht (wie im echten Rennen).
+			var sc_cap := 0.42
+			if k > 0:
+				var sc_gap: float = (active[k - 1] as RaceCar).dist - c.dist
+				sc_cap = lerpf(0.42, 0.92, clampf((sc_gap - SC_CLOSE_GAP) / 140.0, 0.0, 1.0))
+			v = minf(v, track.speed_at(c.dist) * sc_cap)
 		elif status == Status.VSC:
 			v *= 0.62
 		c.cur_pace = p
@@ -1331,7 +1338,7 @@ func tick(dt: float) -> void:
 				var v_ahead: float = maxf(pace_of[ahead], 10.0)
 				var min_gap: float = maxf(12.0, v_ahead * 0.42)
 				if status == Status.SC:
-					min_gap = 14.0
+					min_gap = SC_CLOSE_GAP - 6.0
 				elif time < 18.0:
 					min_gap = 8.0
 				var ahead_nd: float = fin[ahead]
@@ -1366,9 +1373,6 @@ func tick(dt: float) -> void:
 							pass
 				elif gap_time < 1.5 and c.follow:
 					c.dirty = true
-				elif status == Status.SC and ahead_nd - nd > 22.0:
-					# Aufschließen unter Safety Car
-					nd = minf(nd + pace_of[c] * 0.35 * dt, ahead_nd - 18.0)
 				if gap_time < 1.0 and rules["drs"] and track.in_drs_zone(c.dist):
 					c.drs = true
 		fin[c] = nd
