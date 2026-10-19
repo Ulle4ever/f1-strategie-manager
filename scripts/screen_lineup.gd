@@ -4,6 +4,7 @@ extends Control
 const U = preload("res://scripts/ui.gd")
 const Market = preload("res://scripts/market.gd")
 const MarketScreen = preload("res://scripts/screen_market.gd")
+const Field = preload("res://scripts/field.gd")
 
 var main
 
@@ -73,7 +74,13 @@ func _ready() -> void:
 		p.add_theme_stylebox_override("panel", sb)
 		var v := U.vbox(2)
 		p.add_child(v)
-		v.add_child(U.label(str(t["name"]).to_upper(), 15, U.WARN if mine else U.TEXT, true))
+		var head := U.hbox(6)
+		var hl := U.label(str(t["name"]).to_upper(), 15, U.WARN if mine else U.TEXT, true)
+		hl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		head.add_child(hl)
+		if Field.is_new_this_year(str(t["id"])):
+			head.add_child(U.chip("Neu im Feld" if int(Game.team_meta.get(t["id"], {}).get("since", 0)) == Game.year else "Neu aufgestellt", U.BLUE))
+		v.add_child(head)
 		for d in t["drivers"]:
 			var drv: Dictionary = Game.drivers[d["id"]]
 			var row := U.hbox(8)

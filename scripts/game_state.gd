@@ -4,6 +4,7 @@ extends Node
 
 const Market = preload("res://scripts/market.gd")
 const Career = preload("res://scripts/career.gd")
+const Field = preload("res://scripts/field.gd")
 
 const SAVE_PATH := "user://savegame.json"
 const MAX_LEVEL := 6
@@ -64,7 +65,12 @@ var news: Array = []         # {"year", "round", "kind", "text"}
 var market_log: Array = []   # Meldungen der laufenden Marktphase
 var market_open := false
 var season_log: Array = []   # je Saison: Weltmeister und Platzierung des Spielers
-var team_meta := {}          # Team-ID -> {prestige, last_rank, score, pace_rank}
+var team_meta := {}          # Team-ID -> {prestige, last_rank, score, pace_rank, since, renamed, formerly, bottom, fresh} (siehe field.gd)
+# Teamfeld (siehe field.gd)
+var field_dynamic := true    # Teamfeld verändert sich über die Karriere (Neueinsteiger, Rückzüge, Fusionen, Umbenennungen)
+var field_plan: Dictionary = {}   # angekündigte Änderungen fürs nächste Jahr, werden beim Marktschluss umgesetzt
+var field_log: Array = []    # Chronik der Änderungen: {"year", "kind", "text"}
+var field_last_entry := -99  # Jahr des letzten Neueinsteigers
 var cap := 160.0             # Kostenobergrenze pro Saison (Mio. $): Gehälter + Entwicklung + Provisionen
 var dev_spent := 0.0
 var cap_spent_fees := 0.0
@@ -80,7 +86,11 @@ func has_save() -> bool:
 	return FileAccess.file_exists(SAVE_PATH)
 
 
+## Neue Karriere ab p_year. Startjahre nach dem letzten Datenjahr (2027 und später) beginnen mit dem vorausgerechneten Teamfeld (forecast_field).
 func new_season(p_year: int, p_team: String) -> void:
+	var future := p_year > DB.MAX_YEAR
+	if future and not (forecast_year == p_year and forecast_dynamic == field_dynamic and not teams.is_empty()):
+		forecast_field(p_year)       # der Startbildschirm hat die Prognose normalerweise schon gerechnet
 	year = p_year
 	career_start = p_year
 	team_id = p_team
@@ -90,24 +100,86 @@ func new_season(p_year: int, p_team: String) -> void:
 	event_mods = []
 	career_log = []
 	career_race_no = 0
-	teams = DB.build_teams(year)
-	team_meta = {}
-	season_log = []
-	driver_points = {}
-	team_points = {}
-	wins = {}
-	dev_pace = {}
 	upgrades = {}
 	for k in UPGRADES.keys():
 		upgrades[k] = 0
-	for t in teams:
-		dev_pace[t["id"]] = 0.0
-	Market.init_career(year)
+	if not future:
+		_setup_base(year)
+	forecast_year = 0
 	_begin_season()
 	# Startbudget nach Teamstärke
 	var rank := team_rank(team_id)
 	budget = 90.0 - 6.0 * float(rank)
 	active = true
+
+
+## Teams, Fahrer und Markt aus den echten Daten der Saison base_year aufbauen (ohne Spielerteam).
+func _setup_base(base_year: int) -> void:
+	teams = DB.build_teams(base_year)
+	team_meta = {}
+	DB.custom_teams = {}
+	field_plan = {}
+	field_log = []
+	field_last_entry = -99
+	season_log = []
+	driver_points = {}
+	team_points = {}
+	wins = {}
+	dev_pace = {}
+	for t in teams:
+		dev_pace[t["id"]] = 0.0
+	Market.init_career(base_year)
+
+
+var forecast_year := 0           # Startjahr der vorbereiteten Prognose (nach 2026), 0 = keine
+var forecast_dynamic := true
+var forecast_seed := 119         # eine feste "Zukunft" (abwechslungsreich, aber ruhig, per Suche gewählt): alle Prognose-Startjahre gehören zum selben Verlauf
+var _ghost := false              # Prognoselauf: nichts speichern
+
+
+## Teamfeld und Fahrer für ein Startjahr nach dem letzten Datenjahr vorausrechnen: ab 2026 laufen die Saisonwechsel ohne Spieler
+## (KI-Fahrermarkt, Neueinsteiger, Rückzüge, Fusionen, Umbenennungen), das Ergebnis je Jahr ist reproduzierbar. Rückgabe: die Teams.
+## Der Zustand bleibt in Game stehen, new_season übernimmt ihn. Ein laufender Spielstand wird vorher gespeichert.
+func forecast_field(target: int) -> Array:
+	if target <= DB.MAX_YEAR:
+		return DB.build_teams(target)
+	if forecast_year == target and forecast_dynamic == field_dynamic and not teams.is_empty():
+		return teams
+	if active and not _ghost:
+		save()
+	_ghost = true
+	active = false
+	rng.seed = forecast_seed
+	year = DB.MAX_YEAR
+	career_start = DB.MAX_YEAR
+	team_id = ""
+	solo_code = ""
+	upgrades = {}
+	for k in UPGRADES.keys():
+		upgrades[k] = 0
+	_setup_base(year)
+	_begin_season()
+	while year < target:
+		_ghost_points()
+		Market.open_market()
+		finish_market_and_advance()
+	news = []
+	market_log = []
+	season_log = []
+	_ghost = false
+	rng.randomize()
+	forecast_year = target
+	forecast_dynamic = field_dynamic
+	return teams
+
+
+## Ersatz für eine gefahrene Saison im Prognoselauf: Punkte nach Stärke mit Streuung.
+func _ghost_points() -> void:
+	var order: Array = teams.duplicate()
+	order.sort_custom(func(a, b): return float(a["pace"]) + float(dev_pace.get(a["id"], 0.0)) > float(b["pace"]) + float(dev_pace.get(b["id"], 0.0)))
+	var tbl := [400.0, 300.0, 240.0, 180.0, 130.0, 90.0, 60.0, 35.0, 18.0, 8.0, 3.0, 1.0]
+	for i in order.size():
+		team_points[order[i]["id"]] = tbl[mini(i, tbl.size() - 1)] * rng.randf_range(0.6, 1.4)
 
 
 ## Setzt Kalender, Tabellen und Zähler für die laufende Saison zurück (Fahrer müssen bereits synchronisiert sein).
@@ -450,30 +522,56 @@ func begin_market() -> void:
 
 ## Marktphase beenden und die nächste Saison starten.
 func finish_market_and_advance() -> void:
+	_log_season()                  # Endstand sichern, bevor das Teamfeld umgebaut wird
 	Market.close_market()
 	_advance_year()
 
 
-func _advance_year() -> void:
+## Teamfeld des nächsten Jahres bestimmen und ankündigen (Aufruf beim Öffnen der Marktphase, siehe field.gd).
+func plan_field() -> void:
+	Field.plan_changes()
+
+
+## Angekündigte Teamfeld-Änderungen umsetzen (Aufruf beim Marktschluss, vor der Besetzung der Cockpits).
+func apply_field_plan() -> void:
+	Field.apply_plan()
+
+
+## Team verlässt nach dieser Saison das Feld (Fahrer sind schon vertragslos, keine neuen Cockpits für dieses Team).
+func is_leaving(tid: String) -> bool:
+	return Field.is_leaving(tid)
+
+
+## Saisonergebnis einmal ins Saisonbuch eintragen.
+func _log_season() -> void:
+	if not season_log.is_empty() and int(season_log[0]["year"]) == year:
+		return
 	var ds := driver_standings()
 	var ts := team_standings()
 	season_log.push_front({"year": year, "champion": ds[0]["name"] if ds.size() > 0 else "", "champion_team": ts[0]["name"] if ts.size() > 0 else "",
 		"player_rank": final_rank(team_id), "player_points": float(team_points.get(team_id, 0.0)), "goal": last_season_eval})
+
+
+func _advance_year() -> void:
+	_log_season()
 	year += 1
 	# Kräfteverhältnis: Entwicklung wird zum Teil mitgenommen, neues Reglement mischt neu
 	var reg: bool = year in REG_YEARS
 	var total := {}
 	var mean := 0.0
-	for t in teams:
+	var old_teams: Array = teams.filter(func(t): return not bool(team_meta.get(t["id"], {}).get("fresh", false)))   # Neueinsteiger zählen nicht mit
+	for t in old_teams:
 		total[t["id"]] = float(t["pace"]) + float(dev_pace.get(t["id"], 0.0))
 		mean += total[t["id"]]
-	mean /= maxf(1.0, float(teams.size()))
-	for t in teams:
+	mean /= maxf(1.0, float(old_teams.size()))
+	for t in old_teams:
 		var keep := 0.35 if reg else 0.78
 		var noise := 0.006 if reg else 0.0022
 		t["pace"] = mean + (float(total[t["id"]]) - mean) * keep + rng.randfn(0.0, noise)
 		dev_pace[t["id"]] = 0.0
+	Field.settle_newcomers()
 	teams.sort_custom(func(a, b): return float(a["pace"]) > float(b["pace"]))
+	Field.season_start_news()
 	if reg:
 		Market.news("info", "Neues Reglement %d: Das Kräfteverhältnis wird neu gemischt." % year)
 	# Neues Auto: Aero/Antrieb/Chassis beginnen wieder bei Stufe 0
@@ -537,11 +635,16 @@ func import_text(txt: String) -> bool:
 
 
 func save() -> void:
+	if _ghost:
+		return
 	var pace := {}
+	var team_list: Array = []
 	for t in teams:
 		pace[t["id"]] = t["pace"]
+		team_list.append({"id": t["id"], "name": t["name"], "pace": t["pace"], "mech_rate": t["mech_rate"]})
 	var data := {
-		"version": 2, "year": year, "career_start": career_start, "team_id": team_id, "round_index": round_index, "driver_points": driver_points,
+		"version": 3, "team_list": team_list, "custom_teams": DB.custom_teams_json(), "field_plan": field_plan, "field_log": field_log,
+		"field_dynamic": field_dynamic, "field_last_entry": field_last_entry, "year": year, "career_start": career_start, "team_id": team_id, "round_index": round_index, "driver_points": driver_points,
 		"team_points": team_points, "wins": wins, "budget": budget, "upgrades": upgrades, "dev_pace": dev_pace,
 		"history": history, "team_pace": pace, "drivers": drivers, "news": news, "market_log": market_log, "market_open": market_open,
 		"season_log": season_log, "team_meta": team_meta, "solo_code": solo_code, "board": board, "sponsor_id": sponsor_id, "season_goal_rank": season_goal_rank, "season_eval_done": season_eval_done,
@@ -565,14 +668,25 @@ func load_game() -> bool:
 	var d = JSON.parse_string(FileAccess.get_file_as_string(SAVE_PATH))
 	if typeof(d) != TYPE_DICTIONARY or not d.has("drivers"):
 		return false
+	forecast_year = 0            # eine vorbereitete Prognose gilt nicht mehr (Teams und Fahrer werden gleich überschrieben)
 	year = int(d["year"])
 	career_start = int(d.get("career_start", year))
 	team_id = str(d["team_id"])
-	teams = DB.build_teams(career_start)
-	var pace: Dictionary = d.get("team_pace", {})
-	for t in teams:
-		if pace.has(t["id"]):
-			t["pace"] = float(pace[t["id"]])
+	# Teamliste: neuere Spielstände speichern sie samt Neueinsteigern, Fusionen und Umbenennungen; ältere kennen nur das Startfeld
+	DB.load_custom_teams(d.get("custom_teams", {}))
+	if d.has("team_list"):
+		teams = DB.restore_teams(d["team_list"], career_start)
+	else:
+		teams = DB.build_teams(career_start)
+		var pace: Dictionary = d.get("team_pace", {})
+		for t in teams:
+			if pace.has(t["id"]):
+				t["pace"] = float(pace[t["id"]])
+	field_plan = d.get("field_plan", {})
+	field_log = d.get("field_log", [])
+	field_dynamic = bool(d.get("field_dynamic", true))
+	field_last_entry = int(d.get("field_last_entry", -99))
+	Field.normalize_loaded()
 	teams.sort_custom(func(a, b): return float(a["pace"]) > float(b["pace"]))
 	drivers = d["drivers"]
 	news = d.get("news", [])

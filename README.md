@@ -1,6 +1,6 @@
 # F1 Strategie-Manager
 
-Realistische Formel-1-Teamchef-Simulation in **Godot 4**: Du leitest ein Team der Saisons **2000 bis 2026**,
+Realistische Formel-1-Teamchef-Simulation in **Godot 4**: Du leitest ein Team der Saisons **2000 bis 2026** (danach läuft die Karriere mit sich wandelndem Teamfeld weiter),
 planst die Reifenstrategie, funkst Boxenstopps und Fahrstil an deine Autos und entwickelst das Auto weiter.
 Die Rennen laufen über die **echte Renndistanz** (ca. 305 km) und lassen sich bis **256x** vorspulen.
 Die Autos sind Punkte auf der Streckenkarte (Ansicht von oben).
@@ -10,7 +10,7 @@ Die Autos sind Punkte auf der Streckenkarte (Ansicht von oben).
 2. **Importieren** und `project.godot` auswählen, dann **F5**.
 
 ## Spielablauf
-1. **Saison und Team wählen** (alle Teams und Fahrer der jeweiligen Saison, nach Stärke sortiert).
+1. **Saison und Team wählen** (alle Teams und Fahrer der jeweiligen Saison, nach Stärke sortiert). Neben 2000 bis 2026 gibt es die Prognose-Startjahre **2027\* bis 2030\*** mit vorausgerechnetem Teamfeld (siehe unten).
 2. **Saison-Zentrale:** Kalender, Fahrer- und Konstrukteurs-WM, Entwicklung (Budget in Aero, Antrieb, Chassis,
    Zuverlässigkeit, Boxencrew, Fahrertraining), nächstes Rennen mit Streckenkarte.
 3. **Rennwochenende:** Streckeninfo, Wetterprognose, Startplatzstrafen, dann das **Qualifying**: Q1/Q2/Q3
@@ -24,7 +24,7 @@ Die Autos sind Punkte auf der Streckenkarte (Ansicht von oben).
    Leertaste = Pause. "Auto-Slow" bremst automatisch bei Safety Car, Wetterwechsel und eigenem Ausfall.
 5. **Ergebnis:** Punkte nach dem Reglement der Saison, Einnahmen, Gehälter, WM-Stand. Gespeichert wird nach jedem Rennen.
 6. **Saisonende und Fahrermarkt:** Nach dem letzten Rennen öffnet der Markt (siehe unten). Danach startet die nächste Saison
-   (nach 2026 mit dem 2026er Kalender). Die Karriere läuft beliebig lange.
+   (nach 2026 mit dem 2026er Kalender). Die Karriere läuft beliebig lange. Das Teamfeld verändert sich dabei (Neueinsteiger, Rückzüge, Fusionen, Umbenennungen).
 
 ## Karriere: Ziele, Sponsor, Vorstand, Meldungen
 Neben den Rennen gibt es in der Zentrale den Reiter **Karriere** (`career.gd`):
@@ -34,6 +34,17 @@ Neben den Rennen gibt es in der Zentrale den Reiter **Karriere** (`career.gd`):
 - **Vorstand:** Das Vertrauen (0 bis 100) wirkt auf die Einnahmen (bis zu 10 % mehr oder weniger).
 - **Sponsor:** Zu Saisonbeginn wählst du einen von drei Verträgen (sicher, ausgewogen, erfolgsabhängig) mit unterschiedlichem Fixum und unterschiedlicher Prämie für Punkte und Rennziele. Die Namen sind erfunden.
 - **Meldungen aus der Zentrale:** Nach manchen Rennen kommt eine Entscheidung (Windkanal-Slot, fehlerhafte Zulieferteile, Medientag, Fahrerstreit, Trainingslager, Ingenieur abgeworben, Testtag, Simulator-Update, Fan-Aktion). Sie kosten Geld, ändern Stimmung, Entwicklung, Boxencrew oder das Ausfallrisiko einiger Rennen. Ohne Entscheidung gilt die Vorgabe. Der Reiter zeigt außerdem Finanzen der Saison und den Verlauf der Rennziele.
+
+## Teamfeld im Karriereverlauf
+Das Teamfeld bleibt über die Karriere nicht gleich (`field.gd`; auf dem Startbildschirm abschaltbar: *Teamfeld: wandelt sich* / *bleibt fest*). Sobald der Fahrermarkt öffnet, würfelt das Spiel das Feld des nächsten Jahres und kündigt es an. Umgesetzt wird es beim Marktschluss, bevor die KI die offenen Cockpits besetzt. Das gilt in jeder Karriere, auch wenn du vor 2026 startest (dann als frei fortgeschriebener Verlauf):
+- **Neueinsteiger:** fiktive Teams mit Name, Standort, Charakter und eigenem Wappen (Form, Muster, Farbe mit großem Abstand zu den vorhandenen Teams). Sie starten als schwächstes Team, sind anfangs defektanfälliger (sinkt jedes Jahr) und holen über die Jahre auf. Ihre Fahrer kommen über die normale KI-Besetzung aus Fahrerpool und Nachwuchs. Je kleiner das Feld, desto wahrscheinlicher ein Einstieg.
+- **Rückzug:** Teams, die mehrere Saisons in Folge unter den letzten drei Plätzen landen, können aufgeben. Ihre Fahrer sind sofort vertragslos und im Markt zu haben.
+- **Fusion:** ein Schlusslicht geht in einem Team der unteren Hälfte auf. Das Team fährt unter kombiniertem Namen weiter (Farbe des einen, Zweitfarbe des anderen, etwas mehr Stärke). Die Fahrer des aufgegebenen Teams werden vertragslos.
+- **Umbenennung:** ein Team der unteren Hälfte bekommt einen neuen Eigentümer mit neuem Namen und Wappen. Fahrer, Stärke und Punkte bleiben.
+- **Regeln:** Dein Team bleibt immer im Feld. Das Feld hat 9 bis 12 Teams. Neueinsteiger und Umbenannte haben zwei Saisons Schonfrist. In Simulationen bringt etwa jeder zweite bis dritte Saisonwechsel eine Änderung (Wahrscheinlichkeiten und Grenzen stehen als Konstanten am Anfang von `field.gd`).
+- **Anzeige:** Meldungen im News-Feed des Fahrermarkts und in den Neuigkeiten der Zentrale (Neues Team, Rückzug, Fusion, Umbenannt, Teamfeld), Kasten *Teamfeld* im Markt mit den angekündigten Änderungen, Konstrukteurs-WM mit Hinweis ("Neueinsteiger seit ...", "früher ...") und Chronik, Startaufstellung mit Marke *Neu im Feld*, Teamprofil mit Teamgeschichte. Dazu zwei Meldungen aus der Zentrale: *Auktion des ausgestiegenen Teams* und *Neueinsteiger sucht Technik-Partner*.
+- **Prognose-Startjahre 2027\* bis 2030\*:** Das Spiel rechnet ab 2026 die Saisonwechsel ohne dich voraus (KI-Fahrermarkt, Alterung, Rücktritte, Teamfeld). Das Ergebnis ist je Jahr reproduzierbar, die Teamauswahl zeigt das veränderte Feld samt Neueinsteigern. Ein vorhandener Spielstand wird dabei nicht überschrieben. Kalender und Strecken sind die von 2026.
+- **Speichern:** Der Spielstand enthält die aktuelle Teamliste, die Wappen der Karriere-Teams, die Chronik und die angekündigten Änderungen. Ältere Spielstände ohne diese Daten laden weiter (mit dem Startfeld wie bisher), ab dem nächsten Saisonwechsel greift dann das neue Teamfeld.
 
 ## Handy und Web-Version
 - **Web-Export:** `export/web/` (fertig gebaut, Godot 4.4.1, Einzel-Thread, ohne besondere Server-Header). Lokal testen: `node tools/serve_web.js`, dann `http://localhost:8080/`
@@ -149,6 +160,7 @@ Neben den Rennen gibt es in der Zentrale den Reiter **Karriere** (`career.gd`):
 | `scripts/race_sim.gd` | Rennsimulation (Zeitschritt 1 s), Strategie-KI, Wetter, Safety Car |
 | `scripts/quali_sim.gd` | Qualifying (Q1/Q2/Q3, Läufe, Verkehr, Regen, Strafen) |
 | `scripts/career.gd` | Karriere: Rennziele, Vorstand, Saisonziel, Sponsorverträge, Meldungen aus der Zentrale |
+| `scripts/field.gd` | Teamfeld im Karriereverlauf: Neueinsteiger, Rückzüge, Fusionen, Umbenennungen, Wappen und Namen der Karriere-Teams |
 | `scripts/cockpit_strip.gd` | Cockpit-Leiste unter der Rennkarte (Reifen, Sprit, Energie, Abstände) |
 | `scripts/main.gd`, `scripts/ui.gd` (columns, is_mobile) | Bildschirmwechsel, Handy-Modus, Reiter statt Spalten |
 | `scripts/screen_practice.gd` | Freitagstraining und Setup |
@@ -161,6 +173,6 @@ und in den Tabellen von `track_model.gd`.
 
 ## Bekannte Grenzen
 - Der 1-Fahrer-Modus ändert nur die Bedienung im Rennwochenende; der Fahrermarkt verhandelt weiter für beide Cockpits. Die Meldungen der Zentrale sind eine feste Auswahl, keine echten Ereignisse.
-- Keine Sprintrennen, keine Rote Flagge. Das Teamfeld bleibt über die Karriere gleich (keine Neueinsteiger oder Ausstiege), der Fahrermarkt ist frei simuliert und folgt nicht den echten Wechseln.
+- Keine Sprintrennen, keine Rote Flagge. Nur die Startfelder 2000 bis 2026 sind echt: Neueinsteiger, Rückzüge, Fusionen und Umbenennungen danach (und in den Prognose-Startjahren) sind fiktiv. Der Fahrermarkt ist frei simuliert und folgt nicht den echten Wechseln.
 - Modell-Ergebnisse sind plausibel, aber nicht die echten Rennausgänge.
 - Für einen Export (Release-Build) müssen im Export-Dialog unter "Ressourcen" die Filter `*.json` für Nicht-Ressourcen-Dateien ergänzt werden.

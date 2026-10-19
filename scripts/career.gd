@@ -3,6 +3,7 @@ extends RefCounted
 ## Der Spielstand liegt im Autoload "Game" (board, sponsor_id, goal_log, finance_log, pending_event, event_mods).
 
 const Market = preload("res://scripts/market.gd")
+const Field = preload("res://scripts/field.gd")
 
 const SPONSORS := [
 	{"id": "safe", "name": "Nordwind Energie", "tag": "Sicher", "base": 2.4, "pts": 0.75, "goal": 0.8, "desc": "Hohes Fixum, aber wenig Prämie für Punkte und Rennziele."},
@@ -12,7 +13,7 @@ const SPONSORS := [
 
 # Meldungen aus der Zentrale. Ein Effekt (fx) kann sein: budget (Mio. $, Kosten zählen für die Kostengrenze, wenn "dev"), upgrade (Stufe),
 # morale_all / morale_first / morale_second, crew (Boxencrew-Form), mech [Faktor, Rennen], pace (Pace-Zuwachs), board (Vertrauen),
-# chance {"p", "ok", "bad"} (Zufallsausgang), text (Meldung nach der Wahl).
+# chance {"p", "ok", "bad"} (Zufallsausgang), text (Meldung nach der Wahl). cond (am Meldungskopf) = nur bei dieser Lage im Teamfeld (field.gd).
 const EVENTS := {
 	"wind_tunnel": {"title": "Windkanal-Zeit frei geworden", "text": "Ein anderes Team hat seinen Windkanal-Slot abgesagt. Du kannst ihn kurzfristig übernehmen.", "need": 12.0, "options": [
 		{"label": "Nutzen (6 Mio. $)", "hint": "Eine Stufe Aerodynamik mehr (wenn noch Luft nach oben ist).", "fx": {"budget": -6.0, "dev": true, "upgrade": "aero", "text": "Das Windkanal-Programm bringt eine Aero-Stufe."}},
@@ -48,6 +49,16 @@ const EVENTS := {
 	"test_day": {"title": "Testfahrt-Angebot", "text": "Auf einer privaten Strecke ist ein Testtag frei. Die Fahrer könnten sich einfahren.", "need": 6.0, "options": [
 		{"label": "Testtag buchen (2 Mio. $)", "hint": "Beide Fahrer sind spürbar besser gelaunt.", "fx": {"budget": -2.0, "morale_all": 0.04, "text": "Der Testtag hebt die Stimmung beider Fahrer."}},
 		{"label": "Nicht buchen", "hint": "Nichts passiert.", "fx": {"text": "Kein Testtag."}},
+	]},
+	"ex_assets": {"title": "Auktion des ausgestiegenen Teams", "text": "Ein Rennstall hat die Formel 1 verlassen. Seine Fabrik wird abgewickelt, Ingenieure, Windkanal-Modelle und Werkzeug werden angeboten.", "need": 6.0, "cond": "exit", "options": [
+		{"label": "Ingenieure verpflichten (5 Mio. $)", "hint": "Etwas mehr Entwicklung für das Auto.", "fx": {"budget": -5.0, "dev": true, "pace": 0.0005, "text": "Erfahrene Ingenieure des ausgestiegenen Teams verstärken deine Entwicklung."}},
+		{"label": "Werkzeug ersteigern (2 Mio. $)", "hint": "60 % Chance auf schnellere Boxenstopps, sonst ein Fehlkauf.", "fx": {"budget": -2.0, "chance": {"p": 0.6, "ok": {"crew": 0.3, "text": "Das ersteigerte Werkzeug beschleunigt die Boxenstopps."}, "bad": {"text": "Der Kauf bringt nichts: Die Teile passen nicht zu deinem Auto."}}}},
+		{"label": "Nicht mitbieten", "hint": "Nichts passiert.", "fx": {"text": "Du bietest nicht mit."}},
+	]},
+	"newcomer": {"title": "Neueinsteiger sucht Technik-Partner", "text": "Das neue Team in der Startaufstellung hat noch keine Infrastruktur und fragt dich nach einer Kooperation.", "need": 0.0, "cond": "enter", "options": [
+		{"label": "Kooperation (+5 Mio. $)", "hint": "Du verkaufst Dienstleistungen, die Fahrer sind kurz abgelenkt, der Vorstand freut sich.", "fx": {"budget": 5.0, "morale_all": -0.02, "board": 1.0, "text": "Die Kooperation bringt 5 Mio. $ ein, die Fahrer sind etwas genervt."}},
+		{"label": "Nur Standardvertrag (+2 Mio. $)", "hint": "Wenig Aufwand, wenig Ertrag.", "fx": {"budget": 2.0, "text": "Du lieferst zum Standardpreis, +2 Mio. $."}},
+		{"label": "Ablehnen", "hint": "Keine Geheimnisse für die Konkurrenz.", "fx": {"text": "Du lehnst die Anfrage ab."}},
 	]},
 	"simulator": {"title": "Simulator-Update", "text": "Der Simulator-Hersteller bietet ein Update an, das die Korrelation zur Strecke verbessert.", "need": 10.0, "options": [
 		{"label": "Kaufen (5 Mio. $)", "hint": "Etwas mehr Pace über die ganze Saison.", "fx": {"budget": -5.0, "dev": true, "pace": 0.0004, "text": "Das Simulator-Update bringt etwas Pace."}},
@@ -338,11 +349,13 @@ static func roll_event() -> void:
 	var pool: Array = []
 	for id in EVENTS.keys():
 		var def: Dictionary = EVENTS[id]
-		if int(Game.event_last.get(id, -99)) > Game.career_race_no - 6:
+		if int(Game.event_last.get(id, -99)) > Game.career_race_no - (20 if def.has("cond") else 6):
 			continue
 		if Game.budget < float(def.get("need", 0.0)):
 			continue
 		if def.get("pair", false) and Market.current_drivers(Game.team_id).size() < 2:
+			continue
+		if def.has("cond") and not Field.cond(str(def["cond"])):
 			continue
 		pool.append(id)
 	if pool.is_empty():

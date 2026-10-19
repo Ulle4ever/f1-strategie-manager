@@ -4,6 +4,9 @@ extends Control
 const U = preload("res://scripts/ui.gd")
 const TeamStyle = preload("res://scripts/team_style.gd")
 const TeamCrest = preload("res://scripts/team_crest.gd")
+const Field = preload("res://scripts/field.gd")
+
+const FUTURE_YEARS := 4      # Startjahre nach dem letzten Datenjahr (2027 bis 2030, mit vorausgerechnetem Teamfeld)
 
 var main
 var year_option: OptionButton
@@ -14,6 +17,8 @@ var selected_label: Label
 var selected_team := ""
 var team_buttons := {}
 var solo_mode := false
+var field_dynamic := true
+var field_button: Button
 var mode_button: Button
 var size_button: Button
 var year_button: Button
@@ -41,18 +46,26 @@ func _ready() -> void:
 	year_option = OptionButton.new()
 	year_option.custom_minimum_size = Vector2(130 if M else 150, 42)
 	year_option.add_theme_font_size_override("font_size", 20 if M else 22)
+	for y in range(DB.MAX_YEAR + FUTURE_YEARS, DB.MAX_YEAR, -1):
+		year_option.add_item("%d*" % y, y)
 	for y in DB.years():
 		year_option.add_item(str(y), y)
-	year_option.select(0)
+	year_option.select(FUTURE_YEARS)      # 2026
 	year_option.item_selected.connect(_on_year)
 	year_option.visible = false          # Datenmodell; Auswahl über den eigenen Auswahldialog (Popup-Listen sind am Handy unzuverlässig)
 	top.add_child(year_option)
-	year_button = U.button("%d  v" % year_option.get_selected_id(), _open_year_picker, 130 if M else 150, 42)
+	year_button = U.button("%s  v" % year_option.get_item_text(year_option.selected), _open_year_picker, 130 if M else 150, 42)
 	year_button.add_theme_font_size_override("font_size", 20 if M else 22)
 	top.add_child(year_button)
 	info_label = U.label("", 16, U.MUTED)
 	info_label.visible = not M
 	top.add_child(info_label)
+	field_dynamic = Game.field_dynamic
+	field_button = U.button(_field_text(), _on_field, 150 if M else 180, 42 if M else 54)
+	field_button.add_theme_font_size_override("font_size", 14 if M else 16)
+	field_button.tooltip_text = "Das Teamfeld verändert sich über die Karriere: Neueinsteiger, Rückzüge, Fusionen und Umbenennungen. Fest: Das Feld bleibt, wie es zum Start ist."
+	if M:
+		top.add_child(field_button)     # am Handy ist unten kein Platz mehr
 	top.add_child(U.spacer())
 	if Game.has_save():
 		var si: Dictionary = Game.save_info()
@@ -90,6 +103,8 @@ func _ready() -> void:
 	foot.add_child(U.spacer())
 	if not M:
 		foot.add_child(U.label("Daten: Jolpica-F1 (Ergast), OpenStreetMap (ODbL)", 13, U.MUTED))
+	if not M:
+		foot.add_child(field_button)
 	mode_button = U.button("Modus: Teamchef (2 Autos)", _on_mode, 230 if M else 270, 46 if M else 54)
 	mode_button.add_theme_font_size_override("font_size", 14 if M else 16)
 	foot.add_child(mode_button)
@@ -138,11 +153,14 @@ func _open_year_picker() -> void:
 	g.add_theme_constant_override("h_separation", 6)
 	g.add_theme_constant_override("v_separation", 6)
 	sc.add_child(g)
+	var note := U.label("* Prognose: Teamfeld und Fahrer werden ab 2026 vorausgerechnet (Neueinsteiger, Rückzüge, Fusionen).", 12, U.MUTED)
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(note)
 	var cur := year_option.get_selected_id()
 	for i in year_option.item_count:
 		var y := year_option.get_item_id(i)
 		var b := Button.new()
-		b.text = str(y)
+		b.text = year_option.get_item_text(i)
 		b.toggle_mode = true
 		b.button_pressed = y == cur
 		b.custom_minimum_size = Vector2(0, 46)
@@ -156,9 +174,14 @@ func _open_year_picker() -> void:
 func _pick_year(idx: int) -> void:
 	if U.touch_scrolled:
 		return
+	_close_picker()
+	if year_option.get_item_id(idx) > DB.MAX_YEAR:
+		U.busy(self, "Teamfeld wird vorausgerechnet ...", func():
+			year_option.select(idx)
+			_on_year(idx))
+		return
 	year_option.select(idx)
 	_on_year(idx)
-	_close_picker()
 
 
 func _close_picker() -> void:
@@ -169,11 +192,12 @@ func _close_picker() -> void:
 
 func _on_year(_i: int) -> void:
 	var y := year_option.get_selected_id()
+	var future := y > DB.MAX_YEAR
 	if year_button != null:
-		year_button.text = "%d  v" % y
-	teams = DB.build_teams(y)
-	var cal: Array = DB.season(y)["calendar"]
-	info_label.text = "%d Rennen  |  %d Teams" % [cal.size(), teams.size()]
+		year_button.text = "%s  v" % year_option.get_item_text(year_option.selected)
+	teams = Game.forecast_field(y) if future else DB.build_teams(y)
+	var cal: Array = DB.season(mini(y, DB.MAX_YEAR))["calendar"]
+	info_label.text = "%d Rennen  |  %d Teams%s" % [cal.size(), teams.size(), "  |  Prognose" if future else ""]
 	U.clear(grid)
 	team_buttons = {}
 	selected_team = ""
@@ -218,6 +242,8 @@ func _on_year(_i: int) -> void:
 		var names := ""
 		for d in t["drivers"]:
 			names += "%s    " % d["name"]
+		if future and Field.team_note(str(t["id"])) != "":
+			names += "|  %s" % Field.team_note(str(t["id"]))
 		var dn := U.label(names, 12 if U.is_mobile() else 14, U.MUTED)
 		dn.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		info.add_child(dn)
@@ -254,6 +280,18 @@ func _on_team(id: String, tname: String) -> void:
 	start_button.disabled = false
 
 
+func _field_text() -> String:
+	return "Feld: wandelt sich" if field_dynamic else "Feld: fest"
+
+
+func _on_field() -> void:
+	field_dynamic = not field_dynamic
+	Game.field_dynamic = field_dynamic
+	field_button.text = _field_text()
+	if year_option.get_selected_id() > DB.MAX_YEAR:
+		_pick_year(year_option.selected)       # Prognose neu rechnen
+
+
 func _on_mode() -> void:
 	solo_mode = not solo_mode
 	mode_button.text = "Modus: 1 Fahrer" if solo_mode else "Modus: Teamchef (2 Autos)"
@@ -262,6 +300,7 @@ func _on_mode() -> void:
 func _on_start() -> void:
 	if selected_team == "":
 		return
+	Game.field_dynamic = field_dynamic
 	Game.new_season(year_option.get_selected_id(), selected_team)
 	Game.solo_code = "*" if solo_mode else ""
 	main.show_hub()

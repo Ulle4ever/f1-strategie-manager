@@ -21,6 +21,9 @@ const TEAM_COLORS := {
 
 var _seasons := {}
 var _tracks := {}
+## Teams, die es nur in der laufenden Karriere gibt (Neueinsteiger, Fusionen, Umbenennungen, siehe field.gd):
+## Team-ID -> {name, color, second, short, shape, pattern, hq, founded, titles, tag, profile}. Der Spielstand speichert sie mit.
+var custom_teams := {}
 
 
 func years() -> Array:
@@ -51,6 +54,8 @@ func track(circuit_id: String):
 
 
 func team_color(id: String) -> Color:
+	if custom_teams.has(id):
+		return custom_teams[id]["color"]
 	if TEAM_COLORS.has(id):
 		return TEAM_COLORS[id]
 	var h := id.hash()
@@ -74,6 +79,8 @@ const PROFILES := {
 
 func car_profile(team_id: String, year: int) -> Dictionary:
 	var base: Dictionary = PROFILES.get(team_id, {})
+	if base.is_empty() and custom_teams.has(team_id):
+		base = custom_teams[team_id].get("profile", {})
 	var out := {}
 	for k in ["df", "power", "tyre", "wet"]:
 		var h := ("%s|%s|%d" % [team_id, k, year / 3]).hash()
@@ -156,4 +163,56 @@ func build_teams(year: int) -> Array:
 				"skill": skill, "qskill": qskill, "crash_rate": crash_rate,
 			})
 		out.append(team)
+	return out
+
+
+# ------------------------------------------------------------------ Karriere-Teams (Teamfeld verändert sich)
+
+## Team in die Karriere-Liste eintragen. spec: {id, name, color, second (Hex ohne #), short, shape, pattern, hq, founded, titles, tag, profile}.
+func register_team(spec: Dictionary) -> void:
+	custom_teams[str(spec["id"])] = {
+		"name": str(spec["name"]), "color": Color(str(spec["color"])), "second": Color(str(spec["second"])),
+		"short": str(spec["short"]), "shape": str(spec["shape"]), "pattern": str(spec["pattern"]), "hq": str(spec["hq"]),
+		"founded": int(spec.get("founded", 0)), "titles": int(spec.get("titles", 0)), "tag": str(spec["tag"]),
+		"profile": (spec.get("profile", {}) as Dictionary).duplicate(),
+	}
+
+
+## Karriere-Teams als JSON-taugliche Daten (Farben als Hex-Text) für den Spielstand.
+func custom_teams_json() -> Dictionary:
+	var out := {}
+	for id in custom_teams.keys():
+		var i: Dictionary = custom_teams[id]
+		out[id] = {"id": id, "name": i["name"], "color": (i["color"] as Color).to_html(false), "second": (i["second"] as Color).to_html(false),
+			"short": i["short"], "shape": i["shape"], "pattern": i["pattern"], "hq": i["hq"], "founded": i["founded"], "titles": i["titles"],
+			"tag": i["tag"], "profile": i["profile"]}
+	return out
+
+
+func load_custom_teams(d: Dictionary) -> void:
+	custom_teams = {}
+	for id in d.keys():
+		register_team(d[id])
+
+
+## Neues Team im Format von build_teams (keine Fahrer, die kommen über den Fahrermarkt).
+func new_team(id: String, p_name: String, pace: float, mech_rate: float) -> Dictionary:
+	return {"id": id, "name": p_name, "color": team_color(id), "pace": pace, "mech_rate": mech_rate, "points": 0.0, "drivers": []}
+
+
+## Teamliste aus dem Spielstand wiederherstellen: Teams der Startsaison mit gespeicherter Stärke, dazu die Karriere-Teams.
+## saved: [{id, name, pace, mech_rate}] in gespeicherter Reihenfolge. base_year = Startsaison (höchstens MAX_YEAR).
+func restore_teams(saved: Array, base_year: int) -> Array:
+	var base := {}
+	for t in build_teams(mini(base_year, MAX_YEAR)):
+		base[t["id"]] = t
+	var out: Array = []
+	for e in saved:
+		var id := str(e["id"])
+		var t: Dictionary = base[id] if base.has(id) else new_team(id, str(e["name"]), 1.0, 0.0135)
+		t["name"] = str(e["name"])
+		t["color"] = team_color(id)
+		t["pace"] = float(e["pace"])
+		t["mech_rate"] = float(e.get("mech_rate", t.get("mech_rate", 0.0135)))
+		out.append(t)
 	return out

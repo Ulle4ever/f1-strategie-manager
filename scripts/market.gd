@@ -324,6 +324,8 @@ static func next_drivers(tid: String) -> Array:
 
 
 static func open_seats(tid: String) -> int:
+	if Game.is_leaving(tid):
+		return 0      # Team steigt aus: keine neuen Fahrer
 	return SEATS - next_drivers(tid).size()
 
 
@@ -711,6 +713,8 @@ static func open_market() -> void:
 		Game.team_meta[st[i]["id"]]["last_rank"] = i
 		Game.team_meta[st[i]["id"]]["prestige"] = 0.8 * float(Game.team_meta[st[i]["id"]]["prestige"]) + 0.2 * (1.0 - float(i) / maxf(1.0, float(st.size() - 1)))
 	refresh_scores()
+	# Teamfeld des nächsten Jahres: Neueinsteiger, Rückzüge, Fusionen (vor den Vertragsverlängerungen der KI)
+	Game.plan_field()
 	# Ausstiegsklauseln
 	for k in Game.drivers.keys():
 		var d: Dictionary = Game.drivers[k]
@@ -843,7 +847,11 @@ static func _generate_rumors(count: int) -> void:
 			continue
 		if d["status"] == "free" or (d["team"] != "" and int(d["contract"].get("end", 9999)) <= next_year()):
 			cands.append(d)
-	cands.shuffle()
+	for i in range(cands.size() - 1, 0, -1):     # mischen mit Game.rng (nicht dem globalen Zufall), damit Prognosen reproduzierbar bleiben
+		var j := Game.rng.randi() % (i + 1)
+		var tmp = cands[i]
+		cands[i] = cands[j]
+		cands[j] = tmp
 	var n := 0
 	for d in cands:
 		if n >= count:
@@ -856,7 +864,7 @@ static func _generate_rumors(count: int) -> void:
 		else:
 			var ids: Array = []
 			for t in Game.teams:
-				if t["id"] != d["team"]:
+				if t["id"] != d["team"] and not Game.is_leaving(str(t["id"])):
 					ids.append(t["id"])
 			tid = ids[Game.rng.randi() % ids.size()]
 		var txt := "Gerücht: %s soll mit %s verhandeln." % [d["name"], team_name(tid)]
@@ -997,6 +1005,8 @@ static func _sign_ai(d: Dictionary, tid: String, pick: Dictionary) -> void:
 
 ## Spieler hat nach Marktschluss ein offenes Cockpit: preiswerten Fahrer verpflichten.
 static func auto_fill_player() -> void:
+	if Game.team_id == "":
+		return
 	var guard := 0
 	while open_seats(Game.team_id) > 0 and guard < 3:
 		guard += 1
@@ -1029,6 +1039,8 @@ static func close_market() -> void:
 			d["team"] = ""
 			d["status"] = "free"
 			d["contract"] = {}
+	# Teamfeld umbauen (Rückzüge, Fusionen, Neueinsteiger), danach besetzt die KI die offenen Cockpits
+	Game.apply_field_plan()
 	# Alle anderen Teams: noch laufende Verträge bleiben, restliche Cockpits besetzen
 	ai_fill()
 	auto_fill_player()

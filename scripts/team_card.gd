@@ -4,6 +4,7 @@ extends VBoxContainer
 const U = preload("res://scripts/ui.gd")
 const TeamStyle = preload("res://scripts/team_style.gd")
 const Market = preload("res://scripts/market.gd")
+const Field = preload("res://scripts/field.gd")
 
 
 class Banner extends Control:
@@ -58,6 +59,9 @@ func setup(team_id: String, show_drivers := true) -> void:
 	var tl := U.label(str(inf["tag"]), 14, U.TEXT)
 	tl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	add_child(tl)
+	var note := Field.team_note(team_id)
+	if note != "":
+		add_child(U.label(note, 13, U.WARN, true))
 	# Autoprofil
 	var prof: Dictionary = DB.car_profile(team_id, Game.year)
 	if team_id == Game.team_id:

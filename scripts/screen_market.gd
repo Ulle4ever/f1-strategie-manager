@@ -3,6 +3,7 @@ extends Control
 
 const U = preload("res://scripts/ui.gd")
 const Market = preload("res://scripts/market.gd")
+const Field = preload("res://scripts/field.gd")
 
 const KIND_STYLE := {
 	"signing": ["VERPFLICHTET", Color("d6f3e3"), Color("0b7a43")], "extension": ["VERLÄNGERT", Color("dbe8ff"), Color("1d4fb8")],
@@ -10,6 +11,9 @@ const KIND_STYLE := {
 	"rumor": ["GERÜCHT", Color("efdcff"), Color("6b2fb0")], "poach": ["ABGEWORBEN", Color("ffdcd8"), Color("b3261e")],
 	"transfer": ["TRANSFER", Color("ffdcd8"), Color("b3261e")], "exit": ["KLAUSEL", Color("ffdcd8"), Color("b3261e")],
 	"info": ["INFO", Color("e6e9f0"), Color("3d465a")], "rookie": ["NACHWUCHS", Color("dbe8ff"), Color("1d4fb8")],
+	"team_in": ["NEUES TEAM", Color("d6f3e3"), Color("0b7a43")], "team_out": ["RÜCKZUG", Color("ffdcd8"), Color("b3261e")],
+	"team_merge": ["FUSION", Color("efdcff"), Color("6b2fb0")], "team_name": ["UMBENANNT", Color("dbe8ff"), Color("1d4fb8")],
+	"field": ["TEAMFELD", Color("fff0c2"), Color("8a5a00")],
 }
 
 var main
@@ -344,6 +348,13 @@ func _refresh_finish() -> void:
 	var hint := U.label("Danach besetzen die anderen Teams ihre Cockpits. Nicht verlängerte Fahrer verlassen dich.", 12, U.MUTED)
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	finish_box.add_child(hint)
+	var lines: Array = Field.plan_lines()
+	if not lines.is_empty():
+		finish_box.add_child(U.label("TEAMFELD %d" % (Game.year + 1), 11, U.MUTED, true))
+		for ln in lines:
+			var fl := U.label(str(ln), 12, U.TEXT)
+			fl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			finish_box.add_child(fl)
 
 
 func _refresh_list() -> void:

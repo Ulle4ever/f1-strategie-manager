@@ -76,6 +76,8 @@ static func logo(id: String) -> Texture2D:
 
 
 static func info(id: String) -> Dictionary:
+	if DB.custom_teams.has(id):
+		return DB.custom_teams[id]      # Neueinsteiger, Fusionen und Umbenennungen der Karriere (siehe field.gd)
 	if INFO.has(id):
 		return INFO[id]
 	var h := id.hash()

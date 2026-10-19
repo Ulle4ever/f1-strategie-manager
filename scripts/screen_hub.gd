@@ -9,6 +9,7 @@ const TeamStyle = preload("res://scripts/team_style.gd")
 const TeamCrest = preload("res://scripts/team_crest.gd")
 const TeamCard = preload("res://scripts/team_card.gd")
 const Career = preload("res://scripts/career.gd")
+const Field = preload("res://scripts/field.gd")
 
 var cap_label: Label
 var cap_bar: ProgressBar
@@ -191,8 +192,27 @@ func _build_team_table() -> void:
 	var maxp: float = st[0]["points"] if st.size() > 0 else 1.0
 	var pos := 1
 	for t in st:
-		box.add_child(_bar_row(pos, TeamStyle.ui_color(t["id"]), str(t["name"]).to_upper(), "", t["points"], maxp, t["id"] == Game.team_id, t["id"]))
+		box.add_child(_bar_row(pos, TeamStyle.ui_color(t["id"]), str(t["name"]).to_upper(), Field.team_note(str(t["id"])), t["points"], maxp, t["id"] == Game.team_id, t["id"]))
 		pos += 1
+	# Chronik des Teamfelds: Neueinsteiger, Rückzüge, Fusionen, Umbenennungen
+	if not Game.field_log.is_empty():
+		box.add_child(U.heading("Teamfeld: %d Teams" % Game.teams.size(), 16, U.MUTED))
+		var n := 0
+		for e in Game.field_log:
+			var fst: Array = MarketScreen.KIND_STYLE.get(e["kind"], MarketScreen.KIND_STYLE["info"])
+			var row := U.hbox(8)
+			var ch := U.chip(fst[0], fst[1], fst[2])
+			ch.custom_minimum_size = Vector2(112, 0)
+			row.add_child(ch)
+			var tl := U.label(str(e["text"]), 13, U.TEXT)
+			tl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			tl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			row.add_child(tl)
+			row.add_child(U.label(str(int(e["year"])), 12, U.MUTED))
+			box.add_child(row)
+			n += 1
+			if n >= 10:
+				break
 	_scroll(box, "Konstrukteurs-WM")
 
 
