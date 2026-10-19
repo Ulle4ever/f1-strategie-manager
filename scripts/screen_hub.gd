@@ -8,6 +8,7 @@ const MarketScreen = preload("res://scripts/screen_market.gd")
 const TeamStyle = preload("res://scripts/team_style.gd")
 const TeamCrest = preload("res://scripts/team_crest.gd")
 const TeamCard = preload("res://scripts/team_card.gd")
+const Career = preload("res://scripts/career.gd")
 
 var cap_label: Label
 var cap_bar: ProgressBar
@@ -17,6 +18,8 @@ var budget_label: Label
 var dev_box: VBoxContainer
 var dev_rows := {}
 var save_button: Button
+var event_layer: Control = null
+var event_card_box: VBoxContainer = null
 
 
 func _ready() -> void:
@@ -61,9 +64,12 @@ func _ready() -> void:
 	_build_team_table()
 	_build_development()
 	_build_drivers_tab()
+	_build_career_tab()
 	if not M:
 		cols.add_child(_build_next_race())
 	_refresh_budget()
+	if not Game.pending_event.is_empty() and not Game.event_seen:
+		_show_event_dialog.call_deferred()
 
 
 func _scroll(content: Control, tab_name: String) -> void:
@@ -254,6 +260,7 @@ func _build_drivers_tab() -> void:
 	var fintro := U.label("Deine Fahrer und ihre Verträge. Die Stimmung hängt von Ergebnissen, Rolle, Gehalt und Teamkollegen ab.", 14, U.MUTED)
 	fintro.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(fintro)
+	box.add_child(_mode_card())
 	for d in Market.current_drivers(Game.team_id):
 		var p := U.panel(10)
 		var h := U.hbox(12)
@@ -304,6 +311,214 @@ func _build_drivers_tab() -> void:
 	_scroll(box, "Fahrer")
 
 
+## Spielmodus: beide Autos (Teamchef) oder nur ein Fahrer.
+func _mode_card() -> Control:
+	var p := U.panel(10, U.BLUE)
+	var v := U.vbox(6)
+	p.add_child(v)
+	v.add_child(U.label("SPIELMODUS", 11, U.MUTED, true))
+	var row := HFlowContainer.new()
+	row.add_theme_constant_override("h_separation", 6)
+	row.add_theme_constant_override("v_separation", 6)
+	v.add_child(row)
+	var btns: Array = []
+	var opts: Array = [["", "Teamchef: beide Autos"]]
+	for d in Market.current_drivers(Game.team_id):
+		opts.append([str(d["code"]), "Nur %s" % str(d["name"])])
+	var cur := Game.solo_driver()
+	for o in opts:
+		var b := Button.new()
+		b.toggle_mode = true
+		b.text = str(o[1])
+		b.custom_minimum_size = Vector2(0, 40)
+		b.add_theme_font_size_override("font_size", 14)
+		b.button_pressed = str(o[0]) == cur
+		btns.append([b, str(o[0])])
+		row.add_child(b)
+	for e in btns:
+		e[0].pressed.connect(func():
+			Game.solo_code = str(e[1])
+			Game.goal_cache = {}
+			for e2 in btns:
+				e2[0].set_pressed_no_signal(e2[1] == Game.solo_code)
+			Game.save())
+	var info := U.label("Im 1-Fahrer-Modus gibst du nur für einen Fahrer Befehle (Qualifying, Strategie, Funk, Boxenstopps). Sein Teamkollege wird vom Team automatisch geführt wie bei den anderen Teams. Gilt ab dem nächsten Rennwochenende.", 12, U.MUTED)
+	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(info)
+	return p
+
+
+func _wl(text: String, size := 13, col := U.TEXT, bold := false) -> Label:
+	var l := U.label(text, size, col, bold)
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	return l
+
+
+func _career_card(title: String, accent: Color) -> Array:
+	var p := U.panel(12, accent)
+	var v := U.vbox(5)
+	p.add_child(v)
+	v.add_child(U.label(title, 11, U.MUTED, true))
+	return [p, v]
+
+
+## Reiter Karriere: Vorstand, Saisonziel, Sponsor, Rennziele, Finanzen.
+func _build_career_tab() -> void:
+	var box := U.vbox(10)
+	if not Game.pending_event.is_empty():
+		var def: Dictionary = Career.event_def(str(Game.pending_event["id"]))
+		var c0 := _career_card("OFFENE ENTSCHEIDUNG", U.WARN)
+		c0[1].add_child(_wl(str(def.get("title", "")), 17, U.TEXT, true))
+		c0[1].add_child(U.primary_button("Entscheiden", _show_event_dialog, 0, 42))
+		box.add_child(c0[0])
+	# Vorstand
+	var c1 := _career_card("VORSTAND", Career.board_color())
+	c1[1].add_child(_wl("Vertrauen: %s (%d von 100)" % [Career.board_word(), int(Game.board)], 18, U.TEXT, true))
+	var bar := ProgressBar.new()
+	bar.max_value = 100.0
+	bar.value = Game.board
+	bar.show_percentage = false
+	bar.custom_minimum_size = Vector2(0, 10)
+	bar.add_theme_stylebox_override("fill", U.button_style(Career.board_color(), Career.board_color(), 0, 5))
+	c1[1].add_child(bar)
+	c1[1].add_child(_wl("Das Vertrauen steigt und sinkt mit den Rennzielen und dem Saisonziel. Es wirkt auf deine Einnahmen (bis zu 10 % mehr oder weniger).", 12, U.MUTED))
+	box.add_child(c1[0])
+	# Saisonziel
+	var c2 := _career_card("SAISONZIEL", U.ACCENT)
+	c2[1].add_child(_wl("Konstrukteurs-WM: Platz %d oder besser" % maxi(Game.season_goal_rank, 1), 17, U.TEXT, true))
+	if Game.season_over():
+		c2[1].add_child(_wl(str(Career.season_eval()["text"]), 14, U.WARN, true))
+	else:
+		c2[1].add_child(_wl("Aktuell Platz %d nach %d von %d Rennen. Erreicht: Prämie und Vertrauen, übertroffen: mehr, verfehlt: Vertrauen sinkt." % [Game.final_rank(Game.team_id), Game.round_index, Game.calendar.size()], 13, U.MUTED))
+	box.add_child(c2[0])
+	# Sponsor
+	var c3 := _career_card("SPONSOR", U.BLUE)
+	if Game.sponsor_id == "":
+		c3[1].add_child(_wl("Noch kein Vertrag gewählt, es gilt \"Ausgewogen\".", 14, U.TEXT, true))
+	var sp: Dictionary = Career.sponsor()
+	c3[1].add_child(_wl("%s (%s)" % [str(sp["name"]), str(sp["tag"])], 17, U.TEXT, true))
+	c3[1].add_child(_wl("%s Erwartet ca. %.1f Mio. $ pro Rennen aus Sponsor, Punkten und Rennzielen." % [str(sp["desc"]), Career.sponsor_income(sp)], 13, U.MUTED))
+	box.add_child(c3[0])
+	# Nächstes Rennziel
+	if not Game.season_over():
+		var g: Dictionary = Career.race_goal()
+		var c4 := _career_card("RENNZIEL FÜR DAS NÄCHSTE RENNEN", U.GOOD)
+		c4[1].add_child(_wl(str(g["text"]), 17, U.TEXT, true))
+		c4[1].add_child(_wl("Prämie %.1f Mio. $, übertroffen %.1f Mio. $." % [float(g["bonus"]), float(g["bonus_hi"])], 13, U.MUTED))
+		box.add_child(c4[0])
+	# Verlauf der Rennziele
+	if not Game.goal_log.is_empty():
+		var c5 := _career_card("RENNZIELE DIESER SAISON", U.LINE)
+		var start := maxi(0, Game.goal_log.size() - 10)
+		for i in range(Game.goal_log.size() - 1, start - 1, -1):
+			var e: Dictionary = Game.goal_log[i]
+			var ok: bool = str(e["word"]) in ["erreicht", "übertroffen"]
+			var row := U.hbox(8)
+			var tl := _wl("%s: %s" % [str(e["race"]).replace(" Grand Prix", ""), str(e["goal"])], 12, U.TEXT)
+			tl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			row.add_child(tl)
+			row.add_child(U.label(str(e["word"]), 12, U.GOOD if ok else U.BAD, true))
+			c5[1].add_child(row)
+		box.add_child(c5[0])
+	# Finanzen
+	var c6 := _career_card("FINANZEN DIESER SAISON", U.WARN)
+	var inc := 0.0
+	var sal := 0.0
+	var bon := 0.0
+	for e in Game.finance_log:
+		inc += float(e["income"])
+		sal += float(e["salaries"])
+		bon += float(e["bonus"])
+	c6[1].add_child(_wl("Einnahmen %.1f Mio. $  |  Gehälter %.1f  |  davon Prämien %.1f" % [inc, sal, bon], 14, U.TEXT, true))
+	c6[1].add_child(_wl("Kasse: %.1f Mio. $. Kostenobergrenze: %.1f von %.0f Mio. $ gebunden (Gehälter, Entwicklung, Provisionen)." % [Game.budget, Game.cap_used(), Game.cap], 13, U.MUTED))
+	box.add_child(c6[0])
+	# Entschiedene Meldungen
+	if not Game.career_log.is_empty():
+		var c7 := _career_card("ENTSCHEIDUNGEN", U.LINE)
+		var n := 0
+		for e in Game.career_log:
+			c7[1].add_child(_wl("%s: %s" % [str(e["title"]), str(e["text"])], 12, U.TEXT))
+			n += 1
+			if n >= 5:
+				break
+		box.add_child(c7[0])
+	_scroll(box, "Karriere" if Game.pending_event.is_empty() else "Karriere (!)")
+
+
+## Meldung aus der Zentrale als Dialog über dem Bildschirm.
+func _show_event_dialog() -> void:
+	if Game.pending_event.is_empty():
+		return
+	var def: Dictionary = Career.event_def(str(Game.pending_event["id"]))
+	if def.is_empty():
+		return
+	Game.event_seen = true
+	if event_layer != null:
+		event_layer.queue_free()
+	var M := U.is_mobile()
+	var vp := get_viewport_rect().size
+	event_layer = ColorRect.new()
+	(event_layer as ColorRect).color = Color(0.05, 0.08, 0.16, 0.45)
+	U.fill(event_layer)
+	event_layer.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(event_layer)
+	var cc := CenterContainer.new()
+	U.fill(cc)
+	event_layer.add_child(cc)
+	var card := U.panel(14, U.ACCENT)
+	card.custom_minimum_size = Vector2(clampf(vp.x - 40.0, 300.0, 660.0), 0)
+	cc.add_child(card)
+	var v := U.vbox(8)
+	card.add_child(v)
+	event_card_box = v
+	v.add_child(U.label("MELDUNG AUS DER ZENTRALE", 11, U.MUTED, true))
+	v.add_child(_wl(str(def["title"]), 20 if not M else 17, U.TEXT, true))
+	v.add_child(_wl(str(def["text"]), 14 if not M else 12, U.MUTED))
+	var holder: Container = v
+	if M:
+		# Handy: Optionen zweispaltig in einem Scrollbereich (wenig Höhe)
+		var sc := ScrollContainer.new()
+		sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		sc.custom_minimum_size = Vector2(0, maxf(vp.y - 190.0, 120.0))
+		v.add_child(sc)
+		var grid := GridContainer.new()
+		grid.columns = 2
+		grid.add_theme_constant_override("h_separation", 6)
+		grid.add_theme_constant_override("v_separation", 6)
+		grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		sc.add_child(grid)
+		holder = grid
+	var opts: Array = def["options"]
+	for i in opts.size():
+		var oc := U.option_card(str(opts[i]["label"]), str(opts[i]["hint"]), U.ACCENT, _on_event_choice.bind(i), i == int(def.get("default", 99)))
+		oc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		holder.add_child(oc)
+	v.add_child(U.button("Später entscheiden", _close_event_dialog, 0, 38))
+
+
+func _close_event_dialog() -> void:
+	if event_layer != null:
+		event_layer.queue_free()
+		event_layer = null
+	event_card_box = null
+
+
+func _on_event_choice(i: int) -> void:
+	var def: Dictionary = Career.event_def(str(Game.pending_event["id"]))
+	var chosen := str(def["options"][clampi(i, 0, def["options"].size() - 1)]["label"])
+	var txt := Career.choose(i)
+	Game.save()
+	if event_card_box == null:
+		return
+	U.clear(event_card_box)
+	event_card_box.add_child(U.label("DEINE ENTSCHEIDUNG", 11, U.MUTED, true))
+	event_card_box.add_child(_wl(chosen, 18, U.TEXT, true))
+	event_card_box.add_child(_wl(txt, 14, U.MUTED))
+	event_card_box.add_child(U.primary_button("OK", func():
+		_close_event_dialog()
+		main.show_hub(), 0, 44))
+
+
 func _on_upgrade(key: String) -> void:
 	Game.buy_upgrade(key)
 	_refresh_dev()
@@ -344,6 +559,7 @@ func _build_next_race() -> Control:
 	var cl := U.label("%s  |  %s, %s" % [race["circuit"], race["locality"], race["country"]], 13, U.MUTED)
 	cl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(cl)
+	v.add_child(_wl("Rennziel: %s" % str(Career.race_goal()["text"]), 14, U.BLUE, true))
 	if tr == null:
 		v.add_child(U.label("Streckendaten fehlen für diesen Kurs.", 16, U.BAD))
 		return p
@@ -376,6 +592,8 @@ func _build_next_race() -> Control:
 		map.custom_minimum_size = Vector2(240, 250)
 		map.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		h.add_child(map)
+		# der Haupt-Knopf soll ohne Scrollen sichtbar sein
+		v.move_child(v.get_child(v.get_child_count() - 1), 4)
 	return p
 
 

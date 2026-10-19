@@ -3,6 +3,7 @@ extends Node
 ## Fahrermarkt (Fahrer, Verträge, News) und Kostenobergrenze. Speichern/Laden.
 
 const Market = preload("res://scripts/market.gd")
+const Career = preload("res://scripts/career.gd")
 
 const SAVE_PATH := "user://savegame.json"
 const MAX_LEVEL := 6
@@ -36,6 +37,23 @@ var dev_pace := {}           # Team-ID -> Entwicklung (Pace-Zuwachs)
 var rng := RandomNumberGenerator.new()
 var rules: Dictionary = {}
 var last_result: Dictionary = {}
+var requests_on := true          # Anfragen des Fahrers im Rennen (Entscheidungskarten)
+var solo_code := ""              # 1-Fahrer-Modus: Kürzel des betreuten Fahrers ("*" = bester Fahrer des Teams), leer = beide Autos
+# Karriere (siehe career.gd)
+var board := 60.0                # Vertrauen des Vorstands 0..100
+var goal_cache: Dictionary = {}  # Rennziel des aktuellen Rennens {"round", "goal"} (nicht gespeichert)
+var sponsor_id := ""             # Sponsorenvertrag ("" = keiner gewählt, es gilt "Ausgewogen")
+var season_goal_rank := 0        # Saisonziel: Platz in der Konstrukteurs-WM
+var season_eval_done := false
+var last_season_eval := ""
+var pending_event: Dictionary = {}   # offene Meldung aus der Zentrale: {"id"}
+var event_seen := false          # die Meldung wurde in der Zentrale schon angezeigt
+var event_last: Dictionary = {}  # Meldungs-ID -> Rennnummer des letzten Auftretens
+var event_mods: Array = []       # laufende Wirkungen: [{"mech": Faktor, "left": Rennen}]
+var career_log: Array = []       # entschiedene Meldungen
+var career_race_no := 0          # gefahrene Rennen der Karriere
+var goal_log: Array = []         # Rennziele dieser Saison
+var finance_log: Array = []      # Einnahmen dieser Saison
 var active := false
 var weekend_sim = null
 var weekend_round := -1
@@ -66,6 +84,12 @@ func new_season(p_year: int, p_team: String) -> void:
 	year = p_year
 	career_start = p_year
 	team_id = p_team
+	solo_code = ""
+	board = 60.0
+	event_last = {}
+	event_mods = []
+	career_log = []
+	career_race_no = 0
 	teams = DB.build_teams(year)
 	team_meta = {}
 	season_log = []
@@ -87,7 +111,7 @@ func new_season(p_year: int, p_team: String) -> void:
 
 
 ## Setzt Kalender, Tabellen und Zähler für die laufende Saison zurück (Fahrer müssen bereits synchronisiert sein).
-func _begin_season() -> void:
+func _begin_season(offer := true) -> void:
 	var s := DB.season(mini(year, DB.MAX_YEAR))
 	calendar = s["calendar"]
 	round_index = 0
@@ -107,6 +131,15 @@ func _begin_season() -> void:
 	dev_spent = 0.0
 	cap_spent_fees = 0.0
 	engines = {}
+	goal_log = []
+	finance_log = []
+	season_eval_done = false
+	last_season_eval = ""
+	season_goal_rank = Career.pace_rank()
+	if offer:
+		sponsor_id = ""
+		pending_event = {"id": "sponsor"}
+		event_seen = false
 	market_open = false
 	sync_teams()
 	Market.refresh_scores()
@@ -145,6 +178,19 @@ func get_team(id: String) -> Dictionary:
 
 func player_team() -> Dictionary:
 	return get_team(team_id)
+
+
+## Kürzel des betreuten Fahrers im 1-Fahrer-Modus ("" = du führst beide Autos). Fällt der Fahrer weg, gilt der beste Fahrer des Teams.
+func solo_driver() -> String:
+	if solo_code == "":
+		return ""
+	var drs: Array = player_team().get("drivers", [])
+	if drs.is_empty():
+		return ""
+	for d in drs:
+		if str(d["code"]) == solo_code:
+			return solo_code
+	return str(drs[0]["code"])
 
 
 func season_over() -> bool:
@@ -205,7 +251,7 @@ func sim_teams() -> Array:
 		c["profile"] = prof
 		if t["id"] == team_id:
 			var lv: Dictionary = upgrades
-			c["mech_mult"] = pow(0.88, float(lv["reliab"]))
+			c["mech_mult"] = pow(0.88, float(lv["reliab"])) * Career.mech_factor()
 			c["pit_skill"] = -0.12 * float(lv["pit"])
 			for d in c["drivers"]:
 				d["skill"] = float(d["skill"]) + 0.0006 * float(lv["coach"])
@@ -279,6 +325,8 @@ func final_rank(tid: String) -> int:
 
 ## Ergebnis eines Rennens übernehmen (sim = fertige RaceSim).
 func finish_race(sim) -> Dictionary:
+	if not pending_event.is_empty():
+		Career.apply_default()       # ohne Entscheidung gilt die Vorgabe
 	var order: Array = sim.ranking()
 	var pts_table: Array = rules["points"]
 	var gained := {}
@@ -307,7 +355,8 @@ func finish_race(sim) -> Dictionary:
 	for r in rows:
 		if r["team_id"] == team_id:
 			team_gain += float(r["points"])
-	income += team_gain * 0.35
+	var sp: Dictionary = Career.sponsor()
+	income += team_gain * 0.35 * float(sp["pts"]) + float(sp["base"])
 	# Gehälter laufen pro Rennen, Bezahlfahrer bringen Sponsorgelder
 	var n_races: float = maxf(1.0, float(calendar.size()))
 	var salaries := payroll_current() / n_races
@@ -315,6 +364,10 @@ func finish_race(sim) -> Dictionary:
 	for d in Market.current_drivers(team_id):
 		sponsors += float(d["dowry"]) / n_races
 	income += sponsors
+	var gr: Dictionary = Career.settle_race(rows)
+	income += float(gr["bonus"])
+	income *= 1.0 + (board - 50.0) / 500.0       # Vertrauen des Vorstands: bis zu +-10 % auf die Einnahmen
+	board = clampf(board + float(gr["board"]), 0.0, 100.0)
 	budget += income - salaries
 	# KI-Entwicklung
 	for t in teams:
@@ -331,12 +384,18 @@ func finish_race(sim) -> Dictionary:
 	weekend_sim = null
 	crew_form *= 0.6
 	round_index += 1
+	career_race_no += 1
+	goal_log.append({"race": str(calendar[round_index - 1]["name"]), "goal": str(gr["goal"]), "word": str(gr["word"]), "bonus": float(gr["bonus"]), "board": float(gr["board"]), "best": int(gr["best"])})
+	finance_log.append({"race": str(calendar[round_index - 1]["name"]), "income": income, "salaries": salaries, "bonus": float(gr["bonus"])})
+	Career.tick_mods()
+	Career.roll_event()
 	Market.update_morale(rows)
 	sync_teams()
 	if round_index % 4 == 0:
 		Market.season_rumors()
 	last_result = {"rows": rows, "race": calendar[round_index - 1], "income": income, "salaries": salaries,
-		"fastest": fl_car.code if fl_car != null else "", "fastest_time": sim.fastest_lap}
+		"fastest": fl_car.code if fl_car != null else "", "fastest_time": sim.fastest_lap,
+		"decisions": sim.decision_log.filter(func(e): return not bool(e["expired"])), "goal": gr}
 	history.append({"name": calendar[round_index - 1]["name"], "order": rows.map(func(r): return r["code"])})
 	save()
 	return last_result
@@ -384,6 +443,7 @@ func team_standings() -> Array:
 
 ## Marktphase beginnen (nach dem letzten Rennen).
 func begin_market() -> void:
+	Career.apply_season_eval()
 	if not market_open:
 		Market.open_market()
 
@@ -398,7 +458,7 @@ func _advance_year() -> void:
 	var ds := driver_standings()
 	var ts := team_standings()
 	season_log.push_front({"year": year, "champion": ds[0]["name"] if ds.size() > 0 else "", "champion_team": ts[0]["name"] if ts.size() > 0 else "",
-		"player_rank": final_rank(team_id), "player_points": float(team_points.get(team_id, 0.0))})
+		"player_rank": final_rank(team_id), "player_points": float(team_points.get(team_id, 0.0)), "goal": last_season_eval})
 	year += 1
 	# Kräfteverhältnis: Entwicklung wird zum Teil mitgenommen, neues Reglement mischt neu
 	var reg: bool = year in REG_YEARS
@@ -484,7 +544,9 @@ func save() -> void:
 		"version": 2, "year": year, "career_start": career_start, "team_id": team_id, "round_index": round_index, "driver_points": driver_points,
 		"team_points": team_points, "wins": wins, "budget": budget, "upgrades": upgrades, "dev_pace": dev_pace,
 		"history": history, "team_pace": pace, "drivers": drivers, "news": news, "market_log": market_log, "market_open": market_open,
-		"season_log": season_log, "team_meta": team_meta, "dev_spent": dev_spent, "cap_spent_fees": cap_spent_fees, "engines": engines, "crew_form": crew_form,
+		"season_log": season_log, "team_meta": team_meta, "solo_code": solo_code, "board": board, "sponsor_id": sponsor_id, "season_goal_rank": season_goal_rank, "season_eval_done": season_eval_done,
+		"last_season_eval": last_season_eval, "pending_event": pending_event, "event_seen": event_seen, "event_last": event_last, "event_mods": event_mods,
+		"career_log": career_log, "career_race_no": career_race_no, "goal_log": goal_log, "finance_log": finance_log, "dev_spent": dev_spent, "cap_spent_fees": cap_spent_fees, "engines": engines, "crew_form": crew_form,
 		"saved_at": int(Time.get_unix_time_from_system()),
 	}
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
@@ -519,7 +581,7 @@ func load_game() -> bool:
 	team_meta = d.get("team_meta", {})
 	dev_pace = d["dev_pace"]
 	upgrades = d["upgrades"]
-	_begin_season()
+	_begin_season(false)
 	round_index = int(d["round_index"])
 	driver_points = d["driver_points"]
 	team_points = d["team_points"]
@@ -530,6 +592,20 @@ func load_game() -> bool:
 	cap_spent_fees = float(d.get("cap_spent_fees", 0.0))
 	engines = d.get("engines", {})
 	crew_form = float(d.get("crew_form", 0.0))
+	solo_code = str(d.get("solo_code", ""))
+	board = float(d.get("board", 60.0))
+	sponsor_id = str(d.get("sponsor_id", ""))
+	season_goal_rank = int(d.get("season_goal_rank", Career.pace_rank()))
+	season_eval_done = bool(d.get("season_eval_done", false))
+	last_season_eval = str(d.get("last_season_eval", ""))
+	pending_event = d.get("pending_event", {})
+	event_seen = bool(d.get("event_seen", false))
+	event_last = d.get("event_last", {})
+	event_mods = d.get("event_mods", [])
+	career_log = d.get("career_log", [])
+	career_race_no = int(d.get("career_race_no", 0))
+	goal_log = d.get("goal_log", [])
+	finance_log = d.get("finance_log", [])
 	sync_teams()
 	market_open = bool(d.get("market_open", false))
 	active = true

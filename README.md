@@ -26,6 +26,15 @@ Die Autos sind Punkte auf der Streckenkarte (Ansicht von oben).
 6. **Saisonende und Fahrermarkt:** Nach dem letzten Rennen öffnet der Markt (siehe unten). Danach startet die nächste Saison
    (nach 2026 mit dem 2026er Kalender). Die Karriere läuft beliebig lange.
 
+## Karriere: Ziele, Sponsor, Vorstand, Meldungen
+Neben den Rennen gibt es in der Zentrale den Reiter **Karriere** (`career.gd`):
+- **Spielmodus:** Beim Start (oder später im Reiter "Fahrer") wählst du *Teamchef: beide Autos* oder *1 Fahrer*. Im 1-Fahrer-Modus gibst du nur für einen Fahrer Befehle (Qualifying, Strategie, Funk, Stopps); sein Teamkollege wird vom Team automatisch geführt wie bei den anderen Teams.
+- **Rennziel:** Vor jedem Rennen gibt es ein Ziel nach der Stärke deines Teams (Platzierung des besten Autos, beide Autos in den Top X oder ein Duell gegen den Rivalen in der Konstrukteurs-WM). Die erwartete Platzierung folgt aus den Stärkeunterschieden und passt zu Simulationsläufen mehrerer Saisons. Im Rennen zeigt die Seite *Lage* (am PC zusätzlich eine Zeile unter der Karte) den Zwischenstand; erreicht bringt Prämie und Vertrauen, übertroffen mehr, verfehlt kostet Vertrauen.
+- **Saisonziel:** Platz in der Konstrukteurs-WM (nach der Stärke zu Saisonbeginn). Prämie und Vertrauen werden beim Wechsel in den Fahrermarkt verbucht.
+- **Vorstand:** Das Vertrauen (0 bis 100) wirkt auf die Einnahmen (bis zu 10 % mehr oder weniger).
+- **Sponsor:** Zu Saisonbeginn wählst du einen von drei Verträgen (sicher, ausgewogen, erfolgsabhängig) mit unterschiedlichem Fixum und unterschiedlicher Prämie für Punkte und Rennziele. Die Namen sind erfunden.
+- **Meldungen aus der Zentrale:** Nach manchen Rennen kommt eine Entscheidung (Windkanal-Slot, fehlerhafte Zulieferteile, Medientag, Fahrerstreit, Trainingslager, Ingenieur abgeworben, Testtag, Simulator-Update, Fan-Aktion). Sie kosten Geld, ändern Stimmung, Entwicklung, Boxencrew oder das Ausfallrisiko einiger Rennen. Ohne Entscheidung gilt die Vorgabe. Der Reiter zeigt außerdem Finanzen der Saison und den Verlauf der Rennziele.
+
 ## Handy und Web-Version
 - **Web-Export:** `export/web/` (fertig gebaut, Godot 4.4.1, Einzel-Thread, ohne besondere Server-Header). Lokal testen: `node tools/serve_web.js`, dann `http://localhost:8080/`
   öffnen (Handy-Modus am PC erzwingen: `?mobile=1`, nur PC-Layout: `?mobile=0`). Im selben WLAN mit `http://<IP-des-PCs>:8080/` auch vom Handy aus.
@@ -53,6 +62,8 @@ Die Autos sind Punkte auf der Streckenkarte (Ansicht von oben).
 - **Auto und Strecke:** Jedes Auto hat ein Profil (Abtrieb, Motorleistung, Reifenschonung, Regen). Strecken verlangen unterschiedlich viel Abtrieb oder Topspeed, dadurch liegen manche Autos einzelnen Strecken besser. Der Wochenend-Reiter "Auto" zeigt den Vor- oder Nachteil in Sekunden pro Runde, ebenso wer sonst profitiert.
   Deine Entwicklungsstufen Aerodynamik und Antrieb verschieben das Profil.
 - **Wetterbericht:** Reiter "Wetter" im Wochenende und im Rennen: Balkendiagramm der Regenstärke über die restliche Renndauer (je blasser, desto unsicherer), Beginn, Dauer, Stärke in mm/h, Sicherheit und eine Empfehlung. Fehlalarme sind möglich.
+- **Cockpit-Leiste:** Unter der Karte zeigt eine Leiste für das gewählte Auto Reifen (Rest in Prozent und Runden, Marke am geplanten Stopp), Sprit (kg, Runden, Marke für den Bedarf bis Stopp oder Ziel), Batterie oder Motor und die Abstände.
+- **Anfragen des Fahrers:** Alle paar Runden meldet sich ein Fahrer mit einer Entscheidung auf einer Karte (Auto-Slow bremst dabei auf 4x): *Zweikampf* (angreifen, Reifen schonen, Undercut), *Reifen* (wenn der Plan länger fährt, als sie halten), *Sprit knapp*, *Teamkollege ist schneller* (Platz tauschen, Position halten, Duell) und *Technik* (Fehlalarm oder echtes Problem: Check an der Box, schonend weiterfahren oder normal weiter). Ohne Antwort gilt "weiter wie bisher", ein echtes Problem kann dann zum Ausfall führen. Nach einigen Runden meldet der Funk, wie es ausgegangen ist; die Ergebnisseite zeigt alle Entscheidungen. Abschaltbar unter *Fahren* > *Automatik und Funkanfragen*.
 - **Boxenfunk im Rennen:** drei Seiten statt fünf Reitern. *Lage* (Empfehlungen, Rennplan beider Autos, Gegner-Radar, Wetter eingeklappt), *Boxen* (alles für den Stopp: Zustand von Reifen und Tank, Rennplan mit Prüfung je Stint, Stopp in Schritten, Hilfen eingeklappt), *Fahren* (Fahrstil, Abstand, Funkanweisung, Energie/Motor, Teamorder, Automatik). Am PC sind es Reiter im Funk-Panel, am Handy eigene Reiter neben Tabelle und Karte; die Seiten sind dort zweispaltig (links Überblick, rechts Bedienung), damit wenig gescrollt werden muss.
 - **Streckenumgebung:** Je Strecke Landschaft auf der Karte (Wüste, Wald, Felder, Stadt, Dünen, Insel) mit Wasser nach Himmelsrichtung, Gebäuden und Bäumen (`track_env.gd`).
 - **Speichern:** Die Zentrale hat die Schaltfläche "Speichern" (zeigt "Gespeichert" bzw. warnt, wenn der Browser nichts speichert, z. B. im privaten Modus). Auf dem Startbildschirm: "Sicherung kopieren/einfügen" als Backup in der Zwischenablage.
@@ -116,6 +127,7 @@ Die Autos sind Punkte auf der Streckenkarte (Ansicht von oben).
 - Reifenverschleiß (je Strecke), Spritgewicht, Fahrstil, Verkehr/Dirty Air, DRS (ab 2011), Überholen je nach Streckencharakter.
 - Boxenstopps mit streckenabhängigem Zeitverlust, Nachtanken bis 2009, Zwei-Mischungen-Regel ab 2007.
 - Safety Car / VSC, Ausfälle, Regen mit Intermediates/Regenreifen und Wettervorhersage.
+- **Reifenmischungen:** Soft ist am schnellsten und nutzt sich schnell ab, Medium liegt etwa 0,8 s pro Runde dahinter, Hard 1,5 s, dafür hält Hard fast dreimal so lange. Harte Reifen brauchen länger zum Aufwärmen (Ausfahrt ca. 1 s langsamer). Die KI wählt Mischung und Stintlängen nach dem erwarteten Zeitverlust (Stintlänge passt zur Haltbarkeit, Zwei-Mischungen-Regel wird mit einem Stopp mehr erfüllt, wenn nötig); es fahren je nach Strecke etwa 15 bis 25 % der Runden auf Soft, 35 bis 45 % auf Medium und der Rest auf Hard.
 - **Abwechslung im Rennen** (gegen "immer dieselben Sieger" und Team-Pärchen im Ziel): Tagesform je Fahrer mit seltenen schlechten und guten Tagen, Form je Reifensatz (wechselt mit jedem Stopp), Startreaktion mit gelegentlich schlechtem Start, individuelle Qualifying-Form, Zwischenfälle ohne Ausfall (Dreher, Kontakt mit Flügelschaden, Reifenschaden mit Zwangsstopp), Boxen-Pannen (selten sehr lange Stopps), Teams verteilen ihre Autos oft auf verschiedene Strategien. Kalibriert gegen die echten Ergebnisse (Jolpica/Ergast) der Jahre 2002 bis 2021: Zahl verschiedener Sieger je Saison, Anteil benachbarter Teamkollegen in den Top 10, Abstand der Teamkollegen im Ziel, Verschiebung gegenüber der Startaufstellung, Ausfälle pro Rennen.
 - Punktesysteme der Jahre (10-6-4-3-2-1, 10-8-6-..., 25-18-15-..., Punkt für schnellste Runde 2019-2024).
 
@@ -136,6 +148,8 @@ Die Autos sind Punkte auf der Streckenkarte (Ansicht von oben).
 | `scripts/track_model.gd` | Streckengeometrie, Referenzprofil, Überholbarkeit, Reifenbelastung |
 | `scripts/race_sim.gd` | Rennsimulation (Zeitschritt 1 s), Strategie-KI, Wetter, Safety Car |
 | `scripts/quali_sim.gd` | Qualifying (Q1/Q2/Q3, Läufe, Verkehr, Regen, Strafen) |
+| `scripts/career.gd` | Karriere: Rennziele, Vorstand, Saisonziel, Sponsorverträge, Meldungen aus der Zentrale |
+| `scripts/cockpit_strip.gd` | Cockpit-Leiste unter der Rennkarte (Reifen, Sprit, Energie, Abstände) |
 | `scripts/main.gd`, `scripts/ui.gd` (columns, is_mobile) | Bildschirmwechsel, Handy-Modus, Reiter statt Spalten |
 | `scripts/screen_practice.gd` | Freitagstraining und Setup |
 | `scripts/market.gd` | Fahrermarkt: Verträge, Bewertung, Verhandlung, KI-Transfers, Alterung, Gerüchte |
@@ -146,6 +160,7 @@ Balance-Konstanten (Reifenlebensdauer, Überholchancen, Ausfallraten, Wetter) st
 und in den Tabellen von `track_model.gd`.
 
 ## Bekannte Grenzen
+- Der 1-Fahrer-Modus ändert nur die Bedienung im Rennwochenende; der Fahrermarkt verhandelt weiter für beide Cockpits. Die Meldungen der Zentrale sind eine feste Auswahl, keine echten Ereignisse.
 - Keine Sprintrennen, keine Rote Flagge. Das Teamfeld bleibt über die Karriere gleich (keine Neueinsteiger oder Ausstiege), der Fahrermarkt ist frei simuliert und folgt nicht den echten Wechseln.
 - Modell-Ergebnisse sind plausibel, aber nicht die echten Rennausgänge.
 - Für einen Export (Release-Build) müssen im Export-Dialog unter "Ressourcen" die Filter `*.json` für Nicht-Ressourcen-Dateien ergänzt werden.

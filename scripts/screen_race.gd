@@ -10,6 +10,8 @@ const Market = preload("res://scripts/market.gd")
 const TvOverlay = preload("res://scripts/tv_overlay.gd")
 const StintBar = preload("res://scripts/stint_bar.gd")
 const FuelPlanBar = preload("res://scripts/fuel_plan_bar.gd")
+const CockpitStrip = preload("res://scripts/cockpit_strip.gd")
+const Career = preload("res://scripts/career.gd")
 const WeatherPanel = preload("res://scripts/weather_panel.gd")
 
 const SPEEDS := [0, 1, 4, 16, 64, 256]
@@ -84,6 +86,9 @@ var quick_box: Button
 var quick_buttons: Array = []
 var quick_plan: Button
 var quick_info: Label
+var goal_label: Label
+var goal_line: Label
+var strip
 var decision_layer: Control
 var decision_card: PanelContainer
 var decision_box: VBoxContainer
@@ -138,6 +143,7 @@ var _plan_key := ""
 
 
 func _ready() -> void:
+	sim.requests_on = Game.requests_on
 	U.fill(self)
 	add_child(U.team_backdrop())
 	var margin := U.screen_margin(self, 10)
@@ -174,6 +180,14 @@ func _ready() -> void:
 	tv.sim = sim
 	mp.add_child(tv)
 	center.add_child(mp)
+	if not M:
+		goal_line = U.label("", 13, U.MUTED, true)
+		goal_line.clip_text = true
+		goal_line.custom_minimum_size = Vector2(60, 0)
+		center.add_child(goal_line)
+	strip = CockpitStrip.new()
+	strip.sim = sim
+	center.add_child(strip)
 	center.add_child(_build_quick_bar())
 	_build_decision_layer(null if M else mp)   # Handy: Karte über dem ganzen Bildschirm (sichtbar auf jedem Reiter)
 	var lp := U.panel(8)
@@ -401,6 +415,7 @@ func _update_quick() -> void:
 	var c = _action_car()
 	if c == null:
 		return
+	strip.car = c
 	var racing: bool = c.state == 1
 	if c.pit_requested:
 		quick_box.text = "BOX ANGEFORDERT (zurücknehmen)"
@@ -463,7 +478,7 @@ func _show_decision(c, d: Dictionary) -> void:
 	decision_seen[d["key"]] = true
 	U.clear(decision_box)
 	var col := {"bad": U.BAD, "warn": U.WARN, "good": U.GOOD, "info": U.BLUE}[d["level"]] as Color
-	var kinds := {"sc": "Safety Car", "rain": "Wetter", "tyre": "Reifen", "threat": "Undercut", "damage": "Schaden"}
+	var kinds := {"sc": "Safety Car", "rain": "Wetter", "tyre": "Reifen", "threat": "Undercut", "damage": "Schaden", "duel": "Zweikampf", "tyres": "Reifen", "mate": "Teamorder", "problem": "Technik", "fuel": "Sprit"}
 	var psb: StyleBoxFlat = decision_card.get_theme_stylebox("panel")
 	psb.border_color = col
 	var head := U.hbox(6)
@@ -472,10 +487,23 @@ func _show_decision(c, d: Dictionary) -> void:
 	decision_box.add_child(head)
 	decision_box.add_child(_wrap_label(str(d["title"]), 16, U.TEXT, true))
 	decision_box.add_child(_wrap_label(str(d["text"]), 12, U.MUTED))
+	# Handy: breitere Karte, die Optionen in zwei Spalten (wenig Höhe)
+	var holder: Container = decision_box
+	if U.is_mobile():
+		decision_card.custom_minimum_size = Vector2(minf(maxf(decision_layer.size.x - 16.0, 300.0), 620.0), 0)
+		var grid := GridContainer.new()
+		grid.columns = 2 if d["options"].size() > 1 else 1
+		grid.add_theme_constant_override("h_separation", 6)
+		grid.add_theme_constant_override("v_separation", 5)
+		grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		decision_box.add_child(grid)
+		holder = grid
 	for o in d["options"]:
 		var act := str(o["action"])
-		var strong: bool = act.begins_with("pit") or act.begins_with("later")
-		decision_box.add_child(U.option_card(str(o["label"]), str(o["hint"]), col, _on_decision.bind(act), strong))
+		var strong: bool = act.begins_with("pit") or act.begins_with("later") or act.ends_with(":box")
+		var oc := U.option_card(str(o["label"]), str(o["hint"]), col, _on_decision.bind(act), strong)
+		oc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		holder.add_child(oc)
 	decision_card.visible = true
 	_place_decision.call_deferred()
 	get_tree().create_timer(0.06).timeout.connect(_place_decision)
@@ -494,6 +522,9 @@ func _on_decision(action: String) -> void:
 				sim.request_pit(c, comp)
 				_radio("Funk an %s: Box, Box! Reifen: %s" % [c.code, RaceSim.COMPOUNDS[comp]["name"]])
 				_banner_msg("Box diese Runde: %s" % RaceSim.COMPOUNDS[comp]["name"], 2.0, U.GOOD)
+			"rq":
+				sim.apply_request(c, parts[1], parts[2])
+				_plan_key = "x"
 			"later":
 				var n := int(parts[1])
 				var comp2 := int(parts[2])
@@ -675,6 +706,10 @@ func _build_page_lage(M: bool) -> Control:
 	var v2: VBoxContainer = pc[2]
 	if M:
 		v.add_child(_driver_bar())
+	var gcard := U.card(9, Color(U.BLUE, 0.07), Color(U.BLUE, 0.3))
+	goal_label = _wrap_label("", 13, U.TEXT, true)
+	gcard.add_child(goal_label)
+	v.add_child(gcard)
 	v.add_child(U.section("Jetzt wichtig", 12))
 	advice_box = U.vbox(5)
 	v.add_child(advice_box)
@@ -974,7 +1009,13 @@ func _build_page_drive(M: bool) -> Control:
 	v2.add_child(oc)
 
 	# Automatik (eingeklappt)
-	var auto_box := _collapsible(v2, "Automatik: Wenn-Dann-Regeln")
+	var auto_box := _collapsible(v2, "Automatik und Funkanfragen")
+	var req_cb := U.checkbox("Fahrer melden sich mit Anfragen (Entscheidungskarten)")
+	req_cb.button_pressed = sim.requests_on
+	req_cb.toggled.connect(func(on: bool):
+		sim.requests_on = on
+		Game.requests_on = on)
+	auto_box.add_child(req_cb)
 	auto_box.add_child(_wrap_label("Das Team handelt automatisch, auch wenn du gerade nicht eingreifst.", 11, U.MUTED))
 	var rdefs2 := [["sc_pit", "Safety Car: Stopp holen"], ["rain_switch", "Regen: auf Regenreifen"], ["dry_switch", "Abtrocknen: zurück auf Slicks"], ["defend", "Konter-Stopp bei Undercut-Gefahr"], ["fuel_save", "Sprit automatisch sparen"]]
 	for d2 in rdefs2:
@@ -1187,6 +1228,20 @@ func _on_when(lap: int) -> void:
 	pit_when_lap = lap
 	pit_when_key = ""
 	pit_touched = true
+
+
+## Beschreibung einer Mischung für den Stopp-Assistenten: Tempo, Abbau, Aufwärmen, Haltbarkeit, Sätze.
+func _compound_text(c, k: int, oc: Dictionary) -> String:
+	var cd: Dictionary = RaceSim.COMPOUNDS[k]
+	var t: String = "%s hält ca. %d Runden%s." % [cd["name"], int(oc["life"]), " und reicht bis ins Ziel" if oc["to_end"] else ""]
+	if k < RaceSim.DRY_COUNT:
+		var off: float = float(cd["offset"]) * sim.scale_time
+		var deg: float = float(cd["deg"]) * sim.track.tyre_severity * sim.scale_time
+		var warm := "wärmt schnell auf" if k == 0 else ("wärmt normal auf" if k == 1 else "wärmt langsam auf (Ausfahrt ca. %.1f s langsamer)" % (float(cd["warm"]) * sim.scale_time))
+		t += " %s ggü. Soft, jede Runde %.2f s langsamer, %s." % ["Gleiche Pace" if k == 0 else "%+.1f s pro Runde" % off, deg, warm]
+	if not sim.tyre_unlimited():
+		t += " Frei: %d Sätze." % int(sim.tyre_count(c, k)["free"])
+	return t + "  * = Empfehlung, OK = reicht bis ins Ziel."
 
 
 ## Mischung des geplanten Stopps am Ende von Runde lap (-1 = keiner).
@@ -1518,9 +1573,9 @@ func _update_car_pit(c) -> void:
 	info_label.text = "Letzte %s   Beste %s   Reifenverlust %.2f s/Rd.   Verschleiß %.2fx" % [sim.fmt_time(c.last_lap), sim.fmt_time(c.best_lap), loss, sim.wear_rate_now(c)]
 	# Tank
 	var rng_l: float = sim.fuel_range(c)
-	var need: float = float(sim.laps_to_refuel_point(c, maxi(c.floor_laps, 0)))
-	var fcol := U.GOOD if rng_l > need + 1.0 else (U.WARN if rng_l >= need else U.BAD)
-	fuel_label.text = "Tank: %.1f kg, reicht noch %.1f Rd. (Bedarf bis %s: %d)" % [c.fuel, rng_l, "Stopp" if sim.rules["refuel"] and need < sim.laps - c.floor_laps else "Ziel", int(need)]
+	var need: float = sim.fuel_need(c)
+	var fcol := U.GOOD if rng_l >= need + 0.3 else (U.WARN if rng_l >= need else U.BAD)
+	fuel_label.text = "Tank: %.1f kg, reicht noch %.1f Rd. (Bedarf bis %s: %.1f)" % [c.fuel, rng_l, "Stopp" if sim.rules["refuel"] and need < sim.laps - c.floor_laps else "Ziel", need]
 	fuel_label.add_theme_color_override("font_color", fcol)
 	fuel_bar.value = clampf(c.fuel / sim.fuel_cap() * 100.0, 0.0, 100.0)
 	fuel_bar.add_theme_stylebox_override("fill", U.button_style(fcol, fcol, 0, 5))
@@ -1617,17 +1672,17 @@ func _update_car_pit(c) -> void:
 	for k in pit_buttons.size():
 		var o: Dictionary = sim.compound_outlook(c, k)
 		var tt: String = RaceSim.COMPOUNDS[k]["name"]
+		if k < RaceSim.DRY_COUNT:
+			var off: float = float(RaceSim.COMPOUNDS[k]["offset"]) * sim.scale_time
+			tt += "\n" + ("±0 s" if k == 0 else "+%.1f s" % off)
 		tt += "\n%d Rd%s" % [int(o["life"]), (" OK" if o["to_end"] else "")]
-		if not sim.tyre_unlimited():
-			var cnt: Dictionary = sim.tyre_count(c, k)
-			tt += "\n%d Sätze" % int(cnt["free"])
 		if k == sug:
 			tt += " *"
 		pit_buttons[k].text = tt
 		pit_buttons[k].set_pressed_no_signal(k == pit_sel)
 		pit_buttons[k].disabled = not racing
 	var oc: Dictionary = sim.compound_outlook(c, pit_sel)
-	pit_outlook.text = "%s hält ca. %d Runden%s.   * = Empfehlung, OK = reicht bis ins Ziel." % [RaceSim.COMPOUNDS[pit_sel]["name"], int(oc["life"]), " und reicht bis ins Ziel" if oc["to_end"] else ""]
+	pit_outlook.text = _compound_text(c, pit_sel, oc)
 	# Zeitpunkt-Auswahl (nur neu aufbauen, wenn sich die Optionen ändern)
 	var opts: Array = []
 	for off in [0, 2, 4, 6]:
@@ -2023,6 +2078,17 @@ func _update_ui() -> void:
 	var sb: StyleBoxFlat = status_chip.get_theme_stylebox("panel")
 	sb.bg_color = chip_bg
 	weather_label.text = "%s  |  %s" % [sim.weather_text(), sim.forecast_text()]
+	var gcol: Color = U.TEXT
+	if sim.started:
+		var gs: Dictionary = Career.live_status(sim)
+		gcol = {"ok": U.GOOD, "risk": U.WARN, "miss": U.BAD}[str(gs["state"])]
+		goal_label.text = str(gs["text"])
+		if goal_line != null:
+			goal_line.text = "RENNZIEL  " + str(gs["short"])
+			goal_line.add_theme_color_override("font_color", gcol)
+	else:
+		goal_label.text = "Rennziel: %s." % str(Career.race_goal()["text"])
+	goal_label.add_theme_color_override("font_color", gcol)
 	var from := maxi(0, log_lines.size() - (16 if U.is_mobile() else 8))
 	var recent: Array = log_lines.slice(from)
 	recent.reverse()

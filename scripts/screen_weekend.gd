@@ -2,6 +2,7 @@ extends Control
 ## Rennwochenende: Strecke, Wetter, Qualifying (interaktiv oder automatisch), Startaufstellung, Strategieplanung.
 
 const U = preload("res://scripts/ui.gd")
+const Career = preload("res://scripts/career.gd")
 const TrackMap = preload("res://scripts/track_map.gd")
 const RaceSim = preload("res://scripts/race_sim.gd")
 const StintBar = preload("res://scripts/stint_bar.gd")
@@ -241,7 +242,24 @@ func _info_content() -> Control:
 		rules.append("mind. 2 Mischungen")
 	if rules.size() > 0:
 		v.add_child(U.label("Regeln: " + ", ".join(rules), 13, U.MUTED))
+	v.add_child(_goal_card())
 	return v
+
+
+## Rennziel für dieses Wochenende mit Prämie.
+func _goal_card() -> Control:
+	var g: Dictionary = Career.race_goal()
+	var p := U.panel(10, U.BLUE)
+	var v := U.vbox(2)
+	p.add_child(v)
+	v.add_child(U.label("RENNZIEL", 11, U.MUTED, true))
+	var t := U.label(str(g["text"]), 16, U.TEXT, true)
+	t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(t)
+	var h := U.label("Prämie %.1f Mio. $, übertroffen %.1f Mio. $. Das Vertrauen des Vorstands steigt oder sinkt mit dem Ergebnis." % [float(g["bonus"]), float(g["bonus_hi"])], 12, U.MUTED)
+	h.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(h)
+	return p
 
 
 func _quali_intro_panel() -> Control:

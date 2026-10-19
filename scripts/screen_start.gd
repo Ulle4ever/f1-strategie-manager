@@ -13,6 +13,8 @@ var start_button: Button
 var selected_label: Label
 var selected_team := ""
 var team_buttons := {}
+var solo_mode := false
+var mode_button: Button
 var size_button: Button
 var year_button: Button
 var picker: Control = null
@@ -88,7 +90,10 @@ func _ready() -> void:
 	foot.add_child(U.spacer())
 	if not M:
 		foot.add_child(U.label("Daten: Jolpica-F1 (Ergast), OpenStreetMap (ODbL)", 13, U.MUTED))
-	start_button = U.primary_button("KARRIERE STARTEN", _on_start, 220 if M else 280, 46 if M else 54)
+	mode_button = U.button("Modus: Teamchef (2 Autos)", _on_mode, 230 if M else 270, 46 if M else 54)
+	mode_button.add_theme_font_size_override("font_size", 14 if M else 16)
+	foot.add_child(mode_button)
+	start_button = U.primary_button("KARRIERE STARTEN", _on_start, 200 if M else 280, 46 if M else 54)
 	start_button.disabled = true
 	foot.add_child(start_button)
 	_on_year(0)
@@ -249,10 +254,16 @@ func _on_team(id: String, tname: String) -> void:
 	start_button.disabled = false
 
 
+func _on_mode() -> void:
+	solo_mode = not solo_mode
+	mode_button.text = "Modus: 1 Fahrer" if solo_mode else "Modus: Teamchef (2 Autos)"
+
+
 func _on_start() -> void:
 	if selected_team == "":
 		return
 	Game.new_season(year_option.get_selected_id(), selected_team)
+	Game.solo_code = "*" if solo_mode else ""
 	main.show_hub()
 
 

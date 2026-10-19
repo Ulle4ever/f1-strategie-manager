@@ -30,6 +30,12 @@ func _ready() -> void:
 	if M:
 		head.add_child(U.primary_button("WEITER", func(): main.show_hub(), 120, 42))
 
+	var gr: Dictionary = res.get("goal", {})
+	if not gr.is_empty():
+		var gcol: Color = U.GOOD if bool(gr["met"]) else U.BAD
+		var gl := U.label("%s   |   Prämie %.1f Mio. $   |   Vertrauen des Vorstands %+d" % [str(gr["text"]), float(gr["bonus"]), int(gr["board"])], 13 if M else 15, gcol, true)
+		gl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		root.add_child(gl)
 	var rows: Array = res["rows"]
 	if not M:
 		root.add_child(_podium(rows))
@@ -94,11 +100,40 @@ func _ready() -> void:
 		pos += 1
 	v.add_child(U.spacer())
 	v.add_child(U.primary_button("WEITER ZUR SAISON-ZENTRALE", func(): main.show_hub(), 0, 56))
-	var cols := U.columns([
+	var entries := [
 		{"name": "Ergebnis", "node": p1, "grow": true, "self_scroll": true},
 		{"name": "WM-Stand", "node": p2, "min": 380.0},
-	], 14)
+	]
+	var decs: Array = res.get("decisions", [])
+	if not decs.is_empty():
+		entries.insert(1, {"name": "Entscheidungen", "node": _decisions_panel(decs), "min": 340.0, "self_scroll": true})
+	var cols := U.columns(entries, 14)
 	root.add_child(cols)
+
+
+## Deine Entscheidungen im Rennen mit der Auswertung.
+func _decisions_panel(decs: Array) -> Control:
+	var p := U.panel(14, U.BLUE)
+	var sc := ScrollContainer.new()
+	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	sc.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	p.add_child(sc)
+	var v := U.vbox(8)
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	sc.add_child(v)
+	v.add_child(U.heading("Deine Entscheidungen", 18))
+	var kinds := {"duel": "Zweikampf", "tyres": "Reifen", "mate": "Teamorder", "problem": "Technik", "fuel": "Sprit"}
+	for e in decs:
+		var box := U.vbox(1)
+		var head := U.label("R%d  %s  |  %s" % [int(e["lap"]), str(e["code"]), str(kinds.get(str(e["kind"]), "Funk"))], 12, U.MUTED, true)
+		box.add_child(head)
+		box.add_child(U.label(str(e["choice"]), 15, U.TEXT, true))
+		var rl := U.label(str(e["result"]) if str(e["result"]) != "" else "noch nicht ausgewertet", 13, U.MUTED)
+		rl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		rl.custom_minimum_size = Vector2(240, 0)
+		box.add_child(rl)
+		v.add_child(box)
+	return p
 
 
 func _podium(rows: Array) -> Control:

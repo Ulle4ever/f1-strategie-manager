@@ -179,13 +179,19 @@ func _build_card(q) -> Control:
 	var st := U.label("", 14, U.MUTED)
 	v.add_child(st)
 	card["status"] = st
-	var tr := HFlowContainer.new()
-	tr.add_theme_constant_override("h_separation", 5)
+	var QM := U.is_mobile()
+	var tr: Container = HBoxContainer.new() if QM else HFlowContainer.new()
+	tr.add_theme_constant_override("h_separation", 4 if QM else 5)
 	var tbtn := []
 	for k in RaceSim.COMPOUNDS.size():
 		var b := Button.new()
 		b.toggle_mode = true
-		b.text = RaceSim.COMPOUNDS[k]["name"]
+		b.text = (["Soft", "Med.", "Hard", "Inter", "Wet"][k]) if QM else RaceSim.COMPOUNDS[k]["name"]
+		if QM:
+			b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			b.custom_minimum_size = Vector2(0, 36)
+			b.add_theme_font_size_override("font_size", 13)
+			b.clip_text = true
 		b.add_theme_color_override("font_color", RaceSim.COMPOUNDS[k]["color"])
 		b.add_theme_color_override("font_pressed_color", RaceSim.COMPOUNDS[k]["color"])
 		b.add_theme_color_override("font_hover_color", RaceSim.COMPOUNDS[k]["color"])
