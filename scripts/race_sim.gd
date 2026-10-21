@@ -21,11 +21,24 @@ const CLIMATE := {
 	"portimao": 0.10, "ricard": 0.08, "sochi": 0.08, "valencia": 0.08, "buddh": 0.05, "yeongam": 0.20,
 	"indianapolis": 0.15, "madring": 0.05,
 }
-const STYLE_NAMES := ["Sparen", "Standard", "Angriff"]
-const STYLE_PACE := [-0.0065, 0.0, 0.0045]
-const STYLE_WEAR := [0.72, 1.0, 1.32]
+# Tempo (Fahrstil) in fünf Stufen wie am Kommandostand; 0 = Reifen schonen, 2 = Standard, 4 = Angriff
+const STYLE_NAMES := ["Reifen schonen", "Ruhig", "Standard", "Zügig", "Angriff"]
+const STYLE_PACE := [-0.0065, -0.0030, 0.0, 0.0024, 0.0045]
+const STYLE_WEAR := [0.72, 0.86, 1.0, 1.15, 1.32]
+const STYLE_FUEL := [0.94, 0.97, 1.0, 1.02, 1.04]
+const STYLE_STD := 2
+# Reifentemperatur (°C): Arbeitsfenster je Mischung (Mitte ± TYRE_WIN); Tempo heizt auf oder kühlt
+const TYRE_OPT := [95.0, 100.0, 105.0, 80.0, 70.0]
+const TYRE_WIN := 10.0
+const STYLE_TEMP := [-9.0, -4.5, 0.0, 4.5, 9.0]
+const TYRE_TAU := 35.0              # s, so schnell folgt die Temperatur dem Zielwert
+const STYLE_MAX := 4
 const FUEL_PER_KM := 0.34       # kg pro km
 const FUEL_TIME := 0.03         # s pro kg und Runde
+# Kraftstoffmodus (Mischung) des Spielers: Sparen / Normal / Push, gilt bis zur Umstellung
+const FUEL_MODE_NAMES := ["Sparen", "Normal", "Push"]
+const FUEL_MODE_BURN := [0.97, 1.0, 1.04]      # Sparen 3 % weniger, Push 4 % mehr Sprit
+const FUEL_MODE_PACE := [-0.0007, 0.0, 0.0011] # etwa -0,05 s / +0,09 s pro Runde
 const PIT_STATIONARY_BASE := 2.4
 
 # Energie: ab 2014 Batterie (ERS) mit Modi Laden / Normal / Angriff, davor Motormodi Eco / Normal / Power
@@ -77,9 +90,10 @@ class RaceCar:
 	var compound := 1
 	var tyre_wear := 0.0
 	var tyre_age_laps := 0
+	var tyre_temp := 90.0      # Reifentemperatur (°C), siehe TYRE_OPT
 	var used_compounds: Array = []
 	var fuel := 100.0
-	var style := 1
+	var style := STYLE_STD
 	var pit_timer := 0.0
 	var pit_stops := 0
 	var pit_comp := 1
@@ -167,6 +181,7 @@ class RaceCar:
 	var radio_kind := ""
 	var radio_until := -1
 	var lico := false          # Lift and Coast: weniger Sprit, etwas langsamer
+	var fuel_mode := 1        # Mischung: 0 Sparen, 1 Normal, 2 Push
 	var fb_stage := 0
 	var set_used := 0.0        # Vorbelastung des montierten Reifensatzes (Runden)
 	var last_pit_lap := -99
@@ -1100,7 +1115,7 @@ func _fuel_for_stint(c: RaceCar, from_lap: int) -> float:
 
 ## Spritverbrauch pro Runde mit Fahrstil und Motormodus.
 func burn_now(c: RaceCar) -> float:
-	var m: float = [0.94, 1.0, 1.04][c.style] * (0.94 if c.lico else 1.0)
+	var m: float = STYLE_FUEL[c.style] * (0.94 if c.lico else 1.0) * float(FUEL_MODE_BURN[c.fuel_mode])
 	if not has_ers():
 		m *= float(ENG_FUEL[c.eng_mode])
 	return burn_per_lap * m
@@ -1135,7 +1150,17 @@ func set_fuel_extra(c: RaceCar, extra_laps: float) -> void:
 # ------------------------------------------------------------------ Befehle (Spieler)
 
 func set_style(c: RaceCar, s: int) -> void:
-	c.style = clampi(s, 0, 2)
+	c.style = clampi(s, 0, STYLE_MAX)
+
+
+## Kraftstoffmodus (Mischung) des Spielers: 0 Sparen, 1 Normal, 2 Push.
+func set_fuel_mode(c: RaceCar, m: int) -> void:
+	m = clampi(m, 0, 2)
+	if c.fuel_mode == m:
+		return
+	c.fuel_mode = m
+	var txt: String = ["Sprit sparen, magere Mischung.", "Normale Mischung.", "Mischung fett, Push!"][m]
+	make_log("radio", "Funk an %s: %s" % [c.code, txt], c)
 
 
 func request_pit(c: RaceCar, comp: int) -> void:
@@ -1169,6 +1194,7 @@ func start_race() -> void:
 		c.sec_k = int(floor(c.dist / (track.length / 3.0)))
 		c.sec_start_t = 0.0
 		c.state = State.RACING
+		c.tyre_temp = float(TYRE_OPT[c.compound]) - 8.0     # nach der Einführungsrunde knapp unter dem Fenster
 		c.lap_start = 0.0
 		c.lap_noise = rng.randfn(0.0, track.lap_ref * 0.002)
 		c.stint_form = rng.randfn(0.0, 0.0012)
@@ -1207,7 +1233,56 @@ func tyre_loss(c: RaceCar) -> float:
 		loss += 0.30 * pow(over_l, 1.35)
 	loss += wet_penalty(c.compound)
 	loss += warmup_loss(c)
+	loss += temp_loss(c)
 	return loss * scale_time
+
+
+## Reifentemperatur folgt einem Zielwert: Fenster der Mischung, Tempo, verwirbelte Luft, Streckenbelastung,
+## Safety Car / VSC (langsam = kühler) und Nässe (Slicks kühlen aus).
+func _update_tyre_temp(c: RaceCar, dt: float) -> void:
+	var target: float = float(TYRE_OPT[c.compound]) + float(STYLE_TEMP[c.style]) + (track.tyre_severity - 1.0) * 8.0
+	if c.dirty:
+		target += 4.0
+	if status != Status.GREEN:
+		target -= 22.0
+	if c.compound < DRY_COUNT:
+		target -= 25.0 * wet
+	else:
+		target += 22.0 * (1.0 - wet) - 6.0     # Regenreifen überhitzen auf trockener Strecke
+	c.tyre_temp += (target - c.tyre_temp) * (1.0 - exp(-dt / TYRE_TAU))
+
+
+## Zustand der Reifentemperatur: -1 zu kalt, 0 im Fenster, 1 zu heiß.
+func tyre_temp_state(c: RaceCar) -> int:
+	var opt: float = TYRE_OPT[c.compound]
+	if c.tyre_temp > opt + TYRE_WIN:
+		return 1
+	if c.tyre_temp < opt - TYRE_WIN:
+		return -1
+	return 0
+
+
+## Überhitzte Slicks verschleißen schneller (3,5 % je Grad über dem Fenster).
+func tyre_temp_wear(c: RaceCar) -> float:
+	if c.compound >= DRY_COUNT:
+		return 1.0
+	var over: float = c.tyre_temp - float(TYRE_OPT[c.compound]) - TYRE_WIN
+	return 1.0 + clampf(over, 0.0, 25.0) * 0.035 if over > 0.0 else 1.0
+
+
+## Zeitverlust (s/Runde) außerhalb des Fensters: zu heiß rutschen, zu kalt fehlt Grip (nicht in Aus- und Folgerunde,
+## das deckt warmup_loss ab).
+func temp_loss(c: RaceCar) -> float:
+	if c.compound >= DRY_COUNT:
+		return 0.0
+	var opt: float = TYRE_OPT[c.compound]
+	var over: float = c.tyre_temp - opt - TYRE_WIN
+	if over > 0.0:
+		return 0.012 * minf(over, 25.0)
+	var under: float = opt - TYRE_WIN - c.tyre_temp
+	if under > 0.0 and c.tyre_age_laps >= 2:
+		return 0.022 * minf(under, 30.0)
+	return 0.0
 
 
 ## Aufwärmen: harte Reifen brauchen länger, bis sie Temperatur haben (Aus- und Folgerunde nach dem Stopp).
@@ -1240,6 +1315,7 @@ func lap_pace(c: RaceCar) -> float:
 	sp += (c.wet_trait + 0.6 * c.team_wet) * 0.004 * wet
 	if c.lico:
 		sp -= 0.0012
+	sp += float(FUEL_MODE_PACE[c.fuel_mode])
 	sp -= c.damage
 	if not c.order.is_empty() and c.order["type"] == "block":
 		sp -= 0.03
@@ -1385,11 +1461,12 @@ func tick(dt: float) -> void:
 		c.speed = (nd - old) / dt
 		c.dist = nd
 		var lap_frac: float = (nd - old) / track.length
-		var wear_mul: float = STYLE_WEAR[c.style] * (1.18 if c.dirty else 1.0) * wet_wear_factor(c.compound) * (1.0 - 0.07 * c.tyre_trait)
+		_update_tyre_temp(c, dt)
+		var wear_mul: float = tyre_temp_wear(c) * STYLE_WEAR[c.style] * (1.18 if c.dirty else 1.0) * wet_wear_factor(c.compound) * (1.0 - 0.07 * c.tyre_trait)
 		wear_mul *= (1.0 - 0.09 * c.tyre_care) * clampf(1.0 + 0.0018 * (c.fuel - 50.0), 0.9, 1.2)
 		c.tyre_wear += lap_frac * wear_mul
 		_track_sectors(c, nd)
-		var fuel_mul: float = float([0.94, 1.0, 1.04][c.style]) * (1.0 if has_ers() else float(ENG_FUEL[c.eng_mode])) * (1.0 if status == Status.GREEN else 0.7) * (0.94 if c.lico else 1.0)
+		var fuel_mul: float = float(STYLE_FUEL[c.style]) * (1.0 if has_ers() else float(ENG_FUEL[c.eng_mode])) * (1.0 if status == Status.GREEN else 0.7) * (0.94 if c.lico else 1.0) * float(FUEL_MODE_BURN[c.fuel_mode])
 		c.fuel = maxf(0.0, c.fuel - burn_per_lap * lap_frac * fuel_mul)
 		if c.fuel <= 0.02 and c.state == State.RACING:
 			make_log("dnf", "TANK LEER: %s bleibt auf der Strecke stehen!" % c.code, c)
@@ -1825,6 +1902,7 @@ func _pit_timers(dt: float) -> void:
 				c.compound = c.pit_comp
 				c.tyre_wear = 0.0
 				c.tyre_age_laps = 0
+				c.tyre_temp = 80.0 if c.compound < DRY_COUNT else 65.0   # aus den Heizdecken
 				if c.is_player:
 					var ft2 := tyre_fit_race(c, c.compound)
 					if not bool(ft2["ok"]):
@@ -2030,7 +2108,7 @@ func radio_order(c: RaceCar, kind: String) -> void:
 	c.radio_kind = kind
 	match kind:
 		"push":
-			c.style = 2
+			c.style = STYLE_MAX
 			c.radio_until = c.floor_laps + 3
 			make_log("radio", "Funk an %s: Push! Drei Runden Vollgas." % c.code, c)
 		"manage":
@@ -2043,7 +2121,7 @@ func radio_order(c: RaceCar, kind: String) -> void:
 			make_log("radio", "Funk an %s: Lift and Coast, Sprit sparen." % c.code, c)
 		_:
 			c.radio_kind = ""
-			c.style = 1
+			c.style = STYLE_STD
 			make_log("radio", "Funk an %s: Normal weiterfahren." % c.code, c)
 
 
@@ -2056,7 +2134,7 @@ func _player_auto(c: RaceCar, fl: int) -> void:
 	if c.radio_kind != "" and fl >= c.radio_until:
 		make_log("radio", "Funk: %s fährt wieder normal." % c.code, c)
 		if c.radio_kind in ["push", "manage"]:
-			c.style = 1
+			c.style = STYLE_STD
 		c.radio_kind = ""
 		c.lico = false
 	var life := life_eff(c.compound)
@@ -2122,7 +2200,7 @@ func _fuel_check(c: RaceCar, fl: int) -> void:
 	if have < need and c.style != 0:
 		c.style = 0
 	elif have > need + 1.0 and c.style == 0 and c.tyre_wear < life_eff(c.compound) * 0.9:
-		c.style = 1
+		c.style = STYLE_STD
 
 
 func _lap_tactics(c: RaceCar, fl: int) -> void:
@@ -2262,7 +2340,7 @@ func _trigger_covers(r: RaceCar, fl: int) -> void:
 ## Aktueller Reifenverschleiß pro Runde (1.0 = Standard) mit Fahrstil, Fahrer, Auto und Tankgewicht.
 func wear_rate_now(c: RaceCar) -> float:
 	var r: float = float(STYLE_WEAR[c.style]) * (1.0 - 0.07 * c.tyre_trait) * (1.0 - 0.09 * c.tyre_care)
-	r *= clampf(1.0 + 0.0018 * (c.fuel - 50.0), 0.9, 1.2) * wet_wear_factor(c.compound)
+	r *= clampf(1.0 + 0.0018 * (c.fuel - 50.0), 0.9, 1.2) * wet_wear_factor(c.compound) * tyre_temp_wear(c)
 	return r
 
 
@@ -2559,7 +2637,7 @@ func _build_request(c: RaceCar, fl: int) -> Dictionary:
 	var ahead := car_ahead(c)
 	if c.close_laps >= 4 and ahead != null and ahead.team_id != c.team_id and remaining > 7:
 		var uc := undercut_info(c)
-		var gain: float = absf(STYLE_PACE[2]) * track.lap_ref
+		var gain: float = absf(STYLE_PACE[STYLE_MAX]) * track.lap_ref
 		var dopts: Array = [
 			{"label": "Angreifen", "action": "rq:duel:attack", "hint": "3 Runden Push: ca. %.1f s pro Runde schneller, 32 %% mehr Reifenverschleiß, etwas mehr Kontaktrisiko." % gain},
 			{"label": "Reifen schonen", "action": "rq:duel:hold", "hint": "5 Runden Sparen: 28 % weniger Verschleiß. Du bleibst dran und greifst später an."},
@@ -2933,7 +3011,7 @@ func fmt_race_time(t: float) -> String:
 
 
 ## Mittlerer Reifenverschleiß pro Runde für die Vorhersage (Fahrer, Auto, Tankgewicht).
-func _pred_wear_rate(c: RaceCar, fuel: float, style := 1) -> float:
+func _pred_wear_rate(c: RaceCar, fuel: float, style := STYLE_STD) -> float:
 	return float(STYLE_WEAR[style]) * (1.0 - 0.07 * c.tyre_trait) * (1.0 - 0.09 * c.tyre_care) * clampf(1.0 + 0.0018 * (fuel - 50.0), 0.9, 1.2)
 
 

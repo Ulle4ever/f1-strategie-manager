@@ -10,7 +10,7 @@ const Market = preload("res://scripts/market.gd")
 const TvOverlay = preload("res://scripts/tv_overlay.gd")
 const StintBar = preload("res://scripts/stint_bar.gd")
 const FuelPlanBar = preload("res://scripts/fuel_plan_bar.gd")
-const CockpitStrip = preload("res://scripts/cockpit_strip.gd")
+const DriverPanel = preload("res://scripts/driver_panel.gd")
 const Career = preload("res://scripts/career.gd")
 const WeatherPanel = preload("res://scripts/weather_panel.gd")
 
@@ -82,13 +82,10 @@ var sc_label: Label
 var radar_label: Label
 var double_btn: Button
 var stint_bar
-var quick_box: Button
-var quick_buttons: Array = []
-var quick_plan: Button
+var driver_panels: Array = []        # Fahrer-Panels unter der Karte (je Spielerauto eins)
 var quick_info: Label
 var goal_label: Label
 var goal_line: Label
-var strip
 var decision_layer: Control
 var decision_card: PanelContainer
 var decision_box: VBoxContainer
@@ -140,6 +137,8 @@ var pit_sel := -1
 var _advice_key := "init"
 var _seg_key := ""
 var _plan_key := ""
+var map_big := false
+var _hide_when_big: Array = []        # Knoten, die bei großer Karte ausgeblendet werden
 
 
 func _ready() -> void:
@@ -175,6 +174,7 @@ func _ready() -> void:
 	map.interactive = true
 	map.car_clicked.connect(_select)
 	map.set_track(sim.track)
+	map.expand_pressed.connect(_toggle_map_big)
 	mp.add_child(map)
 	tv = TvOverlay.new()
 	tv.sim = sim
@@ -185,10 +185,19 @@ func _ready() -> void:
 		goal_line.clip_text = true
 		goal_line.custom_minimum_size = Vector2(60, 0)
 		center.add_child(goal_line)
-	strip = CockpitStrip.new()
-	strip.sim = sim
-	center.add_child(strip)
-	center.add_child(_build_quick_bar())
+	var pbox := U.hbox(6)
+	for c in sim.cars:
+		if c.is_player:
+			var dp = DriverPanel.new()
+			dp.sim = sim
+			dp.car = c
+			dp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			dp.box_pressed.connect(_on_panel_box)
+			dp.plan_pressed.connect(_on_panel_plan)
+			dp.switch_pressed.connect(_on_panel_switch)
+			pbox.add_child(dp)
+			driver_panels.append(dp)
+	center.add_child(pbox)
 	_build_decision_layer(null if M else mp)   # Handy: Karte über dem ganzen Bildschirm (sichtbar auf jedem Reiter)
 	var lp := U.panel(8)
 	lp.custom_minimum_size = Vector2(0, 62 if M else 150)
@@ -214,6 +223,10 @@ func _ready() -> void:
 		entries.append({"name": "Log", "node": lp, "self_scroll": true})
 	else:
 		entries.append({"name": "Funk", "node": funk, "min": 364.0, "self_scroll": true})
+	if M:
+		_hide_when_big = [pbox]
+	else:
+		_hide_when_big = [tp, funk, lp]
 	var cols := U.columns(entries, 10)
 	root.add_child(cols)
 	race_main_tabs = cols as TabContainer
@@ -350,34 +363,6 @@ func _action_car():
 	return null
 
 
-func _build_quick_bar() -> Control:
-	var M := U.is_mobile()
-	var p := U.panel(5)
-	var h := U.hbox(4)
-	p.add_child(h)
-	quick_box = U.primary_button("BOX", _on_quick_box, 0, 38 if M else 42)
-	quick_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	quick_box.size_flags_stretch_ratio = 2.2
-	quick_box.add_theme_font_size_override("font_size", 14 if M else 17)
-	h.add_child(quick_box)
-	var defs := [["push", "Push"], ["manage", "Schonen"], ["lico", "Sparen"]]
-	for d in defs:
-		var b := Button.new()
-		b.toggle_mode = true
-		b.text = d[1]
-		b.custom_minimum_size = Vector2(0, 38 if M else 42)
-		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.add_theme_font_size_override("font_size", 13 if M else 15)
-		b.pressed.connect(_on_quick_radio.bind(str(d[0])))
-		h.add_child(b)
-		quick_buttons.append({"btn": b, "kind": str(d[0])})
-	quick_plan = U.button("Plan", _on_quick_plan, 0, 38 if M else 42)
-	quick_plan.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	quick_plan.add_theme_font_size_override("font_size", 13 if M else 15)
-	h.add_child(quick_plan)
-	return p
-
-
 func _on_quick_box() -> void:
 	var c = _action_car()
 	if c == null or c.state != 1:
@@ -392,17 +377,6 @@ func _on_quick_box() -> void:
 	_banner_msg("Box diese Runde: %s" % RaceSim.COMPOUNDS[comp]["name"], 2.0, U.GOOD)
 
 
-func _on_quick_radio(kind: String) -> void:
-	var c = _action_car()
-	if c == null or c.state != 1:
-		return
-	# erneutes Tippen auf den aktiven Modus beendet ihn
-	if c.radio_kind == kind:
-		sim.radio_order(c, "normal")
-	else:
-		sim.radio_order(c, kind)
-
-
 func _open_pit_tab() -> void:
 	_show_page("Boxen")
 
@@ -411,27 +385,33 @@ func _on_quick_plan() -> void:
 	_open_pit_tab()
 
 
+func _on_panel_box(c) -> void:
+	_select(c)
+	_on_quick_box()
+
+
+func _on_panel_plan(c) -> void:
+	_select(c)
+	_open_pit_tab()
+
+
+## Wechsel zum anderen Spielerauto (Panel zeigt dann dessen Werte).
+func _on_panel_switch(c) -> void:
+	for o in sim.cars:
+		if o.is_player and o != c:
+			_select(o)
+			return
+
+
+## Fahrer-Panels: normal nur das gewählte Auto; bei großer Karte am PC beide nebeneinander.
 func _update_quick() -> void:
 	var c = _action_car()
 	if c == null:
 		return
-	strip.car = c
-	var racing: bool = c.state == 1
-	if c.pit_requested:
-		quick_box.text = "BOX ANGEFORDERT (zurücknehmen)"
-	elif c.state == 2:
-		quick_box.text = "IN DER BOX"
-	else:
-		quick_box.text = "BOX: %s" % RaceSim.COMPOUNDS[sim.suggest_comp(c)]["name"] if racing else "BOX"
-	quick_box.disabled = not racing and not c.pit_requested
-	for q in quick_buttons:
-		q["btn"].set_pressed_no_signal(c.radio_kind == q["kind"])
-		q["btn"].disabled = not racing
-	var nxt := -1
-	for s in c.plan:
-		if int(s["lap"]) > c.floor_laps and (nxt < 0 or int(s["lap"]) < nxt):
-			nxt = int(s["lap"])
-	quick_plan.text = ("Plan: R%d" % nxt) if nxt > 0 else "Plan"
+	var both := map_big and not U.is_mobile()
+	for dp in driver_panels:
+		dp.visible = both or dp.car == c
+		dp.can_switch = driver_panels.size() > 1 and not both
 
 
 # ------------------------------------------------------------------ Entscheidungskarten
@@ -658,6 +638,8 @@ func _build_control_panel() -> Control:
 func _show_page(title: String) -> void:
 	if race_tabs == null:
 		return
+	if map_big:
+		_toggle_map_big()       # Seite muss sichtbar sein
 	for i in race_tabs.get_tab_count():
 		if race_tabs.get_tab_title(i) == title:
 			race_tabs.current_tab = i
@@ -911,10 +893,11 @@ func _build_page_drive(M: bool) -> Control:
 	v.add_child(U.section("Fahrstil", 12))
 	var srow := U.hbox(5)
 	v.add_child(srow)
-	for i in 3:
+	for i in RaceSim.STYLE_NAMES.size():
 		var b := Button.new()
 		b.toggle_mode = true
-		b.text = RaceSim.STYLE_NAMES[i]
+		b.text = ["Schonen", "Ruhig", "Standard", "Zügig", "Angriff"][i]
+		b.tooltip_text = RaceSim.STYLE_NAMES[i]
 		b.custom_minimum_size = Vector2(0, 38)
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.pressed.connect(_on_style.bind(i))
@@ -1580,17 +1563,13 @@ func _update_car_pit(c) -> void:
 	fuel_bar.value = clampf(c.fuel / sim.fuel_cap() * 100.0, 0.0, 100.0)
 	fuel_bar.add_theme_stylebox_override("fill", U.button_style(fcol, fcol, 0, 5))
 	# Fahrstil und Abstand
-	for i in 3:
+	for i in style_buttons.size():
 		style_buttons[i].set_pressed_no_signal(i == c.style)
 		style_buttons[i].disabled = c.state == 3 or c.state == 4
-	var sn: Array = ["Sparen: %+.1f %% Pace, %d %% weniger Reifenverschleiß, 6 %% weniger Sprit.", "Standard: ausgewogen.", "Angriff: %+.1f %% Pace, %d %% mehr Reifenverschleiß, 4 %% mehr Sprit."]
-	match c.style:
-		0:
-			style_hint.text = sn[0] % [RaceSim.STYLE_PACE[0] * 100.0, 28]
-		1:
-			style_hint.text = sn[1]
-		2:
-			style_hint.text = sn[2] % [RaceSim.STYLE_PACE[2] * 100.0, 32]
+	if c.style == RaceSim.STYLE_STD:
+		style_hint.text = "Standard: ausgewogen."
+	else:
+		style_hint.text = "%s: %+.2f s pro Runde, Reifenverschleiß %+d %%, Sprit %+d %%, Reifen %s." % [RaceSim.STYLE_NAMES[c.style], -RaceSim.STYLE_PACE[c.style] * sim.track.lap_ref, int(round((RaceSim.STYLE_WEAR[c.style] - 1.0) * 100.0)), int(round((RaceSim.STYLE_FUEL[c.style] - 1.0) * 100.0)), "kühler" if c.style < RaceSim.STYLE_STD else "heißer"]
 	for rb in radio_buttons:
 		rb["btn"].set_pressed_no_signal(c.radio_kind == rb["kind"] or (rb["kind"] == "normal" and c.radio_kind == ""))
 		rb["btn"].disabled = c.state != 1
@@ -1845,6 +1824,8 @@ func _select(c) -> void:
 	tower.selected = c
 	for e in player_buttons:
 		e["btn"].set_pressed_no_signal(e["car"] == c)
+	if not driver_panels.is_empty():
+		_update_quick()
 
 
 func _set_speed(i: int) -> void:
@@ -1864,8 +1845,21 @@ func _banner_msg(text: String, seconds: float, col: Color) -> void:
 	banner.offset_top = 72
 
 
+## Große Karte: PC blendet Tabelle, Funk-Panel und Log aus, das Handy die Cockpit-Leiste.
+func _toggle_map_big() -> void:
+	map_big = not map_big
+	for n in _hide_when_big:
+		(n as Control).visible = not map_big
+	map.set_expanded(map_big)
+	_update_quick()
+	if U.is_mobile() and race_main_tabs != null:
+		race_main_tabs.tabs_visible = not map_big
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	var k := event as InputEventKey
+	if k != null and k.pressed and not k.echo and k.keycode == KEY_M:
+		_toggle_map_big()
 	if k != null and k.pressed and not k.echo and k.keycode in [KEY_1, KEY_2, KEY_3, KEY_4]:
 		map.set_view(["all", "car1", "car2", "leader"][k.keycode - KEY_1])
 	if k != null and k.pressed and not k.echo and k.keycode == KEY_SPACE:

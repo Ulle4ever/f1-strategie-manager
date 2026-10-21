@@ -3,6 +3,7 @@ extends Control
 
 const U = preload("res://scripts/ui.gd")
 const Market = preload("res://scripts/market.gd")
+const DriverPhoto = preload("res://scripts/driver_photo.gd")
 const Field = preload("res://scripts/field.gd")
 
 const KIND_STYLE := {
@@ -292,6 +293,7 @@ func _team_card(d: Dictionary) -> Control:
 	p.add_child(v)
 	var top := U.hbox(8)
 	v.add_child(top)
+	top.add_child(DriverPhoto.make(str(d["id"]), 38))
 	top.add_child(_rating_box(Market.rating_of(d), 38, 18))
 	var nv := U.vbox(0)
 	nv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -410,6 +412,7 @@ func _list_row(d: Dictionary) -> Control:
 	p.gui_input.connect(func(ev): _on_click(ev, d))
 	var h := U.hbox(10)
 	p.add_child(h)
+	h.add_child(DriverPhoto.make(str(d["id"]), 40))
 	h.add_child(_rating_box(Market.rating_of(d), 40, 19))
 	var nv := U.vbox(0)
 	nv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -520,6 +523,7 @@ func _refresh_detail() -> void:
 		return
 	var d: Dictionary = selected
 	var top := U.hbox(12)
+	top.add_child(DriverPhoto.make(str(d["id"]), 86))
 	top.add_child(_rating_box(Market.rating_of(d), 62, 34))
 	var nv := U.vbox(0)
 	nv.size_flags_horizontal = Control.SIZE_EXPAND_FILL

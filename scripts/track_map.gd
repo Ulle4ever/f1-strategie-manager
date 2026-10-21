@@ -6,8 +6,10 @@ extends Control
 
 const U = preload("res://scripts/ui.gd")
 const TrackEnv = preload("res://scripts/track_env.gd")
+const OsmMap = preload("res://scripts/osm_map.gd")
 
 signal car_clicked(car)
+signal expand_pressed
 
 const ZOOM_MAX := 16.0
 const LOD_ZOOM := 2.2
@@ -45,8 +47,10 @@ var _kerbs: Array = []                # [{"i0", "i1", "side"}] Indexbereiche eng
 var _team_slots := {}                 # team_id -> Boxen-Position (m)
 var _team_order: Array = []
 var _preset_box: HBoxContainer
+var _expand_btn: Button
 var _env := {}                        # Streckenumgebung (siehe track_env.gd)
 var show_env := true
+var _osm = null                        # echte Umgebung aus OpenStreetMap (osm_map.gd), sonst null
 
 const BODY := [Vector2(0.50, 0.0), Vector2(0.38, 0.045), Vector2(0.22, 0.07), Vector2(0.12, 0.12), Vector2(0.02, 0.14), Vector2(-0.12, 0.17),
 	Vector2(-0.28, 0.14), Vector2(-0.40, 0.07), Vector2(-0.46, 0.05), Vector2(-0.46, -0.05), Vector2(-0.40, -0.07), Vector2(-0.28, -0.14),
@@ -85,6 +89,17 @@ func _ready() -> void:
 	var zout := _tiny_button("-")
 	zout.pressed.connect(_zoom_by.bind(1.0 / 1.35))
 	_preset_box.add_child(zout)
+	if sim != null:
+		_expand_btn = _tiny_button("Groß")
+		_expand_btn.tooltip_text = "Karte groß anzeigen (Taste M)"
+		_expand_btn.pressed.connect(func(): expand_pressed.emit())
+		_preset_box.add_child(_expand_btn)
+
+
+## Beschriftung des Groß/Klein-Knopfs (die Umschaltung selbst macht der Rennbildschirm).
+func set_expanded(on: bool) -> void:
+	if _expand_btn != null:
+		_expand_btn.text = "Klein" if on else "Groß"
 
 
 func _tiny_button(text: String) -> Button:
@@ -99,6 +114,7 @@ func _tiny_button(text: String) -> Button:
 func set_track(t) -> void:
 	track = t
 	_env = TrackEnv.build(t, U.is_mobile()) if t != null else {}
+	_osm = OsmMap.get_for(t.id, str(_env.get("kind", "")), U.is_mobile()) if t != null else null
 	_fit_ready = false
 	_last_size = Vector2.ZERO
 	_build_kerbs()
@@ -352,7 +368,10 @@ func _build_kerbs() -> void:
 
 
 func _road_width() -> float:
-	return clampf(12.0 * _scale * 1.8, 13.0, 70.0)
+	var k := 1.8
+	if _osm != null:
+		k = lerpf(1.8, 1.25, clampf((zoom - 1.0) / 4.0, 0.0, 1.0))
+	return clampf(12.0 * _scale * k, 13.0, 70.0)
 
 
 func _tangent_screen(s: float) -> Vector2:
@@ -473,18 +492,24 @@ func _draw() -> void:
 		line.append(to_screen(track.pts[i]))
 	line.append(line[0])
 	var racing := sim != null
-	if show_env and not _env.is_empty():
+	if show_env and _osm != null:
+		draw_rect(Rect2(Vector2.ZERO, size), _osm.ground)
+		draw_mesh(_osm.mesh, null, Transform2D(0.0, Vector2(_scale, _scale), 0.0, _view_center() - cam * _scale))
+		_draw_osm_fade()
+	elif show_env and not _env.is_empty():
 		_draw_env()
 	# Auslaufzonen / Rasen / Sand
 	var rk: String = str(_env.get("kind", ""))
-	if rk in ["desert", "desert_city", "dunes"]:
+	if _osm != null:
+		draw_polyline(line, Color(0.55, 0.74, 0.47, 0.75), rw + 22.0, _aa)
+	elif rk in ["desert", "desert_city", "dunes"]:
 		draw_polyline(line, Color(0.93, 0.87, 0.72, 0.85), rw + 70.0, _aa)
 		draw_polyline(line, Color(0.88, 0.80, 0.62, 0.9), rw + 34.0, _aa)
 	else:
 		draw_polyline(line, Color(0.62, 0.78, 0.58, 0.55), rw + 70.0, _aa)
 		draw_polyline(line, Color(0.72, 0.84, 0.66, 0.75), rw + 34.0, _aa)
-	# Kiesbetten außen an engen Kurven
-	for kb in _kerbs:
+	# Kiesbetten außen an engen Kurven (nicht auf Stadtkursen mit echter Umgebung)
+	for kb in ([] if (_osm != null and rk == "city") else _kerbs):
 		var pl := PackedVector2Array()
 		for i in range(kb["i0"], kb["i1"] + 1):
 			var tt: Vector2 = to_screen(track.pts[(i + 3) % n]) - to_screen(track.pts[(i - 3 + n) % n])
@@ -495,10 +520,11 @@ func _draw() -> void:
 		if pl.size() > 1:
 			draw_polyline(pl, Color(0.86, 0.77, 0.56, 0.9), rw * 0.8, _aa)
 	# Tribünen an Start/Ziel und in den engsten Kurven
-	_draw_stand(-330.0, 250.0, -1.0, rw)
-	for kb in _kerbs.slice(0, 3):
-		var mid_s: float = (float(kb["i0"]) + float(kb["i1"])) * 0.5 * track.spacing
-		_draw_stand(mid_s - 60.0, mid_s + 60.0, -float(kb["side"]), rw)
+	if _osm == null:
+		_draw_stand(-330.0, 250.0, -1.0, rw)
+		for kb in _kerbs.slice(0, 3):
+			var mid_s: float = (float(kb["i0"]) + float(kb["i1"])) * 0.5 * track.spacing
+			_draw_stand(mid_s - 60.0, mid_s + 60.0, -float(kb["side"]), rw)
 	# Boxengasse unter der Strecke
 	if racing:
 		_draw_pit_lane(rw)
@@ -573,8 +599,43 @@ func _draw() -> void:
 			var x := fmod(h * size.x + _t * 160.0 * (0.6 + h), size.x + 80.0) - 40.0
 			var y := fmod(float(i * 104729 % 997) / 997.0 * size.y + _t * 520.0, size.y)
 			draw_line(Vector2(x, y), Vector2(x - 6, y + 16), Color(0.25, 0.45, 0.85, 0.45), 1.2)
+	if _osm != null and show_env:
+		var at := OsmMap.ATTRIBUTION
+		var aw := font.get_string_size(at, HORIZONTAL_ALIGNMENT_LEFT, -1, 10).x
+		draw_rect(Rect2(size - Vector2(aw + 8, 15), Vector2(aw + 8, 15)), Color(1, 1, 1, 0.65))
+		draw_string(font, size - Vector2(aw + 4, 4), at, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color(0.2, 0.22, 0.28))
 	if interactive and zoom > 1.35:
 		_draw_minimap()
+
+
+## Rand der Kartendaten: außen Untergrundfarbe, innen ein weicher Übergang (statt einer harten Kante).
+func _draw_osm_fade() -> void:
+	var g: Color = _osm.ground
+	var r: Rect2 = _osm.rect
+	var a := to_screen(r.position)
+	var b := to_screen(r.end)
+	var f := 220.0 * _scale
+	var full := Rect2(Vector2.ZERO, size)
+	if a.x > 0.0:
+		draw_rect(Rect2(0, 0, a.x, size.y), g)
+	if b.x < size.x:
+		draw_rect(Rect2(b.x, 0, size.x - b.x, size.y), g)
+	if a.y > 0.0:
+		draw_rect(Rect2(0, 0, size.x, a.y), g)
+	if b.y < size.y:
+		draw_rect(Rect2(0, b.y, size.x, size.y - b.y), g)
+	var t0 := Color(g, 0.0)
+	var strips := [
+		[Vector2(a.x, a.y), Vector2(a.x + f, a.y), Vector2(a.x + f, b.y), Vector2(a.x, b.y), [g, t0, t0, g]],
+		[Vector2(b.x - f, a.y), Vector2(b.x, a.y), Vector2(b.x, b.y), Vector2(b.x - f, b.y), [t0, g, g, t0]],
+		[Vector2(a.x, a.y), Vector2(b.x, a.y), Vector2(b.x, a.y + f), Vector2(a.x, a.y + f), [g, g, t0, t0]],
+		[Vector2(a.x, b.y - f), Vector2(b.x, b.y - f), Vector2(b.x, b.y), Vector2(a.x, b.y), [t0, t0, g, g]],
+	]
+	for s in strips:
+		var pr := Rect2(s[0], Vector2.ZERO).expand(s[2])
+		if not pr.intersects(full):
+			continue
+		draw_polygon(PackedVector2Array([s[0], s[1], s[2], s[3]]), PackedColorArray(s[4]))
 
 
 ## Landschaft: Untergrund, Felder, Wasser, Bäume, Gebäude, Dünen. Nur sichtbare Objekte werden gezeichnet.

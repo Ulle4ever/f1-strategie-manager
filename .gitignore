@@ -4,3 +4,5 @@ tools/cache_osm/
 export/
 .claude/
 *.tmp
+tools/cache_env/
+tools/cache_photos/

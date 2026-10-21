@@ -3,6 +3,7 @@ extends Control
 ## Zweikampf-Banner, Laufband mit Positionswechseln, Startaufstellung vor dem Start.
 
 const U = preload("res://scripts/ui.gd")
+const DriverPhoto = preload("res://scripts/driver_photo.gd")
 const RaceSim = preload("res://scripts/race_sim.gd")
 
 var sim
@@ -130,7 +131,8 @@ func _draw() -> void:
 	if not sim.started:
 		_draw_grid()
 	else:
-		if selected != null:
+		# sehr niedrige Karte (Handy mit Fahrer-Panel darunter): Fahrerkarte weglassen, das Panel zeigt dieselben Werte
+		if selected != null and not (compact and size.y < 170.0):
 			_draw_card(selected)
 		if _toast_t > 0.0 and not tight:
 			_draw_toast()
@@ -164,6 +166,9 @@ func _draw_card(c) -> void:
 	var fb := U.font(true)
 	var r := Rect2(10, size.y - 28 - 116, 318, 112)
 	_panel(r, c.color)
+	# Fahrerfoto über der Karte
+	if size.y > 400.0:      # nur bei großer Karte, sonst überdecken sich Foto und Zweikampf-Banner
+		DriverPhoto.draw_into(self, Rect2(r.position.x, r.position.y - 70.0, 64, 64), c.driver_id, c.color)
 	var rk: Array = sim.ranking()
 	var pos: int = rk.find(c) + 1
 	var x := r.position.x + 14.0
@@ -314,6 +319,8 @@ func _draw_card_compact(c) -> void:
 	var fb := U.font(true)
 	var r := Rect2(8, size.y - 22 - 66, 330, 62)
 	_panel(r, c.color)
+	if size.y > 260.0:
+		DriverPhoto.draw_into(self, Rect2(r.position.x, r.position.y - 50.0, 46, 46), c.driver_id, c.color)
 	var rk: Array = sim.ranking()
 	var pos: int = rk.find(c) + 1
 	var x := r.position.x + 12.0
