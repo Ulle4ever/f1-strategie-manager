@@ -1,5 +1,5 @@
 extends Control
-## Hintergrund "Race Control": helle Fläche, oben ein dunkles Kopfband (feine Carbon-Schraffur, Akzentkante in der Team- bzw. Akzentfarbe).
+## Hintergrund: heller Himmelsverlauf mit Lichtfleck, oben ein Kopfband aus hellem Glas mit gerader Akzentkante (Team- bzw. Akzentfarbe).
 
 const U = preload("res://scripts/ui.gd")
 
@@ -44,20 +44,19 @@ func _find_title(n: Node) -> Control:
 func _draw() -> void:
 	var w := size.x
 	var h := size.y
-	draw_rect(Rect2(0, 0, w, h), U.BG0)
-	# leichter Verlauf nach unten
-	for i in 8:
-		var f := float(i) / 8.0
-		draw_rect(Rect2(0, h * (0.5 + f * 0.5), w, h / 16.0 + 1.0), Color(U.BG1, f * 0.6))
+	# Himmelsverlauf: oben kühles Blau, unten heller Dunst, dazu ein weicher Lichtfleck
+	var steps := 24
+	for i in steps:
+		var f := float(i) / float(steps - 1)
+		var c := U.BG1.lerp(U.BG0, smoothstep(0.0, 0.75, f))
+		draw_rect(Rect2(0, h * float(i) / float(steps), w, h / float(steps) + 1.0), c)
+	for r in 6:
+		var rr := w * (0.42 - float(r) * 0.06)
+		draw_circle(Vector2(w * 0.72, h * 0.18), rr, Color(1, 1, 1, 0.07))
 	var bh := (_band_h if _band_h > 0.0 else U.header_height()) if band < 0.0 else band
 	if bh <= 0.0:
 		return
-	draw_rect(Rect2(0, 0, w, bh), U.DARK)
-	# Carbon-Schraffur rechts
-	var x := w * 0.45
-	while x < w + bh:
-		draw_line(Vector2(x, 0), Vector2(x - bh, bh), Color(1, 1, 1, 0.025), 1.0)
-		x += 7.0
-	# Akzentkante mit Schrägauslauf
-	draw_rect(Rect2(0, bh - 3, w, 3), accent)
-	draw_colored_polygon(PackedVector2Array([Vector2(w * 0.62, bh - 3), Vector2(w, bh - 3), Vector2(w, bh + 3), Vector2(w * 0.62 + 6, bh + 3)]), accent.darkened(0.2))
+	# Kopfband als helles Glas mit gerader Akzentkante
+	draw_rect(Rect2(0, 0, w, bh), Color(1, 1, 1, 0.5))
+	draw_rect(Rect2(0, bh - 1, w, 1), Color(1, 1, 1, 0.95))
+	draw_rect(Rect2(0, bh - 3, w * 0.35, 2), accent)

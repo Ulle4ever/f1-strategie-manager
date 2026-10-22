@@ -4,11 +4,11 @@ extends RefCounted
 ## Safety Car / VSC, KI-Strategie. Bedienbar von der Oberfläche über set_style(), request_pit(), set_plan().
 
 const COMPOUNDS := [
-	{"name": "Soft", "short": "S", "color": Color(0.95, 0.15, 0.15), "ink": Color(1.0, 0.42, 0.42), "offset": 0.0, "deg": 0.125, "life": 17.0, "warm": 0.30},
-	{"name": "Medium", "short": "M", "color": Color(1.0, 0.85, 0.1), "ink": Color(1.0, 0.84, 0.25), "offset": 0.80, "deg": 0.066, "life": 32.0, "warm": 0.70},
-	{"name": "Hard", "short": "H", "color": Color(0.92, 0.92, 0.92), "ink": Color(0.86, 0.88, 0.92), "offset": 1.50, "deg": 0.034, "life": 44.0, "warm": 1.30},
-	{"name": "Inter", "short": "I", "color": Color(0.2, 0.8, 0.3), "ink": Color(0.35, 0.88, 0.45), "offset": 0.0, "deg": 0.05, "life": 34.0, "warm": 0.40},
-	{"name": "Wet", "short": "W", "color": Color(0.25, 0.5, 1.0), "ink": Color(0.45, 0.66, 1.0), "offset": 0.0, "deg": 0.04, "life": 44.0, "warm": 0.40},
+	{"name": "Soft", "short": "S", "color": Color(0.95, 0.15, 0.15), "ink": Color(0.84, 0.09, 0.09), "offset": 0.0, "deg": 0.125, "life": 17.0, "warm": 0.30},
+	{"name": "Medium", "short": "M", "color": Color(1.0, 0.85, 0.1), "ink": Color(0.74, 0.54, 0.0), "offset": 0.80, "deg": 0.066, "life": 32.0, "warm": 0.70},
+	{"name": "Hard", "short": "H", "color": Color(0.92, 0.92, 0.92), "ink": Color(0.30, 0.34, 0.42), "offset": 1.50, "deg": 0.034, "life": 44.0, "warm": 1.30},
+	{"name": "Inter", "short": "I", "color": Color(0.2, 0.8, 0.3), "ink": Color(0.07, 0.55, 0.22), "offset": 0.0, "deg": 0.05, "life": 34.0, "warm": 0.40},
+	{"name": "Wet", "short": "W", "color": Color(0.25, 0.5, 1.0), "ink": Color(0.12, 0.38, 0.88), "offset": 0.0, "deg": 0.04, "life": 44.0, "warm": 0.40},
 ]
 const QualiSim = preload("res://scripts/quali_sim.gd")
 const DRY_COUNT := 3

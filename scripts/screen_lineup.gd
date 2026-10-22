@@ -38,7 +38,7 @@ func _ready() -> void:
 	for n in log:
 		if n["kind"] in ["rumor", "info", "rookie"]:
 			continue
-		var st: Array = MarketScreen.KIND_STYLE.get(n["kind"], ["INFO", Color("262b35"), Color("c7cdd9")])
+		var st: Array = MarketScreen.KIND_STYLE.get(n["kind"], ["INFO", Color("e6e9f0"), Color("3d465a")])
 		var h := U.hbox(8)
 		var c := U.chip(st[0], st[1], st[2])
 		c.custom_minimum_size = Vector2(108, 0)

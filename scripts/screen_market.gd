@@ -7,15 +7,15 @@ const DriverPhoto = preload("res://scripts/driver_photo.gd")
 const Field = preload("res://scripts/field.gd")
 
 const KIND_STYLE := {
-	"signing": ["VERPFLICHTET", Color("123d2b"), Color("6ee7a8")], "extension": ["VERLÄNGERT", Color("15284d"), Color("93c5fd")],
-	"release": ["ABGANG", Color("262b35"), Color("b4bccb")], "retire": ["RÜCKTRITT", Color("3d3012"), Color("fcd34d")],
-	"rumor": ["GERÜCHT", Color("2f1d47"), Color("d8b4fe")], "poach": ["ABGEWORBEN", Color("45191a"), Color("fca5a5")],
-	"transfer": ["TRANSFER", Color("45191a"), Color("fca5a5")], "exit": ["KLAUSEL", Color("45191a"), Color("fca5a5")],
-	"info": ["INFO", Color("262b35"), Color("c7cdd9")], "rookie": ["NACHWUCHS", Color("15284d"), Color("93c5fd")],
-	"team_in": ["NEUES TEAM", Color("123d2b"), Color("6ee7a8")], "team_out": ["RÜCKZUG", Color("45191a"), Color("fca5a5")],
-	"team_merge": ["FUSION", Color("2f1d47"), Color("d8b4fe")], "team_name": ["UMBENANNT", Color("15284d"), Color("93c5fd")],
-	"field": ["TEAMFELD", Color("3d3012"), Color("fcd34d")],
-	"dev": ["ENTWICKLUNG", Color("15284d"), Color("93c5fd")], "press": ["PRESSE", Color("262b35"), Color("c7cdd9")],
+	"signing": ["VERPFLICHTET", Color("d6f3e3"), Color("0b7a43")], "extension": ["VERLÄNGERT", Color("dbe8ff"), Color("1d4fb8")],
+	"release": ["ABGANG", Color("e6e9f0"), Color("5b657b")], "retire": ["RÜCKTRITT", Color("fff0c2"), Color("8a5a00")],
+	"rumor": ["GERÜCHT", Color("efdcff"), Color("6b2fb0")], "poach": ["ABGEWORBEN", Color("ffdcd8"), Color("b3261e")],
+	"transfer": ["TRANSFER", Color("ffdcd8"), Color("b3261e")], "exit": ["KLAUSEL", Color("ffdcd8"), Color("b3261e")],
+	"info": ["INFO", Color("e6e9f0"), Color("3d465a")], "rookie": ["NACHWUCHS", Color("dbe8ff"), Color("1d4fb8")],
+	"team_in": ["NEUES TEAM", Color("d6f3e3"), Color("0b7a43")], "team_out": ["RÜCKZUG", Color("ffdcd8"), Color("b3261e")],
+	"team_merge": ["FUSION", Color("efdcff"), Color("6b2fb0")], "team_name": ["UMBENANNT", Color("dbe8ff"), Color("1d4fb8")],
+	"field": ["TEAMFELD", Color("fff0c2"), Color("8a5a00")],
+	"dev": ["ENTWICKLUNG", Color("dbe8ff"), Color("1d4fb8")], "press": ["PRESSE", Color("e6e9f0"), Color("3d465a")],
 }
 
 var main
@@ -63,14 +63,14 @@ func _ready() -> void:
 	tb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(tb)
 	var bud := U.vbox(0)
-	bud.add_child(U.label("BUDGET", 11, U.MUTED_DARK, true))
-	budget_label = U.display("", 18 if M else 22, Color("4ade80"))
+	bud.add_child(U.label("BUDGET", 11, U.MUTED, true))
+	budget_label = U.display("", 18 if M else 22, U.GOOD)
 	bud.add_child(budget_label)
 	head.add_child(bud)
 	var cap_v := U.vbox(2)
 	cap_v.custom_minimum_size = Vector2(130 if M else 190, 0)
-	cap_v.add_child(U.label("GEHÄLTER %d / LIMIT" % Market.next_year(), 11, U.MUTED_DARK, true))
-	cap_label = U.label("", 14 if M else 18, U.ON_DARK, true)
+	cap_v.add_child(U.label("GEHÄLTER %d / LIMIT" % Market.next_year(), 11, U.MUTED, true))
+	cap_label = U.label("", 14 if M else 18, U.TEXT, true)
 	cap_v.add_child(cap_label)
 	cap_bar = ProgressBar.new()
 	cap_bar.custom_minimum_size = Vector2(0, 8)
@@ -552,7 +552,7 @@ func _refresh_detail() -> void:
 		var trow := HFlowContainer.new()
 		trow.add_theme_constant_override("h_separation", 6)
 		for t in tl:
-			trow.add_child(U.chip(str(t), Color("15284d"), Color("93c5fd")))
+			trow.add_child(U.chip(str(t), Color("e1e7fb"), Color("2a3a82")))
 		detail_left.add_child(trow)
 	var status_txt := ""
 	if d["status"] == "retired":

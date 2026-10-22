@@ -116,21 +116,21 @@ func _ready() -> void:
 
 
 func _build_top() -> Control:
-	var p := U.dark_panel(6 if U.is_mobile() else 8, U.ACCENT)
+	var p := U.panel(6 if U.is_mobile() else 8, U.ACCENT)
 	var h := U.hbox(6 if U.is_mobile() else 16)
 	p.add_child(h)
 	var M := U.is_mobile()
-	phase_label = U.display("Q1", 24 if M else 34, U.ACCENT.lightened(0.1))
+	phase_label = U.display("Q1", 24 if M else 34, U.ACCENT_TEXT)
 	h.add_child(phase_label)
 	var cl := U.vbox(0)
 	if not M:
-		cl.add_child(U.label("VERBLEIBENDE ZEIT", 10, U.MUTED_DARK, true))
-	clock_label = U.display("18:00", 20 if M else 28, U.ON_DARK)
+		cl.add_child(U.label("VERBLEIBENDE ZEIT", 10, U.MUTED, true))
+	clock_label = U.display("18:00", 20 if M else 28, U.TEXT)
 	cl.add_child(clock_label)
 	h.add_child(cl)
 	status_label = U.label("", 15, U.WARN, true)
 	h.add_child(status_label)
-	weather_label = U.label("", 14, U.MUTED_DARK)
+	weather_label = U.label("", 14, U.MUTED)
 	weather_label.clip_text = true
 	weather_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	h.add_child(weather_label)
@@ -143,7 +143,7 @@ func _build_top() -> Control:
 		sg.add_child(b)
 		speed_buttons.append(b)
 	h.add_child(U.dark_button("Weiter >>" if M else "Abschnitt überspringen", _skip_phase, 84 if M else 190, 34 if M else 38))
-	var cb := U.checkbox("", true)
+	var cb := U.checkbox("")
 	cb.text = "Auto" if U.is_mobile() else "Auto-Slow"
 	cb.button_pressed = true
 	cb.toggled.connect(func(v): auto_slow = v)
@@ -320,13 +320,13 @@ func _collect_events(allow_slow: bool) -> void:
 		var col := "#c8cfdc"
 		match e["kind"]:
 			"crash":
-				col = "#f87171"
+				col = "#d93025"
 			"mistake":
 				col = "#ff9a3d"
 			"lap":
-				col = "#34d399"
+				col = "#0f9d58"
 			"weather":
-				col = "#60a5fa"
+				col = "#1f5fd6"
 		var m := "%s  %s" % [_fmt_clock(qsim.time), e["text"]]
 		log_lines.append("[color=%s]%s[/color]" % [col, m])
 		if allow_slow and auto_slow and speed_idx > 2 and (e["kind"] == "crash" or e["kind"] == "weather" or (e["kind"] == "lap" and e["player"])):
@@ -358,7 +358,7 @@ func _fmt_clock(t: float) -> String:
 func _update_ui() -> void:
 	phase_label.text = qsim.phase_name() if qsim.phase_idx >= 0 else "Q"
 	clock_label.text = _fmt_clock(qsim.time_left())
-	var lc := U.ON_DARK
+	var lc := U.TEXT
 	if qsim.time_left() < 120.0 and qsim.active:
 		lc = U.WARN
 	clock_label.add_theme_color_override("font_color", lc)

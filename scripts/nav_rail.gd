@@ -13,9 +13,7 @@ var _btns: Array = []
 func setup(p_tc: TabContainer, items: Array) -> void:
 	tc = p_tc
 	tc.tabs_visible = false
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = U.PANEL
-	sb.set_corner_radius_all(16)
+	var sb := U.glass(U.PANEL, U.RADIUS, 12)
 	sb.content_margin_top = 4
 	sb.content_margin_bottom = 4
 	sb.content_margin_left = 3
@@ -58,7 +56,7 @@ func setup(p_tc: TabContainer, items: Array) -> void:
 		pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		pill.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		var ps := StyleBoxFlat.new()
-		ps.set_corner_radius_all(10)
+		ps.set_corner_radius_all(4)
 		ps.content_margin_left = 10
 		ps.content_margin_right = 10
 		ps.content_margin_top = 0
@@ -88,6 +86,6 @@ func setup(p_tc: TabContainer, items: Array) -> void:
 func _refresh() -> void:
 	for e in _btns:
 		var on: bool = int(e["idx"]) == tc.current_tab
-		e["ps"].bg_color = Color(U.ACCENT, 0.9) if on else Color(0, 0, 0, 0)
-		e["icon"].set_color(U.ACCENT_INK if on else U.MUTED)
+		e["ps"].bg_color = Color(U.ACCENT, 0.16) if on else Color(0, 0, 0, 0)
+		e["icon"].set_color(U.ACCENT_TEXT if on else U.MUTED)
 		e["label"].add_theme_color_override("font_color", U.TEXT if on else U.MUTED)

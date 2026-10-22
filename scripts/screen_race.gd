@@ -313,17 +313,17 @@ func _player_grid() -> int:
 
 
 func _build_top() -> Control:
-	var p := U.dark_panel(5 if U.is_mobile() else 8, U.ACCENT)
+	var p := U.panel(5 if U.is_mobile() else 8, U.ACCENT)
 	var h := U.hbox(4 if U.is_mobile() else 14)
 	p.add_child(h)
 	var M := U.is_mobile()
 	var lv := U.vbox(-6)
 	lv.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	lv.add_child(U.label("RUNDE", 10 if M else 12, U.MUTED_DARK, true))
-	lap_label = U.display("", 19 if M else 30, U.ON_DARK)
+	lv.add_child(U.label("RUNDE", 10 if M else 12, U.MUTED, true))
+	lap_label = U.display("", 19 if M else 30, U.TEXT)
 	lv.add_child(lap_label)
 	h.add_child(lv)
-	time_label = U.label("", 16, U.MUTED_DARK)
+	time_label = U.label("", 16, U.MUTED)
 	time_label.visible = not M
 	h.add_child(time_label)
 	status_chip = U.chip("GRÜN", Color("14562f"), U.GOOD)
@@ -332,10 +332,10 @@ func _build_top() -> Control:
 	if M:
 		decision_chip = U.dark_button("Funk ▸", _on_decision_chip, 0, 30)
 		decision_chip.add_theme_font_size_override("font_size", 12)
-		decision_chip.add_theme_color_override("font_color", Color("fbbf24"))
+		decision_chip.add_theme_color_override("font_color", U.WARN)
 		decision_chip.visible = false
 		h.add_child(decision_chip)
-	weather_label = U.label("", 14, U.MUTED_DARK)
+	weather_label = U.label("", 14, U.MUTED)
 	weather_label.clip_text = true
 	weather_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	weather_label.visible = not M
@@ -356,14 +356,14 @@ func _build_top() -> Control:
 	if M:
 		end_b.add_theme_font_size_override("font_size", 14)
 	h.add_child(end_b)
-	var cb := U.checkbox("", true)
+	var cb := U.checkbox("")
 	cb.text = "Auto" if U.is_mobile() else "Auto-Slow"
 	if U.is_mobile():
 		cb.add_theme_font_size_override("font_size", 12)
 	cb.button_pressed = true
 	cb.toggled.connect(func(v): auto_slow = v)
 	h.add_child(cb)
-	var tvcb := U.checkbox("TV" if M else "TV-Grafik", true)
+	var tvcb := U.checkbox("TV" if M else "TV-Grafik")
 	if M:
 		tvcb.add_theme_font_size_override("font_size", 12)
 	tvcb.button_pressed = true
@@ -2043,20 +2043,20 @@ func _skip_to_end(blocking := false) -> void:
 func _event_color(kind: String) -> String:
 	match kind:
 		"sc":
-			return "#fbbf24"
+			return "#b86f00"
 		"dnf":
-			return "#f87171"
+			return "#d93025"
 		"weather":
-			return "#60a5fa"
+			return "#1f5fd6"
 		"fastest":
-			return "#c084fc"
+			return "#8a3fd1"
 		"pass":
-			return "#34d399"
+			return "#0f9d58"
 		"pit":
-			return "#dfe3ea"
+			return "#2b3347"
 		"radio":
-			return "#7dd3fc"
-	return "#aab2c2"
+			return "#1d6fb8"
+	return "#5b657b"
 
 
 func _after_tick(allow_slow := true) -> void:
