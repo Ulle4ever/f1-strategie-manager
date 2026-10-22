@@ -14,7 +14,7 @@ const TEAM_UPGRADES := ["reliab", "pit", "coach"]
 var sel_area := "floor"
 var sel_size := "m"
 var sel_target := "cur"
-var sel_spec := "df"
+var sel_spec := ""
 var _msg := ""
 
 
@@ -82,12 +82,18 @@ func rebuild() -> void:
 		b.custom_minimum_size = Vector2(0, 6)
 		v.add_child(b)
 		var sub := str(Dev.AREA[a]["desc"])
+		var fl := _focus_line(a, "cur")
+		if fl != "":
+			sub = fl
 		if float(p["next"]) > 0.001:
 			sub = "Auto %d: +%.2f %%  ·  %s" % [Game.year + 1, float(p["next"]), sub]
 		var sl := U.label(sub, 11, U.MUTED)
 		sl.clip_text = true
 		v.add_child(sl)
 		g.add_child(card)
+
+	# Charakter des Autos: Profil mit Entwicklung (heller Kreis = Saisonstart)
+	add_child(_character())
 
 	# Laufende Projekte
 	add_child(U.section("Projekte  %d / %d" % [Game.dev_projects.size(), Dev.slots()], 12))
@@ -101,13 +107,67 @@ func rebuild() -> void:
 		add_child(U.section("Geliefert", 12))
 		for i in mini(6, Game.dev_log.size()):
 			var e: Dictionary = Game.dev_log[i]
-			var col := U.BAD if bool(e["failed"]) else (U.GOOD if float(e["gain"]) >= (float(e["lo"]) + float(e["hi"])) * 0.5 else U.TEXT)
+			var kind := str(e.get("kind", "flop" if bool(e["failed"]) else "ok"))
+			var col := U.BAD if kind == "flop" else (U.WARN if kind == "half" else (U.GOOD if float(e["gain"]) >= (float(e["lo"]) + float(e["hi"])) * 0.5 else U.TEXT))
 			add_child(_wl("R%d %d  ·  %s" % [int(e["round"]), int(e["year"]), str(e["text"])], 12, col))
 
 	# Team-Ausbau
 	add_child(U.section("Team", 12))
 	for key in TEAM_UPGRADES:
 		add_child(_upgrade_card(key))
+
+
+## Größte Schwerpunkte eines Bereichs als Kurztext, z. B. "Spitzenabtrieb +0.20 · Arbeitsfenster +0.05".
+func _focus_line(a: String, target: String) -> String:
+	var foc: Dictionary = Dev.part(a)["foc_" + target]
+	var ids: Array = foc.keys().filter(func(k): return float(foc[k]) > 0.005)
+	ids.sort_custom(func(x, y): return float(foc[x]) > float(foc[y]))
+	var parts: Array = []
+	for id in ids.slice(0, 2):
+		parts.append("%s +%.2f" % [str(Dev.focus(a, str(id))["name"]), float(foc[id])])
+	return "  ·  ".join(parts)
+
+
+## Charakter des eigenen Autos: Profilbalken mit Entwicklung und Standfestigkeit.
+func _character() -> Control:
+	var M := U.is_mobile()
+	var box := U.vbox(4)
+	box.name = "Character"
+	box.add_child(U.section("Charakter des Autos", 12))
+	var prof: Dictionary = Game.team_profile(Game.team_id)
+	var base: Dictionary = Game.team_profile(Game.team_id, true)
+	var g := GridContainer.new()
+	g.columns = 2
+	g.add_theme_constant_override("h_separation", 14)
+	g.add_theme_constant_override("v_separation", 2)
+	box.add_child(g)
+	var rows := [["Abtrieb", "df", "Topspeed", "Abtrieb"], ["Motor / Topspeed", "power", "schwach", "stark"], ["Reifenschonung", "tyre", "frisst", "schont"], ["Regen", "wet", "schwach", "stark"]]
+	for r in rows:
+		var bar = load("res://scripts/profile_bar.gd").new()
+		bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		bar.setup(str(r[0]), float(prof.get(r[1], 0.0)), str(r[2]), str(r[3]), U.ACCENT, float(base.get(r[1], 0.0)))
+		g.add_child(bar)
+	# spürbare Wirkung der Profiländerung (wie race_sim.track_fit, Runde etwa 80 s)
+	var dd := float(prof["df"]) - float(base["df"])
+	var dp := float(prof["power"]) - float(base["power"])
+	var slow := (dd * 1.0 * 0.0032 + dp * -0.6 * 0.0026) * 80.0
+	var fast := (dd * -1.0 * 0.0032 + dp * 1.0 * 0.0026) * 80.0
+	var wear := int(round(-0.09 * (float(prof["tyre"]) - float(base["tyre"])) * 100.0))
+	var rel := float(prof.get("rel", 0.0))
+	var mf := Dev.mech_factor()
+	var rt := "Profil-Wirkung: kurvige Strecke (Monaco) %+.2f s/Runde, schnelle Strecke (Monza) %+.2f s/Runde, Reifenverschleiß %+d %%, technische Defekte %+d %%." % [-slow, -fast, wear, int(round((mf - 1.0) * 100.0))]
+	if absf(rel) < 0.02 and absf(dd) + absf(dp) < 0.02 and wear == 0:
+		rt = "Noch keine Profil-Änderung in dieser Saison."
+	var nx: Dictionary = Dev.profile_shift("next")
+	var nparts: Array = []
+	for e in [["df", "Abtrieb"], ["power", "Topspeed"], ["tyre", "Reifen"], ["wet", "Regen"]]:
+		if absf(float(nx[e[0]])) >= 0.02:
+			nparts.append("%s %+.2f" % [e[1], float(nx[e[0]])])
+	if not nparts.is_empty():
+		rt += "  Auto %d bisher: %s." % [Game.year + 1, ", ".join(nparts)]
+	box.add_child(_wl(rt, 11 if M else 12, U.MUTED))
+	box.add_child(_wl("Heller Kreis: Auto zum Saisonstart. Der Schwerpunkt eines Projekts verschiebt das Profil – Abtrieb hilft auf kurvigen Strecken, Topspeed auf schnellen.", 11, U.MUTED))
+	return box
 
 
 func _project_card(pr: Dictionary) -> Control:
@@ -117,10 +177,9 @@ func _project_card(pr: Dictionary) -> Control:
 	var top := U.hbox(6)
 	v.add_child(top)
 	var a: String = pr["area"]
-	var nm := str(Dev.AREA[a]["name"])
-	if a == "rear":
-		nm += " (Topspeed)" if str(pr.get("spec", "df")) == "speed" else " (Abtrieb)"
+	var nm := "%s (%s)" % [str(Dev.AREA[a]["name"]), str(Dev.focus(a, str(pr.get("spec", "")))["name"])]
 	var tl := U.label("%s  ·  %s" % [nm, str(Dev.SIZES[pr["size"]]["name"])], 14, U.TEXT, true)
+	tl.clip_text = true
 	tl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top.add_child(tl)
 	top.add_child(U.chip("Dieses Auto" if str(pr["target"]) == "cur" else "Auto %d" % (Game.year + 1), U.DARK if str(pr["target"]) == "cur" else U.BLUE))
@@ -139,6 +198,7 @@ func _project_card(pr: Dictionary) -> Control:
 func _planner() -> Control:
 	var M := U.is_mobile()
 	var p := U.panel(10, U.ACCENT)
+	p.name = "Planner"
 	var v := U.vbox(6)
 	p.add_child(v)
 	v.add_child(U.heading("Neues Projekt", 15))
@@ -152,16 +212,26 @@ func _planner() -> Control:
 		b.set_pressed_no_signal(a == sel_area)
 		b.add_theme_font_size_override("font_size", 12 if M else 13)
 		af.add_child(b)
-	if sel_area == "rear":
-		var sr := U.hbox(4)
-		v.add_child(sr)
-		for e in [["df", "Mehr Abtrieb (Kurven)"], ["speed", "Mehr Topspeed (Geraden)"]]:
-			var b2 := U.button(e[1], _pick.bind("spec", e[0]), 0, 32)
-			b2.toggle_mode = true
-			b2.set_pressed_no_signal(e[0] == sel_spec)
-			b2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			b2.add_theme_font_size_override("font_size", 12)
-			sr.add_child(b2)
+	# Schwerpunkt des Teils
+	var fo: Dictionary = Dev.focus(sel_area, sel_spec)
+	sel_spec = str(fo["id"])
+	v.add_child(U.label("SCHWERPUNKT", 11, U.MUTED, true))
+	var sr := U.hbox(4)
+	v.add_child(sr)
+	for f in Dev.FOCUS[sel_area]:
+		var b2 := U.button(str(f["name"]), _pick.bind("spec", str(f["id"])), 0, 32)
+		b2.toggle_mode = true
+		b2.set_pressed_no_signal(str(f["id"]) == sel_spec)
+		b2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b2.add_theme_font_size_override("font_size", 11 if M else 12)
+		b2.clip_text = true
+		sr.add_child(b2)
+	var risk_txt := ""
+	if float(fo["risk"]) > 0.0:
+		risk_txt = "  Mutiges Konzept: größere Streuung, höheres Risiko."
+	elif float(fo["risk"]) < 0.0:
+		risk_txt = "  Sicheres Konzept: geringere Streuung, weniger Risiko."
+	v.add_child(_wl("%s: %s.  Wirkung: %s.%s" % [str(fo["name"]), str(fo["desc"]), Dev.focus_effect_text(sel_area, sel_spec), risk_txt], 12, U.TEXT))
 	var tr := U.hbox(4)
 	v.add_child(tr)
 	for e in [["cur", "Für dieses Auto"], ["next", "Für das Auto %d" % (Game.year + 1)]]:
@@ -174,14 +244,14 @@ func _planner() -> Control:
 	var sz := U.hbox(4)
 	v.add_child(sz)
 	for k in ["s", "m", "l"]:
-		var q: Dictionary = Dev.quote(sel_area, k, sel_target)
+		var q: Dictionary = Dev.quote(sel_area, k, sel_target, sel_spec)
 		var b4 := U.button("%s\n%.0f Mio. $ · %d Rd." % [str(Dev.SIZES[k]["name"]), float(q["cost"]), int(q["races"])], _pick.bind("size", k), 0, 46)
 		b4.toggle_mode = true
 		b4.set_pressed_no_signal(k == sel_size)
 		b4.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b4.add_theme_font_size_override("font_size", 11 if M else 12)
 		sz.add_child(b4)
-	var q2: Dictionary = Dev.quote(sel_area, sel_size, sel_target)
+	var q2: Dictionary = Dev.quote(sel_area, sel_size, sel_target, sel_spec)
 	var when := ""
 	if sel_target == "cur":
 		when = "Kommt zu Runde %d" % (Game.round_index + int(q2["races"]) + 1) if not bool(q2["late"]) else "Kommt erst nach Saisonende – für dieses Auto zu spät!"
@@ -204,6 +274,8 @@ func _planner() -> Control:
 func _pick(what: String, val: String) -> void:
 	match what:
 		"area":
+			if sel_area != val:
+				sel_spec = ""
 			sel_area = val
 		"size":
 			sel_size = val
@@ -218,7 +290,7 @@ func _pick(what: String, val: String) -> void:
 func _start() -> void:
 	var err := Dev.start(sel_area, sel_size, sel_target, sel_spec)
 	if err == "":
-		_msg = "Projekt gestartet: %s (%s)." % [str(Dev.AREA[sel_area]["name"]), str(Dev.SIZES[sel_size]["name"])]
+		_msg = "Projekt gestartet: %s, %s (%s)." % [str(Dev.AREA[sel_area]["name"]), str(Dev.focus(sel_area, sel_spec)["name"]), str(Dev.SIZES[sel_size]["name"])]
 		Game.save()
 	else:
 		_msg = err

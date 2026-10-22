@@ -1,12 +1,13 @@
 extends PanelContainer
-## Strategie-Zentrale im Rennwochenende: Plan (Stints, Rundenzeit-Diagramm, Tank), Reifensätze, Varianten A/B/C mit
-## Vorschau-Läufen (Monte Carlo), Wenn-Dann-Regeln und Boxencrew.
+## Strategie-Zentrale im Rennwochenende: Plan (Stints, Rundenzeit-Diagramm, Rausfahrt nach den Stopps, Tank), Reifensätze,
+## Varianten A/B/C mit Vorschau-Läufen (Monte Carlo), Wenn-Dann-Regeln und Boxencrew.
 
 const U = preload("res://scripts/ui.gd")
 const RaceSim = preload("res://scripts/race_sim.gd")
 const StintBar = preload("res://scripts/stint_bar.gd")
 const LapChart = preload("res://scripts/lap_chart.gd")
 const TeamStyle = preload("res://scripts/team_style.gd")
+const RejoinStrip = preload("res://scripts/rejoin_strip.gd")
 
 var sim
 var laps := 0
@@ -23,6 +24,7 @@ var rule_box: VBoxContainer
 var chart
 var timeline
 var stints_box: VBoxContainer
+var rejoin_box: VBoxContainer
 var sum_label: Label
 var warn_label: Label
 var fuel_info: Label
@@ -206,6 +208,9 @@ func _build_plan() -> void:
 	arow.add_child(U.button("+ Boxenstopp", _on_add_stop, 0, 34))
 	arow.add_child(U.button("KI-Empfehlung", _on_reset, 0, 34))
 	plan_box.add_child(arow)
+	# Rausfahrt nach den Stopps (Verkehr)
+	rejoin_box = U.vbox(6)
+	plan_box.add_child(rejoin_box)
 	# Tank
 	var card := U.card(10)
 	var fv := U.vbox(6)
@@ -406,8 +411,49 @@ func _apply() -> void:
 			if rng_l < float(need_l):
 				warns.append("Stopp nach Runde %d: Tank reicht nicht bis zum nächsten Stopp/Ziel." % int(st["lap"]))
 	warn_label.text = "\n".join(warns)
+	_update_rejoin(c, clean)
 	if tabs != null and tyre_box != null and idx == 0:
 		_build_tyres()
+
+
+## Rausfahrt-Vorschau: für jeden Stopp, wo das Auto wieder auf die Strecke kommt, wer drumherum ist und ob eine Runde
+## früher oder später freie Fahrt bringt.
+func _update_rejoin(c, clean: Array) -> void:
+	if rejoin_box == null:
+		return
+	U.clear(rejoin_box)
+	if clean.is_empty():
+		return
+	rejoin_box.add_child(U.section("Rausfahrt nach den Stopps", 12))
+	if not sim.quali_done:
+		rejoin_box.add_child(_wl("Die Vorschau gibt es nach dem Qualifying, wenn Startplätze und Strategien der Gegner feststehen.", 12, U.MUTED))
+		return
+	var fc: Array = sim.rejoin_forecast(c, int(e["start"]), clean)
+	for i in fc.size():
+		var r: Dictionary = fc[i]
+		var card := U.card(8, U.tint(0.035))
+		var v := U.vbox(4)
+		card.add_child(v)
+		v.add_child(U.label("STOPP %d  ·  NACH RUNDE %d  ·  RAUS AUF CA. P%d" % [i + 1, int(r["lap"]), int(r["pos"])], 12, U.TEXT, true))
+		var strip = RejoinStrip.new()
+		strip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		strip.setup(r["near"], c.code)
+		v.add_child(strip)
+		v.add_child(_wl(str(r["traffic"]), 12, U.WARN if float(r["stuck"]) > 0.5 else U.GOOD))
+		if int(r["alt_lap"]) > 0:
+			var b := U.button("Auf Runde %d verschieben (ca. %.1f s schneller)" % [int(r["alt_lap"]), float(r["alt_gain"])], _on_rejoin_alt.bind(i, int(r["alt_lap"])), 0, 32)
+			b.add_theme_font_size_override("font_size", 12)
+			v.add_child(b)
+		rejoin_box.add_child(card)
+	rejoin_box.add_child(_wl("Prognose aus den geplanten Strategien aller Autos ohne Zweikämpfe und Zwischenfälle, etwa ±2 s genau.", 11, U.MUTED))
+
+
+func _on_rejoin_alt(i: int, lap: int) -> void:
+	var plan: Array = e["plan"]
+	plan.sort_custom(func(a, b): return int(a["lap"]) < int(b["lap"]))
+	if i < plan.size():
+		plan[i]["lap"] = lap
+	_rebuild_stints()
 
 
 func _on_start_comp(k: int) -> void:

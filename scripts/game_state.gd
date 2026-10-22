@@ -44,6 +44,7 @@ var staff_pool: Array = []   # Personalmarkt
 var dev_parts := {}          # Teile-Entwicklung je Bereich (siehe dev.gd)
 var dev_projects: Array = [] # laufende Entwicklungsprojekte
 var dev_log: Array = []      # gelieferte Teile
+var ai_dev_prof := {}        # Team-ID -> Profilverschiebung der KI-Entwicklung (siehe Dev.ai_develop)
 var rng := RandomNumberGenerator.new()
 var rules: Dictionary = {}
 var last_result: Dictionary = {}
@@ -138,6 +139,7 @@ func _setup_base(base_year: int) -> void:
 	team_points = {}
 	wins = {}
 	dev_pace = {}
+	ai_dev_prof = {}
 	for t in teams:
 		dev_pace[t["id"]] = 0.0
 	Market.init_career(base_year)
@@ -322,18 +324,28 @@ func engine_life_races() -> float:
 	return maxf(1.0, float(calendar.size()) / float(a) * 1.15)
 
 
+## Fahrzeugprofil eines Teams (Abtrieb, Topspeed, Reifen, Regen je -1..1) mit der Entwicklung der laufenden Saison.
+## Spielerteam zusätzlich "rel" (Standfestigkeit aus der Entwicklung). base = true: ohne Entwicklung.
+func team_profile(tid: String, base := false) -> Dictionary:
+	var prof: Dictionary = DB.car_profile(tid, year)
+	if base:
+		return prof
+	var sh: Dictionary = Dev.profile_shift() if tid == team_id else ai_dev_prof.get(tid, {})
+	for k in sh.keys():
+		if k == "rel":
+			prof[k] = float(sh[k])
+			continue
+		prof[k] = clampf(float(prof.get(k, 0.0)) + float(sh[k]), -1.0, 1.0)
+	return prof
+
+
 ## Teams mit aktuellem Entwicklungsstand für die Simulation.
 func sim_teams() -> Array:
 	var out: Array = []
 	for t in teams:
 		var c: Dictionary = t.duplicate(true)
 		c["pace"] = float(t["pace"]) + float(dev_pace.get(t["id"], 0.0))
-		var prof: Dictionary = DB.car_profile(str(t["id"]), year)
-		if t["id"] == team_id:
-			var sh: Dictionary = Dev.profile_shift()
-			for k in sh.keys():
-				prof[k] = clampf(float(prof.get(k, 0.0)) + float(sh[k]), -1.0, 1.0)
-		c["profile"] = prof
+		c["profile"] = team_profile(str(t["id"]))
 		if t["id"] == team_id:
 			var lv: Dictionary = upgrades
 			var fx: Dictionary = Staff.race_effects()
@@ -473,7 +485,9 @@ func finish_race(sim) -> Dictionary:
 		if t["id"] == team_id:
 			continue
 		var strength := 1.0 - 0.5 * float(team_rank(t["id"])) / maxf(1.0, float(teams.size()))
-		dev_pace[t["id"]] = float(dev_pace[t["id"]]) + rng.randfn(0.00035 * strength, 0.00035)
+		var inc := rng.randfn(0.00035 * strength, 0.00035)
+		dev_pace[t["id"]] = float(dev_pace[t["id"]]) + inc
+		Dev.ai_develop(str(t["id"]), inc, rng)
 	# Motorverschleiß und Stimmungsfolgen der Taktik übernehmen
 	for c in order:
 		var did2 := _driver_id(c)
@@ -679,7 +693,7 @@ func save() -> void:
 		"season_log": season_log, "team_meta": team_meta, "solo_code": solo_code, "board": board, "sponsor_id": sponsor_id, "season_goal_rank": season_goal_rank, "season_eval_done": season_eval_done,
 		"last_season_eval": last_season_eval, "pending_event": pending_event, "event_seen": event_seen, "event_last": event_last, "event_mods": event_mods,
 		"career_log": career_log, "career_race_no": career_race_no, "goal_log": goal_log, "finance_log": finance_log, "dev_spent": dev_spent, "cap_spent_fees": cap_spent_fees, "engines": engines, "crew_form": crew_form, "race_winners": race_winners,
-		"staff": staff, "staff_pool": staff_pool, "dev_parts": dev_parts, "dev_projects": dev_projects, "dev_log": dev_log,
+		"staff": staff, "staff_pool": staff_pool, "dev_parts": dev_parts, "dev_projects": dev_projects, "dev_log": dev_log, "ai_dev_prof": ai_dev_prof,
 		"saved_at": int(Time.get_unix_time_from_system()),
 	}
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
@@ -742,6 +756,7 @@ func load_game() -> bool:
 	dev_parts = d.get("dev_parts", {})
 	dev_projects = d.get("dev_projects", [])
 	dev_log = d.get("dev_log", [])
+	ai_dev_prof = d.get("ai_dev_prof", {})
 	if staff.is_empty():
 		Staff.init_team()         # älterer Spielstand ohne Personal
 	if dev_parts.is_empty():

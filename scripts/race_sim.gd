@@ -21,6 +21,18 @@ const CLIMATE := {
 	"portimao": 0.10, "ricard": 0.08, "sochi": 0.08, "valencia": 0.08, "buddh": 0.05, "yeongam": 0.20,
 	"indianapolis": 0.15, "madring": 0.05,
 }
+# Typische Streckentemperatur (°C) zur Rennzeit; Nachtrennen und Herbsttermine kühler
+const TRACK_TEMP := {
+	"spa": 27.0, "interlagos": 38.0, "silverstone": 32.0, "suzuka": 30.0, "sepang": 50.0, "villeneuve": 36.0,
+	"hungaroring": 47.0, "imola": 34.0, "catalunya": 42.0, "nurburgring": 25.0, "red_bull_ring": 38.0, "monza": 40.0,
+	"zandvoort": 31.0, "americas": 42.0, "marina_bay": 36.0, "shanghai": 30.0, "fuji": 22.0, "istanbul": 40.0,
+	"magny_cours": 38.0, "hockenheimring": 40.0, "albert_park": 32.0, "monaco": 38.0, "baku": 36.0, "bahrain": 34.0,
+	"jeddah": 33.0, "losail": 30.0, "yas_marina": 31.0, "vegas": 16.0, "miami": 49.0, "rodriguez": 42.0, "mugello": 40.0,
+	"portimao": 37.0, "ricard": 45.0, "sochi": 36.0, "valencia": 42.0, "buddh": 38.0, "yeongam": 26.0,
+	"indianapolis": 40.0, "madring": 42.0,
+}
+const DEG_PER_C := 0.017       # Reifenverschleiß je °C Abweichung der Streckentemperatur vom Training
+const DEG_LEARN_LAPS := 5.0    # grüne Runden, bis das Team eine Abweichung des Verschleißes sicher erkannt hat
 # Tempo (Fahrstil) in fünf Stufen wie am Kommandostand; 0 = Reifen schonen, 2 = Standard, 4 = Angriff
 const STYLE_NAMES := ["Reifen schonen", "Ruhig", "Standard", "Zügig", "Angriff"]
 const STYLE_PACE := [-0.0065, -0.0030, 0.0, 0.0024, 0.0045]
@@ -260,6 +272,17 @@ var engine_pen := {}
 # Freitagstraining: Setup-Messungen, Reifendaten, Programme
 var practice := {"done": 0, "setup_obs": [], "tyre_known": false, "longrun": 0, "qsim": 0, "setup": 0.0, "sessions": []}
 var tyre_noise: Array = [0.0, 0.0, 0.0]
+# Streckentemperatur und Abweichung des Reifenverschleißes von den Trainingsdaten (nur wenn das Wetter dazu passt:
+# deutlich wärmer/kühler als im Training, Regen über Nacht wäscht den Gummi weg)
+var temp_fri := 35.0          # Streckentemperatur im Training (°C), Grundlage der Reifendaten
+var temp_race := 35.0         # Streckentemperatur im Rennen
+var temp_fc := 35.0           # Vorhersage der Rennstreckentemperatur am Wochenende
+var green_track := 0.0        # 0..1: Regen über Nacht, Gummi weggewaschen (Strecke gummiert im Rennen wieder ein)
+var deg_dev_temp := 0.0       # Abweichung des Verschleißes durch die Temperatur (Anteil, + = schneller)
+var deg_dev_green := 0.0      # Zusatzverschleiß auf grüner Strecke zu Rennbeginn (Anteil)
+var deg_learn := 0.0          # 0..1: wie weit die Teams die Abweichung im Rennen erkannt haben
+var deg_announced := false
+var green_announced := false
 
 
 func setup(p_year: int, p_track, teams: Array, p_laps: int, p_player_team: String, seed_value: int = 0) -> void:
@@ -614,6 +637,101 @@ func _setup_weather() -> void:
 		else:
 			rain_start = st
 			rain_end = st + rng.randf_range(15.0, 45.0) * 60.0
+	_setup_temps()
+
+
+## Streckentemperatur im Training und im Rennen. Meist ähnlich (dann stimmen die Reifendaten), manchmal schlägt das Wetter
+## um (Hitze oder Wolken): dann baut der Reifen schneller oder langsamer ab als berechnet. Regen über Nacht macht die Strecke grün.
+## Eigener Zufallsgenerator, damit der übrige Rennablauf bei gleichem Seed unverändert bleibt.
+func _setup_temps() -> void:
+	var tr := RandomNumberGenerator.new()
+	tr.seed = rng.seed + 7919
+	var base: float = float(TRACK_TEMP.get(track.id, 36.0))
+	temp_fri = base + tr.randfn(0.0, 3.5)
+	var shift := tr.randfn(0.0, 1.5)
+	if tr.randf() < 0.22:
+		shift = tr.randf_range(5.0, 11.0) * (1.0 if tr.randf() < 0.55 else -1.0)    # Wetterumschwung
+	temp_race = temp_fri + shift
+	var wet_race := rain_end > 0.0 or wet > 0.0
+	if wet_race:
+		temp_race = minf(temp_race, base - 9.0 + tr.randfn(0.0, 2.0))             # Regen kühlt die Strecke
+	temp_race = maxf(temp_race, 8.0)
+	temp_fc = temp_race + tr.randfn(0.0, 1.5)
+	var d := temp_race - temp_fri
+	deg_dev_temp = 0.0
+	if absf(d) >= 4.0 and not wet_race:
+		deg_dev_temp = clampf(DEG_PER_C * d, -0.18, 0.22)
+	if temp_race > 50.0:
+		deg_dev_temp += minf(0.08, (temp_race - 50.0) * 0.012)                      # Überhitzung jenseits der Erfahrungswerte
+	# Regen über Nacht (Rennen selbst trocken) oder nasse erste Phase: die Strecke ist grün, der Reifen rutscht mehr
+	green_track = 0.0
+	if wet > 0.0:
+		green_track = tr.randf_range(0.6, 1.0)
+	elif not wet_race and tr.randf() < rain_chance * 0.6:
+		green_track = tr.randf_range(0.6, 1.0)
+	deg_dev_green = 0.16 * green_track
+	deg_learn = 0.0
+	deg_announced = false
+	green_announced = false
+
+
+## Anteil der grünen Strecke, der noch nicht eingummiert ist (fällt über die erste Rennhälfte auf 0).
+func green_left() -> float:
+	if green_track <= 0.0:
+		return 0.0
+	return clampf(1.0 - float(leader_lap() - 1) / maxf(1.0, float(laps) * 0.45), 0.0, 1.0)
+
+
+## Tatsächlicher Faktor auf den Verschleiß der Trockenreifen gegenüber den Trainingsdaten (1.0 = wie berechnet).
+func deg_mult() -> float:
+	return clampf(1.0 + deg_dev_temp + deg_dev_green * green_left(), 0.8, 1.25)
+
+
+## Faktor, den die Teams in ihren Prognosen schon berücksichtigen (lernen die Abweichung in den ersten grünen Runden).
+func deg_seen() -> float:
+	return 1.0 + (deg_mult() - 1.0) * deg_learn
+
+
+## Temperaturangabe für Wetteranzeigen.
+func temp_text() -> String:
+	if started:
+		return "Strecke %d °C" % int(round(temp_race))
+	return "Strecke im Training %d °C, Rennen erwartet ca. %d °C" % [int(round(temp_fri)), int(round(temp_fc))]
+
+
+## Hinweis vor dem Rennen, wenn die Reifendaten vom Training vielleicht nicht passen ("" = alles normal).
+func deg_hint() -> String:
+	var tc := temp_race if started else temp_fc
+	var d := tc - temp_fri
+	var parts: Array = []
+	if absf(d) >= 4.0 and rain_end < 0.0 and wet <= 0.0:
+		parts.append("Rennen deutlich %s als im Training (%+d °C): die Reifen bauen vermutlich %s ab als berechnet." % ["wärmer" if d > 0.0 else "kühler", int(round(d)), "schneller" if d > 0.0 else "langsamer"])
+	if tc > 50.0:
+		parts.append("Sehr heiße Strecke: Gefahr von Überhitzung, vor allem beim Soft.")
+	if green_track > 0.0 and wet <= 0.0:
+		parts.append("Regen in der Nacht hat den Gummi weggewaschen: Die Strecke ist anfangs grün, der Verschleiß höher.")
+	return " ".join(parts)
+
+
+## Im Rennen: Teams erkennen die Abweichung nach und nach, der Ingenieur meldet sie dem Spieler.
+func _update_deg_learning(dt: float) -> void:
+	if status != Status.GREEN or leader_lap() < 2:
+		return
+	deg_learn = minf(1.0, deg_learn + dt / (track.lap_ref * DEG_LEARN_LAPS))
+	var dev := deg_mult() - 1.0
+	if not deg_announced and deg_learn >= 0.6 and absf(dev) >= 0.05:
+		deg_announced = true
+		var why := ""
+		if green_left() > 0.3 and deg_dev_green > absf(deg_dev_temp):
+			why = "die Strecke ist nach dem Regen noch grün"
+		elif deg_dev_temp > 0.0:
+			why = "die Strecke ist %d °C wärmer als im Training" % int(round(temp_race - temp_fri))
+		else:
+			why = "die Strecke ist %d °C kühler als im Training" % int(round(temp_fri - temp_race))
+		make_log("radio", "Ingenieur: Die Reifen bauen %s ab als berechnet (etwa %+d %%), %s. Prognosen und Boxenfenster sind angepasst." % ["schneller" if dev > 0.0 else "langsamer", int(round(dev * 100.0)), why])
+	if deg_announced and not green_announced and deg_dev_green > 0.06 and green_left() <= 0.0:
+		green_announced = true
+		make_log("radio", "Ingenieur: Die Strecke ist jetzt eingummiert, der Verschleiß wird wieder normal.")
 
 
 ## Regenintensität (0..1) zum Zeitpunkt t für ein Regenereignis rs..re mit Spitze pk.
@@ -1230,6 +1348,9 @@ func start_race() -> void:
 			pc.tyre_wear = pc.set_used * 0.8
 	started = true
 	make_log("info", "Die Ampel erlischt: Start des Rennens über %d Runden!" % laps)
+	var hint := deg_hint()
+	if hint != "":
+		make_log("weather", "%s. %s" % [temp_text(), hint])
 
 
 # ------------------------------------------------------------------ Pace
@@ -1363,6 +1484,8 @@ func tick(dt: float) -> void:
 		return
 	time += dt
 	_update_weather(dt)
+	_update_deg_learning(dt)
+	var deg_now := deg_mult()
 	var want := {}
 	var active: Array = []
 	for c in cars:
@@ -1476,6 +1599,9 @@ func tick(dt: float) -> void:
 		wear_mul *= (1.0 - 0.09 * c.tyre_care) * clampf(1.0 + 0.0018 * (c.fuel - 50.0), 0.9, 1.2)
 		# hinter dem Safety Car / VSC wird langsam gefahren: kaum Reifenverschleiß, deutlich weniger Sprit
 		wear_mul *= SC_WEAR[status]
+		# Abweichung von den Trainingsdaten (Temperatur, grüne Strecke) trifft nur die Trockenreifen
+		if c.compound < DRY_COUNT:
+			wear_mul *= deg_now
 		c.tyre_wear += lap_frac * wear_mul
 		_track_sectors(c, nd)
 		var fuel_mul: float = float(STYLE_FUEL[c.style]) * (1.0 if has_ers() else float(ENG_FUEL[c.eng_mode])) * float(SC_FUEL[status]) * (0.94 if c.lico else 1.0) * float(FUEL_MODE_BURN[c.fuel_mode])
@@ -2372,6 +2498,8 @@ func _trigger_covers(r: RaceCar, fl: int) -> void:
 func wear_rate_now(c: RaceCar) -> float:
 	var r: float = float(STYLE_WEAR[c.style]) * (1.0 - 0.07 * c.tyre_trait) * (1.0 - 0.09 * c.tyre_care)
 	r *= clampf(1.0 + 0.0018 * (c.fuel - 50.0), 0.9, 1.2) * wet_wear_factor(c.compound) * tyre_temp_wear(c)
+	if c.compound < DRY_COUNT:
+		r *= deg_seen()
 	return r
 
 
@@ -2896,6 +3024,110 @@ func threat_info(c: RaceCar) -> Dictionary:
 	return {"has": true, "car": b, "gap": b.gap_ahead, "adv": adv, "margin": margin}
 
 
+## Vorab-Prognose fürs Strategiefenster: wo kommt c nach jedem Stopp seines Plans wieder heraus? Alle Autos fahren ihren Plan
+## ohne Zweikämpfe (predict_laps) ab ihrem Startplatz; verglichen werden die Rennzeiten am Ende der Stopp-Runde.
+## Rückgabe je Stopp: {"lap", "pos", "near": [{"code", "team_id", "gap" (s, + = vor dir auf der Strecke), "lapped", "pace"
+## "slower" (s/Runde langsamer als du in den nächsten Runden, negativ = schneller)}], "traffic" (Text), "stuck" (geschätzter Zeitverlust im Verkehr),
+## "alt_lap" (bessere Stopprunde in der Nähe oder -1), "alt_gain" (s)}
+func rejoin_forecast(c: RaceCar, start_comp: int, plan: Array) -> Array:
+	var out: Array = []
+	if plan.is_empty():
+		return out
+	var lap_t := avg_lap_time()
+	# Startaufstellung (vor dem Qualifying: Reihenfolge nach Quali-Tempo)
+	var order: Array = cars.filter(func(o): return o.state != State.OUT)
+	if quali_done:
+		order.sort_custom(func(a, b): return a.grid < b.grid)
+	else:
+		order.sort_custom(func(a, b): return a.qpace > b.qpace)
+	var others: Array = []
+	for i in order.size():
+		var o: RaceCar = order[i]
+		if o == c:
+			continue
+		var pr: Dictionary = predict_laps(o, o.compound, o.plan)
+		others.append({"car": o, "off": float(i) * 0.32, "cum": pr["cum"], "times": pr["times"]})
+	var my_off := float(order.find(c)) * 0.32
+	var sorted: Array = plan.duplicate(true)
+	sorted.sort_custom(func(a, b): return int(a["lap"]) < int(b["lap"]))
+	var base: Dictionary = predict_laps(c, start_comp, sorted)
+	for si in sorted.size():
+		var lap := int(sorted[si]["lap"])
+		var ev := _rejoin_at(lap, my_off, base, others, lap_t)
+		ev["lap"] = lap
+		# bessere Stopprunde in der Nähe (±3 Runden, Abstand zu den Nachbarstopps)?
+		var lo := maxi(2, (int(sorted[si - 1]["lap"]) + 3) if si > 0 else 2)
+		var hi := mini(laps - 2, (int(sorted[si + 1]["lap"]) - 3) if si + 1 < sorted.size() else laps - 2)
+		var best_cost := float(base["total"]) + float(ev["stuck"])
+		var best_lap := -1
+		for d in [-3, -2, -1, 1, 2, 3]:
+			var l2: int = lap + d
+			if l2 < lo or l2 > hi:
+				continue
+			var p2: Array = sorted.duplicate(true)
+			p2[si]["lap"] = l2
+			var pr2: Dictionary = predict_laps(c, start_comp, p2)
+			var ev2 := _rejoin_at(l2, my_off, pr2, others, lap_t)
+			var cost := float(pr2["total"]) + float(ev2["stuck"])
+			if cost < best_cost - 0.6:
+				best_cost = cost
+				best_lap = l2
+		ev["alt_lap"] = best_lap
+		ev["alt_gain"] = float(base["total"]) + float(ev["stuck"]) - best_cost if best_lap > 0 else 0.0
+		out.append(ev)
+	return out
+
+
+func _rejoin_at(lap: int, my_off: float, mine: Dictionary, others: Array, lap_t: float) -> Dictionary:
+	var li := clampi(lap - 1, 0, laps - 1)
+	var t_me: float = my_off + float(mine["cum"][li])
+	var my_next := _mean_times(mine["times"], lap, 3)
+	var pos := 1
+	var near: Array = []
+	for e in others:
+		var delta: float = t_me - (float(e["off"]) + float(e["cum"][li]))
+		if delta > 0.0:
+			pos += 1
+		var road: float = fposmod(delta + lap_t * 0.5, lap_t) - lap_t * 0.5
+		if absf(road) <= 4.5:
+			var o: RaceCar = e["car"]
+			near.append({"code": o.code, "team_id": o.team_id, "gap": road, "lapped": absf(delta) > lap_t * 0.5,
+				"slower": _mean_times(e["times"], lap, 3) - my_next})
+	near.sort_custom(func(a, b): return float(a["gap"]) > float(b["gap"]))
+	# Verkehr: langsameres Auto knapp vor dir hält auf, schnelleres knapp dahinter drückt
+	var stuck := 0.0
+	var txt := ""
+	var ahead: Dictionary = {}
+	var behind: Dictionary = {}
+	for n in near:
+		if float(n["gap"]) > 0.0 and (ahead.is_empty() or float(n["gap"]) < float(ahead["gap"])):
+			ahead = n
+		if float(n["gap"]) <= 0.0 and (behind.is_empty() or float(n["gap"]) > float(behind["gap"])):
+			behind = n
+	if not ahead.is_empty() and float(ahead["gap"]) < 2.5 and float(ahead["slower"]) > 0.15:
+		# hinter einem langsameren Auto: Zeitverlust, bis der Vorteil zum Überholen reicht (schwer zu überholen = länger)
+		var laps_stuck := clampf(2.0 + (1.0 - track.overtake_ease) * 5.0 - float(ahead["slower"]) * 2.0, 1.0, 6.0)
+		stuck = (float(ahead["slower"]) * 0.6 + 0.25) * laps_stuck
+		txt = "Verkehr: hinter %s%s (%.1f s vor dir, %.1f s/Runde langsamer) – kostet etwa %.1f s." % [ahead["code"], " (überrundet)" if bool(ahead["lapped"]) else "", float(ahead["gap"]), float(ahead["slower"]), stuck]
+	elif not ahead.is_empty() and float(ahead["gap"]) < 1.2:
+		txt = "Direkt hinter %s (%.1f s), etwa gleich schnell – verwirbelte Luft." % [ahead["code"], float(ahead["gap"])]
+		stuck = 0.4
+	else:
+		txt = "Freie Fahrt" + (" (nächstes Auto %s %.1f s vor dir)." % [ahead["code"], float(ahead["gap"])] if not ahead.is_empty() else ".")
+	if not behind.is_empty() and float(behind["gap"]) > -1.5 and float(behind["slower"]) < -0.15:
+		txt += " Von hinten drückt %s (%.1f s, schneller)." % [behind["code"], -float(behind["gap"])]
+	return {"pos": pos, "near": near, "traffic": txt, "stuck": stuck}
+
+
+func _mean_times(times: Array, from_lap: int, n: int) -> float:
+	var s := 0.0
+	var k := 0
+	for i in range(from_lap, mini(from_lap + n, times.size())):
+		s += float(times[i])
+		k += 1
+	return s / float(k) if k > 0 else avg_lap_time()
+
+
 ## Wohin würde c nach einem Stopp zurückkommen? {"pos", "ahead", "gap_ahead", "behind", "gap_behind"}
 func rejoin_info(c: RaceCar) -> Dictionary:
 	var loss := pit_cost_now()
@@ -3043,7 +3275,7 @@ func fmt_race_time(t: float) -> String:
 
 ## Mittlerer Reifenverschleiß pro Runde für die Vorhersage (Fahrer, Auto, Tankgewicht).
 func _pred_wear_rate(c: RaceCar, fuel: float, style := STYLE_STD) -> float:
-	return float(STYLE_WEAR[style]) * (1.0 - 0.07 * c.tyre_trait) * (1.0 - 0.09 * c.tyre_care) * clampf(1.0 + 0.0018 * (fuel - 50.0), 0.9, 1.2)
+	return float(STYLE_WEAR[style]) * (1.0 - 0.07 * c.tyre_trait) * (1.0 - 0.09 * c.tyre_care) * clampf(1.0 + 0.0018 * (fuel - 50.0), 0.9, 1.2) * deg_seen()
 
 
 ## Vorhergesagte Rundenzeiten eines Plans ohne Verkehr und Ereignisse.
@@ -3245,6 +3477,12 @@ func preview_clone(seed_value: int, car_index := -1, plan_override: Dictionary =
 	for k in ["wet", "rain", "rain_start", "rain_end", "rain_peak", "rain_chance", "forecast_noise", "ghost_start", "ghost_end", "setup_ideal", "engine_allowance", "engine_life", "rain_announced", "crew_form"]:
 		s.set(k, get(k))
 	s.tyre_noise = tyre_noise.duplicate()
+	# Vorschau kennt nur den bereits erkannten Teil der Verschleiß-Abweichung
+	for k in ["temp_fri", "temp_race", "temp_fc", "green_track", "deg_announced", "green_announced"]:
+		s.set(k, get(k))
+	s.deg_dev_temp = deg_dev_temp * deg_learn
+	s.deg_dev_green = deg_dev_green * deg_learn
+	s.deg_learn = 1.0
 	s.practice = practice.duplicate(true)
 	s.tyre_inv = tyre_inv.duplicate(true)
 	s.grid_penalties = grid_penalties.duplicate()

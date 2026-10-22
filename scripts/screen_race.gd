@@ -2149,7 +2149,7 @@ func _update_ui() -> void:
 	status_label.add_theme_color_override("font_color", chip_fg)
 	var sb: StyleBoxFlat = status_chip.get_theme_stylebox("panel")
 	sb.bg_color = chip_bg
-	weather_label.text = "%s  |  %s" % [sim.weather_text(), sim.forecast_text()]
+	weather_label.text = "%s  |  %d °C  |  %s" % [sim.weather_text(), int(round(sim.temp_race)), sim.forecast_text()]
 	var gcol: Color = U.TEXT
 	if sim.started:
 		var gs: Dictionary = Career.live_status(sim)

@@ -86,6 +86,9 @@ func refresh(sim) -> void:
 		l_int.text = ""
 		l_conf.text = clim
 		l_tip.text = "Tipp: Mit Slicks planen." if sim.rain_chance < 0.2 else "Tipp: Die Strecke ist regenanfällig, Prognose im Rennen im Blick behalten."
-	l_now.text = "Jetzt: %s" % sim.weather_text()
+	l_now.text = "Jetzt: %s  ·  %s" % [sim.weather_text(), sim.temp_text()]
+	var dh: String = sim.deg_hint() if not sim.started else ""
+	if dh != "":
+		l_now.text += "\nReifen: " + dh
 	for l in [l_when, l_dur, l_int]:
 		l.visible = l.text != ""

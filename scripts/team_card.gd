@@ -63,17 +63,15 @@ func setup(team_id: String, show_drivers := true) -> void:
 	if note != "":
 		add_child(U.label(note, 13, U.WARN, true))
 	# Autoprofil
-	var prof: Dictionary = DB.car_profile(team_id, Game.year)
-	if team_id == Game.team_id:
-		for t in Game.sim_teams():
-			if t["id"] == team_id:
-				prof = t["profile"]
+	var prof: Dictionary = Game.team_profile(team_id)
+	var base: Dictionary = Game.team_profile(team_id, true)
 	add_child(U.section("Autoprofil", 12))
 	var rows := [["Abtrieb", "df", "Topspeed", "Abtrieb"], ["Motor", "power", "schwach", "stark"], ["Reifenschonung", "tyre", "frisst", "schont"], ["Regen", "wet", "schwach", "stark"]]
 	for r in rows:
 		var bar = load("res://scripts/profile_bar.gd").new()
-		bar.setup(str(r[0]), float(prof.get(r[1], 0.0)), str(r[2]), str(r[3]), TeamStyle.ui_color(team_id))
+		bar.setup(str(r[0]), float(prof.get(r[1], 0.0)), str(r[2]), str(r[3]), TeamStyle.ui_color(team_id), float(base.get(r[1], 0.0)))
 		add_child(bar)
+	add_child(U.label("Heller Kreis: Auto zum Saisonstart, voller Kreis: mit der Entwicklung dieser Saison.", 11, U.MUTED))
 	if show_drivers:
 		add_child(U.section("Fahrer", 12))
 		for d in Market.current_drivers(team_id):

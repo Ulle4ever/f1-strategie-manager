@@ -8,11 +8,13 @@ var value := 0.0
 var left_text := ""
 var right_text := ""
 var col := Color("e10600")
+var base := NAN       # Ausgangswert (Saisonstart) als heller Kreis, NAN = keiner
 
 
-func setup(p_title: String, p_value: float, l: String, r: String, p_col: Color) -> void:
+func setup(p_title: String, p_value: float, l: String, r: String, p_col: Color, p_base := NAN) -> void:
 	title = p_title
 	value = p_value
+	base = p_base
 	left_text = l
 	right_text = r
 	col = p_col
@@ -32,6 +34,10 @@ func _draw() -> void:
 	var x := w * (value * 0.5 + 0.5)
 	draw_rect(Rect2(minf(mid, x), y, absf(x - mid), 6), col)
 	draw_rect(Rect2(mid - 1, y - 3, 2, 12), U.tint(0.35))
+	if not is_nan(base) and absf(base - value) > 0.015:
+		var bx := w * (clampf(base, -1.0, 1.0) * 0.5 + 0.5)
+		draw_circle(Vector2(bx, y + 3), 5.0, Color(col, 0.28))
+		draw_arc(Vector2(bx, y + 3), 5.0, 0.0, TAU, 16, Color(col, 0.7), 1.2)
 	draw_circle(Vector2(x, y + 3), 6.0, col)
 	draw_arc(Vector2(x, y + 3), 6.0, 0.0, TAU, 16, Color.WHITE, 1.5)
 	draw_string(f, Vector2(0, 36), left_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, U.MUTED)
