@@ -15,6 +15,7 @@ const KIND_STYLE := {
 	"team_in": ["NEUES TEAM", Color("d6f3e3"), Color("0b7a43")], "team_out": ["RÜCKZUG", Color("ffdcd8"), Color("b3261e")],
 	"team_merge": ["FUSION", Color("efdcff"), Color("6b2fb0")], "team_name": ["UMBENANNT", Color("dbe8ff"), Color("1d4fb8")],
 	"field": ["TEAMFELD", Color("fff0c2"), Color("8a5a00")],
+	"dev": ["ENTWICKLUNG", Color("dbe8ff"), Color("1d4fb8")], "press": ["PRESSE", Color("e6e9f0"), Color("3d465a")],
 }
 
 var main

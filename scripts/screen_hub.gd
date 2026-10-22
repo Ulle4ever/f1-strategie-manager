@@ -218,62 +218,12 @@ func _build_team_table() -> void:
 
 
 func _build_development() -> void:
-	dev_box = U.vbox(8)
-	var dintro := U.label("Investiere dein Budget ins Auto. Die Konkurrenz entwickelt sich ebenfalls weiter. Gehälter und Entwicklung teilen sich die Kostenobergrenze.", 14, U.MUTED)
-	dintro.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	dev_box.add_child(dintro)
-	var capp := U.panel(10, U.WARN)
-	var capv := U.vbox(4)
-	capp.add_child(capv)
-	cap_label = U.label("", 15, U.TEXT, true)
-	capv.add_child(cap_label)
-	cap_bar = ProgressBar.new()
-	cap_bar.custom_minimum_size = Vector2(0, 8)
-	cap_bar.show_percentage = false
-	capv.add_child(cap_bar)
-	dev_box.add_child(capp)
-	for key in Game.UPGRADE_ORDER:
-		var u: Dictionary = Game.UPGRADES[key]
-		var card := PanelContainer.new()
-		var sb := U.button_style(U.tint(0.045), U.ACCENT, 5)
-		card.add_theme_stylebox_override("panel", sb)
-		var row := U.hbox(14)
-		card.add_child(row)
-		var info := U.vbox(0)
-		info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		info.add_child(U.label(str(u["name"]).to_upper(), 18, U.TEXT, true))
-		info.add_child(U.label(u["desc"], 13, U.MUTED))
-		row.add_child(info)
-		var lvl := U.label("", 22, U.WARN, true)
-		lvl.custom_minimum_size = Vector2(70, 0)
-		lvl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		row.add_child(lvl)
-		var btn := U.button("", _on_upgrade.bind(key), 160, 40)
-		row.add_child(btn)
-		dev_box.add_child(card)
-		dev_rows[key] = {"lvl": lvl, "btn": btn}
-	_scroll(dev_box, "Entwicklung")
-	_refresh_dev()
-
-
-func _refresh_dev() -> void:
-	var used := Game.cap_used()
-	cap_label.text = "KOSTENOBERGRENZE  %.0f / %.0f Mio. $   (Gehälter %.0f, Entwicklung %.0f, Provisionen %.0f)" % [used, Game.cap, Game.payroll_current(), Game.dev_spent, Game.cap_spent_fees]
-	cap_bar.max_value = Game.cap
-	cap_bar.value = minf(used, Game.cap)
-	var cc := U.GOOD if used < Game.cap * 0.8 else (U.WARN if used < Game.cap * 0.95 else U.BAD)
-	cap_bar.add_theme_stylebox_override("fill", U.button_style(cc, cc, 0, 2))
-	for key in Game.UPGRADE_ORDER:
-		var lv: int = Game.upgrades[key]
-		var e: Dictionary = dev_rows[key]
-		e["lvl"].text = "%d/%d" % [lv, Game.MAX_LEVEL]
-		var b: Button = e["btn"]
-		if lv >= Game.MAX_LEVEL:
-			b.text = "MAXIMAL"
-			b.disabled = true
-		else:
-			b.text = "%.0f Mio. $" % Game.upgrade_cost(key)
-			b.disabled = not Game.can_upgrade(key)
+	var dt = load("res://scripts/dev_tab.gd").new()
+	dt.changed.connect(_refresh_budget)
+	_scroll(dt, "Entwicklung")
+	var st = load("res://scripts/staff_tab.gd").new()
+	st.changed.connect(_refresh_budget)
+	_scroll(st, "Personal")
 
 
 func _build_drivers_tab() -> void:
@@ -539,13 +489,6 @@ func _on_event_choice(i: int) -> void:
 	event_card_box.add_child(U.primary_button("OK", func():
 		_close_event_dialog()
 		main.show_hub(), 0, 44))
-
-
-func _on_upgrade(key: String) -> void:
-	Game.buy_upgrade(key)
-	_refresh_dev()
-	_refresh_budget()
-	Game.save()
 
 
 func _build_next_race() -> Control:

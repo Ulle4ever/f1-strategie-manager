@@ -11,8 +11,8 @@ Die Autos sind Punkte auf der Streckenkarte (Ansicht von oben).
 
 ## Spielablauf
 1. **Saison und Team wählen** (alle Teams und Fahrer der jeweiligen Saison, nach Stärke sortiert). Neben 2000 bis 2026 gibt es die Prognose-Startjahre **2027\* bis 2030\*** mit vorausgerechnetem Teamfeld (siehe unten).
-2. **Saison-Zentrale:** Kalender, Fahrer- und Konstrukteurs-WM, Entwicklung (Budget in Aero, Antrieb, Chassis,
-   Zuverlässigkeit, Boxencrew, Fahrertraining), nächstes Rennen mit Streckenkarte.
+2. **Saison-Zentrale:** Kalender, Fahrer- und Konstrukteurs-WM, Entwicklung (Projekte für sechs Bereiche des Autos,
+   dieses oder nächstes Jahr; Zuverlässigkeit, Boxencrew, Fahrertraining), Personal, nächstes Rennen mit Streckenkarte.
 3. **Rennwochenende:** Streckeninfo, Wetterprognose, Startplatzstrafen, dann das **Qualifying**: Q1/Q2/Q3
    (2006-2025; 2003-2005 Einzelrunden, 2000-2002 eine Stunde). Du schickst deine Autos selbst raus
    (Reifen, Risiko Sicher/Normal/Attacke), mit Verkehr, Streckenentwicklung, Fehlern, Unfällen und Regen,
@@ -71,7 +71,7 @@ Das Teamfeld bleibt über die Karriere nicht gleich (`field.gd`; auf dem Startbi
 - **Windschatten und Überholen:** Wer unter ca. 1,25 s hinter einem Auto fährt, gewinnt auf schnellen Geraden Tempo (bis ca. 2,4 %) und verliert in langsamen Kurven durch verwirbelte Luft. Wer lange dicht dran ist, bekommt bessere Überholchancen;
   nach einem Überholmanöver gibt es Gegenangriffe. Im Reiter "Auto" wählst du "Dranbleiben" oder "Abstand halten" (ca. 1,6 s, schont die Reifen). Die Rennpace weicht von der Qualifying-Pace ab, dadurch gibt es im Mittelfeld deutlich mehr Positionskämpfe (ca. 45 statt 27 Überholungen pro Rennen).
 - **Auto und Strecke:** Jedes Auto hat ein Profil (Abtrieb, Motorleistung, Reifenschonung, Regen). Strecken verlangen unterschiedlich viel Abtrieb oder Topspeed, dadurch liegen manche Autos einzelnen Strecken besser. Der Wochenend-Reiter "Auto" zeigt den Vor- oder Nachteil in Sekunden pro Runde, ebenso wer sonst profitiert.
-  Deine Entwicklungsstufen Aerodynamik und Antrieb verschieben das Profil.
+  Deine Teile-Entwicklung (Flügel, Unterboden, Antrieb, Aufhängung ...) verschiebt das Profil.
 - **Wetterbericht:** Reiter "Wetter" im Wochenende und im Rennen: Balkendiagramm der Regenstärke über die restliche Renndauer (je blasser, desto unsicherer), Beginn, Dauer, Stärke in mm/h, Sicherheit und eine Empfehlung. Fehlalarme sind möglich.
 - **Fahrer-Panel (Kommandostand):** Unter der Karte steht für das gewählte Auto ein dunkles Panel wie am Kommandostand: Kopfzeile mit Position, Fahrer, Abstand nach vorn und hinten, DRS-Anzeige und *Wechsel* zum anderen Auto. Links die große **BOX**-Taste (mit empfohlenem Reifen, nochmal tippen nimmt den Stopp zurück) und *Plan R..* (öffnet die Boxenseite). Daneben drei Spalten mit Wert, Haltbarkeit und antippbaren Modi: **TEMPO** (Reifentemperatur in °C mit Farbe, Reifenrest in Prozent, hält noch ~X Runden, Alter, Warnung "zu heiß"/"zu kalt"; Tempo in fünf Stufen Schonen / Ruhig / Normal / Zügig / Angriff), **KRAFTSTOFF** (kg, Reserve in Runden bis Stopp oder Ziel, Reichweite; Mischung Sparen / Normal / Push: *Sparen* 3 % weniger Verbrauch für etwa 0,05 s pro Runde, *Push* 4 % mehr Verbrauch für etwa 0,09 s schneller; gilt bis zur Umstellung. Das Tempo kostet nur wenig Sprit: Zügig 1 %, Angriff 2 % mehr, Ruhig 2 %, Schonen 5 % weniger. Läuft gerade Lift & Coast (Funkbefehl auf der Seite *Fahren*), zeigt die Spalte die restlichen Runden) und **ERS** ab 2014 (Batterie in Prozent, voll bzw. leer in ~X Runden; Laden / Normal / Angriff) bzw. **MOTOR** davor (Zustand, Wirkung; Eco / Normal / Power). In schmalen Panels werden die Modi abgekürzt. Am Handy fällt die TV-Fahrerkarte weg, solange die Karte niedrig ist (das Panel zeigt dieselben Werte).
 - **Anfragen des Fahrers:** Alle paar Runden meldet sich ein Fahrer mit einer Entscheidung auf einer Karte (Auto-Slow bremst dabei auf 4x): *Zweikampf* (angreifen, Reifen schonen, Undercut), *Reifen* (wenn der Plan länger fährt, als sie halten), *Sprit knapp*, *Teamkollege ist schneller* (Platz tauschen, Position halten, Duell) und *Technik* (Fehlalarm oder echtes Problem: Check an der Box, schonend weiterfahren oder normal weiter). Ohne Antwort gilt "weiter wie bisher", ein echtes Problem kann dann zum Ausfall führen. Nach einigen Runden meldet der Funk, wie es ausgegangen ist; die Ergebnisseite zeigt alle Entscheidungen. Abschaltbar unter *Fahren* > *Automatik und Funkanfragen*.
@@ -127,6 +127,18 @@ Das Teamfeld bleibt über die Karriere nicht gleich (`field.gd`; auf dem Startbi
 - **Freitagstraining und Setup:** Drei Sessions mit Programm (Setup, Reifentest, Longruns, Quali-Simulation), danach Abtrieb gegen Topspeed einstellen. Das echte Optimum schwankt, Abweichung kostet Pace in Quali und Rennen.
 - **Motorkontingent:** Ab 2009 begrenzte Motoren pro Fahrer und Saison (8, ab 2014 5, ab 2019 3, ab 2026 4). Verschleiß steigt pro Rennen und Modus, alte Motoren fallen häufiger aus. Ein Wechsel über dem Kontingent kostet 10 Startplätze.
 
+## Personal und Teile-Entwicklung
+- **Personal** (Reiter "Personal" der Zentrale, `staff.gd`, `staff_tab.gd`): fünf Schlüsselpositionen mit Bewertung 40-95, Alter, Gehalt und Vertrag.
+  *Technischer Direktor* (Entwicklungsprojekte schneller, ertragreicher und sicherer; ab 80 ein dritter Projektplatz), *Chefstratege* (kleinerer Fehler der Wetterprognose; ab 80 ist die Reifenhaltbarkeit auch ohne Reifentest bekannt),
+  zwei *Renningenieure* (Tempo ihres Fahrers bis etwa +0,1 %), *Crew-Chef* (bis etwa 0,3 s schnellere Stopps, weniger verpatzte Stopps). Startbesetzung nach Teamstärke.
+  "Ersetzen" zeigt Kandidaten vom Personalmarkt (wechseln jede Saison) mit Bewertung, Gehalt und Wechselkosten (Abfindung für den Vorgänger plus Handgeld). Auslaufende Verträge lassen sich verlängern; sonst übernimmt zur neuen Saison jemand aus der zweiten Reihe.
+  Die Gehälter laufen pro Rennen über das Budget, nicht über die Kostenobergrenze. Personal entwickelt sich mit dem Alter.
+- **Teile-Entwicklung** (Reiter "Entwicklung", `dev.gd`, `dev_tab.gd`): sechs Bereiche des Autos (Frontflügel, Heckflügel mit Wahl Abtrieb oder Topspeed, Unterboden, Seitenkästen und Kühlung, Aufhängung, Antrieb und Energie).
+  Projekte in drei Größen (Feinschliff 3 Mio. $ / 2 Rennen, Update-Paket 7 Mio. $ / 4 Rennen, Großes Paket 14 Mio. $ / 7 Rennen), Dauer und Ertrag hängen vom Technischen Direktor ab. Nach der Entwicklungszeit kommt das Teil ans Auto: der Zuwachs liegt zufällig im erwarteten Bereich, selten ist es ein Fehlschlag.
+  Je weiter ein Bereich entwickelt ist, desto weniger bringt das nächste Teil. Jeder Bereich verschiebt auch das Fahrzeugprofil (Abtrieb, Motorleistung, Reifenschonung, Regen), dadurch passt das Auto zu manchen Strecken besser.
+  **Entwicklung fürs nächste Jahr:** Projekte für das Auto der nächsten Saison bringen 50 % mehr, wirken aber erst nach dem Saisonwechsel – vor einem neuen Reglement besonders wertvoll, weil das alte Auto dann stark entwertet wird. Projekte fürs alte Auto verfallen mit dem Saisonende.
+  Projekte zählen zur Kostenobergrenze. Zuverlässigkeit, Boxencrew und Fahrertraining bleiben als Team-Ausbau in Stufen.
+
 ## Fahrermarkt und Kostenobergrenze
 - **Fahrer:** Alle Fahrer von 2000 bis 2026 stehen in einem Pool (Geburtsdatum aus der Jolpica-API). Stärke 40-99 und Potenzial werden per Regression über alle
   Saisons abgeleitet (Ergebnis = Teameffekt + Fahrereffekt), damit auch Fahrer mit starken Teamkollegen fair bewertet werden.
@@ -138,7 +150,7 @@ Das Teamfeld bleibt über die Karriere nicht gleich (`field.gd`; auf dem Startbi
 - **Stimmung:** Ergebnisse gegen Erwartung, Teamkollegen-Duell, Gehalt und Rolle. Sinkt sie, drohen Wechselwunsch und Abwerbung, leichte Leistungseinbußen.
 - **KI:** Verlängert oder entlässt, wirbt ab, besetzt freie Cockpits nach Teamstärke und Budget, Rücktritte nach Alter, Gerüchte (teils falsch).
 - **Kostenobergrenze:** 160 Mio. $ pro Saison für Gehälter + Entwicklung + Provisionen (mindestens 25 bleiben für Entwicklung).
-- **Neue Saison:** Aero, Antrieb und Chassis beginnen bei Stufe 0 (neues Auto), ein Teil der Entwicklung wird mitgenommen; neues Reglement
+- **Neue Saison:** Neues Auto: ein Teil der Entwicklung wird mitgenommen, dazu alles, was fürs neue Auto entwickelt wurde; neues Reglement
   (2009, 2014, 2017, 2022, 2026, ...) mischt das Kräfteverhältnis stärker durch.
 
 ## Was simuliert wird
@@ -148,7 +160,7 @@ Das Teamfeld bleibt über die Karriere nicht gleich (`field.gd`; auf dem Startbi
 - Boxenstopps mit streckenabhängigem Zeitverlust, Nachtanken bis 2009, Zwei-Mischungen-Regel ab 2007.
 - Safety Car / VSC, Ausfälle, Regen mit Intermediates/Regenreifen und Wettervorhersage.
 - **Reifentemperatur:** Jede Mischung hat ein Arbeitsfenster (Soft um 95 °C, Medium 100, Hard 105, jeweils ±10 °C). Die Temperatur folgt einem Zielwert (etwa 35 s Verzögerung): Tempostufe (-9 bis +9 °C), verwirbelte Luft hinter einem Gegner (+4), Streckenbelastung, Safety Car/VSC (-22, die Reifen kühlen aus) und Nässe. Zu heiß: 3,5 % mehr Verschleiß und 0,012 s Zeitverlust je Grad über dem Fenster; zu kalt (ab der zweiten Runde eines Satzes, etwa beim Restart): 0,022 s je Grad. Nach dem Stopp kommen die Reifen mit 80 °C aus den Heizdecken. Die KI fährt rund 90 % der Zeit im Fenster; Angriff im Windschatten überhitzt die Reifen (114 bis 118 °C).
-- **Tempo in fünf Stufen:** Reifen schonen (-0,65 % Pace, 28 % weniger Verschleiß, 6 % weniger Sprit), Ruhig, Standard, Zügig, Angriff (+0,45 % Pace, 32 % mehr Verschleiß, 4 % mehr Sprit). Die Seite *Fahren* zeigt die Wirkung jeder Stufe in Sekunden.
+- **Tempo in fünf Stufen:** Reifen schonen (-0,65 % Pace, 28 % weniger Verschleiß, 5 % weniger Sprit), Ruhig, Standard, Zügig, Angriff (+0,45 % Pace, 32 % mehr Verschleiß, 2 % mehr Sprit). Die Seite *Fahren* zeigt die Wirkung jeder Stufe in Sekunden.
 - **Reifenmischungen:** Soft ist am schnellsten und nutzt sich schnell ab, Medium liegt etwa 0,8 s pro Runde dahinter, Hard 1,5 s, dafür hält Hard fast dreimal so lange. Harte Reifen brauchen länger zum Aufwärmen (Ausfahrt ca. 1 s langsamer). Die KI wählt Mischung und Stintlängen nach dem erwarteten Zeitverlust (Stintlänge passt zur Haltbarkeit, Zwei-Mischungen-Regel wird mit einem Stopp mehr erfüllt, wenn nötig); es fahren je nach Strecke etwa 15 bis 25 % der Runden auf Soft, 35 bis 45 % auf Medium und der Rest auf Hard.
 - **Abwechslung im Rennen** (gegen "immer dieselben Sieger" und Team-Pärchen im Ziel): Tagesform je Fahrer mit seltenen schlechten und guten Tagen, Form je Reifensatz (wechselt mit jedem Stopp), Startreaktion mit gelegentlich schlechtem Start, individuelle Qualifying-Form, Zwischenfälle ohne Ausfall (Dreher, Kontakt mit Flügelschaden, Reifenschaden mit Zwangsstopp), Boxen-Pannen (selten sehr lange Stopps), Teams verteilen ihre Autos oft auf verschiedene Strategien. Kalibriert gegen die echten Ergebnisse (Jolpica/Ergast) der Jahre 2002 bis 2021: Zahl verschiedener Sieger je Saison, Anteil benachbarter Teamkollegen in den Top 10, Abstand der Teamkollegen im Ziel, Verschiebung gegenüber der Startaufstellung, Ausfälle pro Rennen.
 - Punktesysteme der Jahre (10-6-4-3-2-1, 10-8-6-..., 25-18-15-..., Punkt für schnellste Runde 2019-2024).

@@ -404,10 +404,11 @@ static func apply_fx(fx: Dictionary) -> String:
 			Game.dev_spent += -b
 	if fx.has("upgrade"):
 		var key := str(fx["upgrade"])
-		if int(Game.upgrades.get(key, 0)) < Game.MAX_LEVEL:
+		if key in ["aero", "engine", "chassis"]:
+			# Fahrzeugteile laufen über die Teile-Entwicklung (dev.gd)
+			load("res://scripts/dev.gd").instant({"aero": "floor", "engine": "pu", "chassis": "susp"}[key], 0.10)
+		elif int(Game.upgrades.get(key, 0)) < Game.MAX_LEVEL:
 			Game.upgrades[key] = int(Game.upgrades[key]) + 1
-			if key in ["aero", "engine", "chassis"]:
-				Game.dev_pace[Game.team_id] = float(Game.dev_pace[Game.team_id]) + 0.0010
 		else:
 			text += " (Die Stufe war schon am Maximum.)"
 	if fx.has("pace"):

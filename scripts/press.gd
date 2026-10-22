@@ -135,8 +135,10 @@ static func apply(fx: Dictionary) -> Array:
 static func mood_word(m: float) -> Array:
 	if m >= 0.78:
 		return ["Euphorisch", Color("16a34a")]
-	if m >= 0.6:
+	if m >= 0.55:
 		return ["Zufrieden", Color("4d9d17")]
 	if m >= 0.45:
-		return ["Angespannt", Color("d98200")]
-	return ["Unzufrieden", Color("d93025")]
+		return ["Gereizt", Color("d98200")]
+	if m >= 0.30:
+		return ["Unzufrieden", Color("c9690a")]
+	return ["Wechselwunsch", Color("d93025")]

@@ -243,6 +243,7 @@ var status_serial := 0          # zählt Safety-Car-/VSC-Phasen (für Entscheidu
 var sc_marks: Array = []      # [{"lap", "end", "kind"}] Safety-Car-/VSC-Phasen für die Zeitleiste
 var tyre_inv := {}            # Auto-Index -> Reifensätze [{"comp", "used" (Runden), "raced"}]
 var crew_form := 0.0          # Form der Boxencrew des Spielers 0..1 (Stopp-Training)
+var player_slow_k := 1.0      # Crew-Chef des Spielers: Faktor für verpatzte Stopps
 var _src := {}                # Eingaben von setup() für Vorschau-Läufe
 var player_team := ""
 var setup_ideal := 0.0        # tatsächlich beste Abtriebs-Einstellung dieses Wochenendes (-1 Topspeed .. +1 Abtrieb)
@@ -357,6 +358,11 @@ func setup(p_year: int, p_track, teams: Array, p_laps: int, p_player_team: Strin
 	for t in teams:
 		if t["id"] == p_player_team:
 			crew_form = clampf(float(t.get("crew_form", 0.0)), 0.0, 1.0)
+			# Personal: Crew-Chef (verpatzte Stopps), Chefstratege (Prognosefehler, Reifenwissen)
+			player_slow_k = float(t.get("slow_k", 1.0))
+			forecast_noise *= float(t.get("forecast_k", 1.0))
+			if bool(t.get("tyre_known", false)):
+				practice["tyre_known"] = true
 	for c in cars:
 		init_tyres(c)
 
@@ -1781,7 +1787,7 @@ func _enter_pit(c: RaceCar, comp: int, fl: int) -> void:
 		stationary = 1.2 + fuel_add / 9.0 + rng.randfn(0.0, 0.4) + c.pit_skill - crew_gain
 	stationary = maxf(1.6, stationary)
 	var slow_r := rng.randf()
-	var slow_k := 1.0 - 0.6 * (crew_form if c.is_player else 0.0)
+	var slow_k := (1.0 - 0.6 * crew_form) * player_slow_k if c.is_player else 1.0
 	if slow_r < 0.008 * slow_k:
 		stationary += rng.randf_range(8.0, 14.0)
 		make_log("pit", "Radmutter klemmt: sehr langer Stopp für %s" % c.code, c)

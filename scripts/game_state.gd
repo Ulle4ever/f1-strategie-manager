@@ -5,6 +5,8 @@ extends Node
 const Market = preload("res://scripts/market.gd")
 const Career = preload("res://scripts/career.gd")
 const Field = preload("res://scripts/field.gd")
+const Staff = preload("res://scripts/staff.gd")
+const Dev = preload("res://scripts/dev.gd")
 
 const SAVE_PATH := "user://savegame.json"
 const MAX_LEVEL := 6
@@ -37,6 +39,11 @@ var intro_seen := ""         # Rennwochenende, dessen Intro-Karte schon gezeigt 
 var budget := 60.0
 var upgrades := {}
 var dev_pace := {}           # Team-ID -> Entwicklung (Pace-Zuwachs)
+var staff := {}              # Personal des Spielerteams (siehe staff.gd)
+var staff_pool: Array = []   # Personalmarkt
+var dev_parts := {}          # Teile-Entwicklung je Bereich (siehe dev.gd)
+var dev_projects: Array = [] # laufende Entwicklungsprojekte
+var dev_log: Array = []      # gelieferte Teile
 var rng := RandomNumberGenerator.new()
 var rules: Dictionary = {}
 var last_result: Dictionary = {}
@@ -112,6 +119,8 @@ func new_season(p_year: int, p_team: String) -> void:
 	# Startbudget nach Teamstärke
 	var rank := team_rank(team_id)
 	budget = 90.0 - 6.0 * float(rank)
+	Staff.init_team()
+	Dev.init()
 	active = true
 
 
@@ -321,16 +330,23 @@ func sim_teams() -> Array:
 		c["pace"] = float(t["pace"]) + float(dev_pace.get(t["id"], 0.0))
 		var prof: Dictionary = DB.car_profile(str(t["id"]), year)
 		if t["id"] == team_id:
-			prof["df"] = clampf(float(prof["df"]) + 0.08 * float(upgrades.get("aero", 0)), -1.0, 1.0)
-			prof["power"] = clampf(float(prof["power"]) + 0.08 * float(upgrades.get("engine", 0)), -1.0, 1.0)
+			var sh: Dictionary = Dev.profile_shift()
+			for k in sh.keys():
+				prof[k] = clampf(float(prof.get(k, 0.0)) + float(sh[k]), -1.0, 1.0)
 		c["profile"] = prof
 		if t["id"] == team_id:
 			var lv: Dictionary = upgrades
-			c["mech_mult"] = pow(0.88, float(lv["reliab"])) * Career.mech_factor()
-			c["pit_skill"] = -0.12 * float(lv["pit"])
+			var fx: Dictionary = Staff.race_effects()
+			c["mech_mult"] = pow(0.88, float(lv["reliab"])) * Career.mech_factor() * Dev.mech_factor()
+			c["pit_skill"] = -0.12 * float(lv["pit"]) + float(fx["pit_skill"])
+			c["slow_k"] = fx["slow_k"]
+			c["forecast_k"] = fx["forecast_k"]
+			c["tyre_known"] = fx["tyre_known"]
+			var di := 0
 			for d in c["drivers"]:
-				d["skill"] = float(d["skill"]) + 0.0006 * float(lv["coach"])
+				d["skill"] = float(d["skill"]) + 0.0006 * float(lv["coach"]) + float(fx["eng"][mini(di, 1)])
 				d["qskill"] = float(d["qskill"]) + 0.0004 * float(lv["coach"])
+				di += 1
 		# Stimmung wirkt leicht auf die Fahrerleistung
 		for d in c["drivers"]:
 			d["skill"] = float(d["skill"]) + (float(d.get("morale", 0.62)) - 0.62) * 0.0005
@@ -448,6 +464,10 @@ func finish_race(sim) -> Dictionary:
 	income *= 1.0 + (board - 50.0) / 500.0       # Vertrauen des Vorstands: bis zu +-10 % auf die Einnahmen
 	board = clampf(board + float(gr["board"]), 0.0, 100.0)
 	budget += income - salaries
+	# Personal bezahlen, Entwicklungsprojekte rücken vor
+	var staff_cost := Staff.pay_race()
+	salaries += staff_cost
+	Dev.tick_race()
 	# KI-Entwicklung
 	for t in teams:
 		if t["id"] == team_id:
@@ -576,6 +596,8 @@ func _advance_year() -> void:
 		var noise := 0.006 if reg else 0.0022
 		t["pace"] = mean + (float(total[t["id"]]) - mean) * keep + rng.randfn(0.0, noise)
 		dev_pace[t["id"]] = 0.0
+	Dev.season_rollover()        # das vorbereitete neue Auto bringt die Entwicklung fürs nächste Jahr mit
+	Staff.new_season()
 	Field.settle_newcomers()
 	teams.sort_custom(func(a, b): return float(a["pace"]) > float(b["pace"]))
 	Field.season_start_news()
@@ -657,6 +679,7 @@ func save() -> void:
 		"season_log": season_log, "team_meta": team_meta, "solo_code": solo_code, "board": board, "sponsor_id": sponsor_id, "season_goal_rank": season_goal_rank, "season_eval_done": season_eval_done,
 		"last_season_eval": last_season_eval, "pending_event": pending_event, "event_seen": event_seen, "event_last": event_last, "event_mods": event_mods,
 		"career_log": career_log, "career_race_no": career_race_no, "goal_log": goal_log, "finance_log": finance_log, "dev_spent": dev_spent, "cap_spent_fees": cap_spent_fees, "engines": engines, "crew_form": crew_form, "race_winners": race_winners,
+		"staff": staff, "staff_pool": staff_pool, "dev_parts": dev_parts, "dev_projects": dev_projects, "dev_log": dev_log,
 		"saved_at": int(Time.get_unix_time_from_system()),
 	}
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
@@ -714,6 +737,15 @@ func load_game() -> bool:
 	engines = d.get("engines", {})
 	crew_form = float(d.get("crew_form", 0.0))
 	race_winners = d.get("race_winners", {})
+	staff = d.get("staff", {})
+	staff_pool = d.get("staff_pool", [])
+	dev_parts = d.get("dev_parts", {})
+	dev_projects = d.get("dev_projects", [])
+	dev_log = d.get("dev_log", [])
+	if staff.is_empty():
+		Staff.init_team()         # älterer Spielstand ohne Personal
+	if dev_parts.is_empty():
+		Dev.init()
 	solo_code = str(d.get("solo_code", ""))
 	board = float(d.get("board", 60.0))
 	sponsor_id = str(d.get("sponsor_id", ""))
