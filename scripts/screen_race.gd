@@ -146,7 +146,9 @@ var _hide_when_big: Array = []        # Knoten, die bei großer Karte ausgeblend
 func _ready() -> void:
 	sim.requests_on = Game.requests_on
 	U.fill(self)
-	add_child(U.team_backdrop())
+	var bd = U.team_backdrop()
+	bd.band = 0.0          # die Kopfleiste des Rennens ist selbst dunkel
+	add_child(bd)
 	var margin := U.screen_margin(self, 10)
 	var M := U.is_mobile()
 	if M:
@@ -156,7 +158,7 @@ func _ready() -> void:
 	margin.add_child(root)
 	root.add_child(_build_top())
 
-	var tp := U.panel(6, U.ACCENT)
+	var tp := U.dark_panel(4)
 	tp.custom_minimum_size = Vector2(372, 0)
 	tower = Tower.new()
 	tower.sim = sim
@@ -166,10 +168,12 @@ func _ready() -> void:
 		tower.custom_minimum_size = Vector2(380, 34.0 + float(sim.cars.size()) * 29.0 + 8.0)
 	tp.add_child(tower)
 
-	var center := U.vbox(6 if M else 8)
+	# Handy quer: Karte links, Fahrer-Panel als schmale Spalte rechts (die Karte behält die volle Höhe); PC: Panel unter der Karte
+	var center: BoxContainer = U.hbox(5) if M else U.vbox(8)
 	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var mp := U.panel(4)
 	mp.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	mp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	map = TrackMap.new()
 	map.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	map.sim = sim
@@ -187,13 +191,17 @@ func _ready() -> void:
 		goal_line.clip_text = true
 		goal_line.custom_minimum_size = Vector2(60, 0)
 		center.add_child(goal_line)
-	var pbox := U.hbox(6)
+	var pbox: BoxContainer = U.vbox(5) if M else U.hbox(6)
 	for c in sim.cars:
 		if c.is_player:
 			var dp = DriverPanel.new()
 			dp.sim = sim
 			dp.car = c
 			dp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			if M:
+				dp.vertical = true
+				dp.custom_minimum_size = Vector2(250, 0)
+				dp.size_flags_vertical = Control.SIZE_EXPAND_FILL
 			dp.box_pressed.connect(_on_panel_box)
 			dp.plan_pressed.connect(_on_panel_plan)
 			dp.switch_pressed.connect(_on_panel_switch)
@@ -305,53 +313,57 @@ func _player_grid() -> int:
 
 
 func _build_top() -> Control:
-	var p := U.panel(5 if U.is_mobile() else 8, U.ACCENT)
+	var p := U.dark_panel(5 if U.is_mobile() else 8, U.ACCENT)
 	var h := U.hbox(4 if U.is_mobile() else 14)
 	p.add_child(h)
 	var M := U.is_mobile()
-	lap_label = U.label("", 16 if M else 28, U.TEXT, true)
-	h.add_child(lap_label)
-	time_label = U.label("", 16, U.MUTED)
+	var lv := U.vbox(-6)
+	lv.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	lv.add_child(U.label("RUNDE", 10 if M else 12, U.MUTED_DARK, true))
+	lap_label = U.display("", 19 if M else 30, U.ON_DARK)
+	lv.add_child(lap_label)
+	h.add_child(lv)
+	time_label = U.label("", 16, U.MUTED_DARK)
 	time_label.visible = not M
 	h.add_child(time_label)
 	status_chip = U.chip("GRÜN", Color("14562f"), U.GOOD)
 	status_label = status_chip.get_child(0)
 	h.add_child(status_chip)
 	if M:
-		decision_chip = U.button("Funk ▸", _on_decision_chip, 0, 30)
+		decision_chip = U.dark_button("Funk ▸", _on_decision_chip, 0, 30)
 		decision_chip.add_theme_font_size_override("font_size", 12)
-		decision_chip.add_theme_color_override("font_color", U.WARN)
+		decision_chip.add_theme_color_override("font_color", Color("fbbf24"))
 		decision_chip.visible = false
 		h.add_child(decision_chip)
-	weather_label = U.label("", 14, U.MUTED)
+	weather_label = U.label("", 14, U.MUTED_DARK)
 	weather_label.clip_text = true
 	weather_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	weather_label.visible = not M
 	if M:
 		h.add_child(U.spacer())
 	h.add_child(weather_label)
+	var sg := U.hbox(2)          # Geschwindigkeit als zusammenhängende Leiste
+	h.add_child(sg)
 	for i in SPEEDS.size():
-		var b := Button.new()
-		b.text = SPEED_NAMES_SHORT[i] if U.is_mobile() else SPEED_NAMES[i]
+		var b := U.dark_button(SPEED_NAMES_SHORT[i] if U.is_mobile() else SPEED_NAMES[i], null, 34 if M else 54, 32 if M else 36)
 		b.toggle_mode = true
-		b.custom_minimum_size = Vector2(34 if M else 54, 32 if M else 36)
 		if M:
 			b.add_theme_font_size_override("font_size", 14)
 		b.pressed.connect(_set_speed.bind(i))
-		h.add_child(b)
+		sg.add_child(b)
 		speed_buttons.append(b)
-	var end_b := U.button("Ende", _skip_to_end, 52 if M else 64, 32 if M else 36)
+	var end_b := U.dark_button("Ende", _skip_to_end, 48 if M else 64, 32 if M else 36)
 	if M:
 		end_b.add_theme_font_size_override("font_size", 14)
 	h.add_child(end_b)
-	var cb := U.checkbox()
+	var cb := U.checkbox("", true)
 	cb.text = "Auto" if U.is_mobile() else "Auto-Slow"
 	if U.is_mobile():
 		cb.add_theme_font_size_override("font_size", 12)
 	cb.button_pressed = true
 	cb.toggled.connect(func(v): auto_slow = v)
 	h.add_child(cb)
-	var tvcb := U.checkbox("TV" if M else "TV-Grafik")
+	var tvcb := U.checkbox("TV" if M else "TV-Grafik", true)
 	if M:
 		tvcb.add_theme_font_size_override("font_size", 12)
 	tvcb.button_pressed = true
@@ -515,6 +527,13 @@ func _show_decision(c, d: Dictionary) -> void:
 	decision_card.visible = true
 	_update_decision_chip()
 	_place_decision.call_deferred()
+	# Einblenden: kurz aufploppen
+	decision_card.modulate.a = 0.0
+	decision_card.scale = Vector2(0.94, 0.94)
+	decision_card.pivot_offset = Vector2(decision_card.custom_minimum_size.x * 0.5, 40.0)
+	var tw := decision_card.create_tween().set_parallel(true)
+	tw.tween_property(decision_card, "modulate:a", 1.0, 0.18)
+	tw.tween_property(decision_card, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	get_tree().create_timer(0.06).timeout.connect(_place_decision)
 	get_tree().create_timer(0.3).timeout.connect(_place_decision)
 	if auto_slow and speed_idx > 2:
@@ -838,9 +857,9 @@ func _build_page_pit(M: bool) -> Control:
 		b.text = cd["name"]
 		b.custom_minimum_size = Vector2(58 if M else 62, 62)
 		b.add_theme_color_override("font_color", cd["ink"])
-		b.add_theme_color_override("font_pressed_color", cd["ink"])
 		b.add_theme_color_override("font_hover_color", cd["ink"])
 		b.add_theme_color_override("font_disabled_color", Color(cd["ink"], 0.35))
+		U.tyre_button(b, cd["color"])
 		b.add_theme_font_size_override("font_size", 13)
 		b.pressed.connect(_on_pit_sel.bind(k))
 		brow.add_child(b)
@@ -2096,28 +2115,29 @@ func _on_results() -> void:
 
 func _update_ui() -> void:
 	var lap: int = sim.leader_lap() if sim.started else 1
-	lap_label.text = ("RUNDE %d/%d" if U.is_mobile() else "RUNDE %d / %d") % [lap, sim.laps]
+	lap_label.text = "%d/%d" % [lap, sim.laps]
 	time_label.text = sim.fmt_race_time(sim.time)
-	var chip_bg := Color("d6f3e3")
-	var chip_fg := U.GOOD
+	# Flaggen-Marke wie in der TV-Grafik: volle Flaggenfarbe
+	var chip_bg := Color("16a34a")
+	var chip_fg := Color.WHITE
 	var chip_text := "GRÜN"
 	match sim.status:
 		1:
 			chip_text = "VSC"
-			chip_bg = Color("ffe9b0")
-			chip_fg = U.WARN
+			chip_bg = Color("facc15")
+			chip_fg = U.TEXT
 		2:
 			chip_text = "SAFETY CAR"
-			chip_bg = Color("ffe9b0")
-			chip_fg = U.WARN
+			chip_bg = Color("facc15")
+			chip_fg = U.TEXT
 	if sim.leader_finished and not sim.over:
 		chip_text = "ZIELFLAGGE"
-		chip_bg = Color("e3e7ef")
+		chip_bg = Color.WHITE
 		chip_fg = U.TEXT
 	if not sim.started:
 		chip_text = "STARTAUFSTELLUNG"
-		chip_bg = Color("e3e7ef")
-		chip_fg = U.TEXT
+		chip_bg = U.DARK3
+		chip_fg = U.ON_DARK
 	if U.is_mobile():
 		chip_text = {"STARTAUFSTELLUNG": "START", "SAFETY CAR": "SC", "ZIELFLAGGE": "ZIEL"}.get(chip_text, chip_text)
 	status_label.text = chip_text

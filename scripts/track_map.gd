@@ -79,7 +79,8 @@ func _ready() -> void:
 	_preset_box.position = Vector2(8, 8)
 	add_child(_preset_box)
 	if sim != null:
-		for e in [["Gesamt", "all"], ["Auto 1", "car1"], ["Auto 2", "car2"], ["Führender", "leader"]]:
+		var M := U.is_mobile()
+		for e in ([["Alle", "all"], ["A1", "car1"], ["A2", "car2"], ["P1", "leader"]] if M else [["Gesamt", "all"], ["Auto 1", "car1"], ["Auto 2", "car2"], ["Führender", "leader"]]):
 			var b := _tiny_button(e[0])
 			b.pressed.connect(set_view.bind(e[1]))
 			_preset_box.add_child(b)
@@ -102,11 +103,21 @@ func set_expanded(on: bool) -> void:
 		_expand_btn.text = "Klein" if on else "Groß"
 
 
+## Kleiner dunkler Knopf über der Karte (am Handy bewusst kompakt, damit die Karte frei bleibt).
 func _tiny_button(text: String) -> Button:
-	var b := Button.new()
-	b.text = text
-	b.custom_minimum_size = Vector2(0, 28)
-	b.add_theme_font_size_override("font_size", 13)
+	var M := U.is_mobile()
+	var b := U.dark_button(text, null, 30 if M else 0, 26 if M else 28)
+	b.set_meta("compact", true)
+	b.add_theme_font_size_override("font_size", 12 if M else 13)
+	var n := U.button_style(Color(U.DARK, 0.82), Color(1, 1, 1, 0.14), 1, 5)
+	n.content_margin_left = 7 if M else 10
+	n.content_margin_right = 7 if M else 10
+	n.content_margin_top = 2
+	n.content_margin_bottom = 2
+	b.add_theme_stylebox_override("normal", n)
+	var hv := n.duplicate()
+	hv.border_color = U.ACCENT
+	b.add_theme_stylebox_override("hover", hv)
 	b.focus_mode = Control.FOCUS_NONE
 	return b
 

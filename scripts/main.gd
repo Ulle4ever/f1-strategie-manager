@@ -187,11 +187,15 @@ func apply_scale() -> void:
 func _no_focus(n: Node) -> void:
 	if n is BaseButton:
 		(n as BaseButton).focus_mode = Control.FOCUS_NONE
+		if n is Button and not (n is CheckBox):
+			U.animate_button(n)
+	elif n is TabContainer:
+		U.animate_tabs(n)
 
 
 ## Alle Bedienelemente auf Fingergröße bringen.
 func _touchify(n: Node) -> void:
-	if n is Button:
+	if n is Button and not n.has_meta("compact"):
 		var b := n as Button
 		b.custom_minimum_size.y = maxf(b.custom_minimum_size.y, 40.0)
 	elif n is HSlider:
@@ -208,7 +212,7 @@ func _make_rotate_hint() -> void:
 	var bg := ColorRect.new()
 	bg.color = Color(0.03, 0.04, 0.07, 0.97)
 	U.fill(bg)
-	var l := U.label("Bitte das Gerät quer halten", 26, U.TEXT, true)
+	var l := U.display("Bitte das Gerät quer halten", 26, U.ON_DARK)
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	U.fill(l)
@@ -227,13 +231,32 @@ func _check_orientation() -> void:
 func _switch(node: Control) -> void:
 	if current != null:
 		current.queue_free()
+	_apply_team_accent()
 	current = node
 	node.theme = _theme    # main ist ein Node: das Fenster-Theme würde sonst nicht an die Bildschirme vererbt
 	node.set("main", self)
 	node.modulate.a = 0.0
 	add_child(node)
-	var tw := create_tween()
+	var tw := create_tween().set_parallel(true)
 	tw.tween_property(node, "modulate:a", 1.0, 0.22)
+	if node is Control:
+		(node as Control).position.x = 24.0
+		tw.tween_property(node, "position:x", 0.0, 0.28).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+
+
+## Akzentfarbe = Farbe des eigenen Teams (Karriere), sonst F1-Rot. Bei einem Wechsel wird das Theme neu gebaut.
+func _apply_team_accent() -> void:
+	var col := U.RED
+	if Game.active and Game.team_id != "":
+		var TS = load("res://scripts/team_style.gd")
+		col = TS.ui_color(Game.team_id)
+		# farblose Teams (weiß, grau, schwarz): Zweitfarbe als Akzent, falls die kräftiger ist (z. B. Haas rot)
+		var sc: Color = TS.info(Game.team_id)["second"]
+		if col.s < 0.25 and sc.s > 0.4:
+			col = sc.darkened(0.3) if sc.get_luminance() > 0.72 else sc
+	if U.set_accent(col):
+		_theme = U.make_theme()
+		get_window().theme = _theme
 
 
 func show_start() -> void:

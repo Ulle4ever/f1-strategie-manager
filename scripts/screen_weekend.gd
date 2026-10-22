@@ -47,7 +47,7 @@ func _ready() -> void:
 	tb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(tb)
 	head.add_child(TeamCrest.make(Game.team_id, 40.0 if U.is_mobile() else 50.0))
-	head.add_child(U.button("Zurück", func(): main.show_hub(), 120, 42))
+	head.add_child(U.dark_button("Zurück", func(): main.show_hub(), 120, 42))
 
 	var entries := _left_entries()
 	if not sim.quali_done:

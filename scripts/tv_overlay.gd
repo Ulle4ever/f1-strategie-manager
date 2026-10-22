@@ -131,8 +131,8 @@ func _draw() -> void:
 	if not sim.started:
 		_draw_grid()
 	else:
-		# sehr niedrige Karte (Handy mit Fahrer-Panel darunter): Fahrerkarte weglassen, das Panel zeigt dieselben Werte
-		if selected != null and not (compact and size.y < 170.0):
+		# Handy mit Fahrer-Panel neben der Karte: Fahrerkarte weglassen (das Panel zeigt dieselben Werte), nur auf der großen Karte zeigen
+		if selected != null and not (compact and (size.y < 170.0 or size.x < 600.0)):
 			_draw_card(selected)
 		if _toast_t > 0.0 and not tight:
 			_draw_toast()
@@ -175,7 +175,7 @@ func _draw_card(c) -> void:
 	var y := r.position.y + 8.0
 	draw_rect(Rect2(x, y, 36, 28), Color.WHITE if pos > 1 else U.WARN)
 	draw_string(fb, Vector2(x, y + 21), "P%d" % pos, HORIZONTAL_ALIGNMENT_CENTER, 36, 17, Color(0.05, 0.05, 0.08))
-	draw_string(fb, Vector2(x + 46, y + 22), c.code, HORIZONTAL_ALIGNMENT_LEFT, -1, 22, U.WARN if c.is_player else Color.WHITE)
+	draw_string(fb, Vector2(x + 46, y + 22), c.code, HORIZONTAL_ALIGNMENT_LEFT, -1, 22, U.ACCENT.lightened(0.15) if c.is_player else Color.WHITE)
 	draw_string(f, Vector2(x + 100, y + 21), "#%s  %s" % [c.number, c.driver_name], HORIZONTAL_ALIGNMENT_LEFT, 210, 13, U.MUTED_DARK)
 	# Tempo
 	var kmh := int(c.speed * 3.6) if c.state == 1 else 0
@@ -304,7 +304,7 @@ func _draw_grid() -> void:
 		var y := r.position.y + 30.0 + float(row) * row_h + (8.0 if col == 1 else 0.0)
 		draw_string(fb, Vector2(x, y + 14), str(i + 1), HORIZONTAL_ALIGNMENT_LEFT, 22, 13, U.MUTED_DARK)
 		draw_rect(Rect2(x + 24, y + 1, 4, 15), c.color)
-		draw_string(fb, Vector2(x + 34, y + 14), c.code, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, U.WARN if c.is_player else Color.WHITE)
+		draw_string(fb, Vector2(x + 34, y + 14), c.code, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, U.ACCENT.lightened(0.15) if c.is_player else Color.WHITE)
 		if c.grid_penalty > 0:
 			draw_string(f, Vector2(x + 76, y + 14), "-%d" % c.grid_penalty, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, U.BAD)
 		if c.forced_start >= 0:
@@ -327,7 +327,7 @@ func _draw_card_compact(c) -> void:
 	var y := r.position.y + 6.0
 	draw_rect(Rect2(x, y, 32, 22), Color.WHITE if pos > 1 else U.WARN)
 	draw_string(fb, Vector2(x, y + 17), "P%d" % pos, HORIZONTAL_ALIGNMENT_CENTER, 32, 14, Color(0.05, 0.05, 0.08))
-	draw_string(fb, Vector2(x + 40, y + 18), c.code, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, U.WARN if c.is_player else Color.WHITE)
+	draw_string(fb, Vector2(x + 40, y + 18), c.code, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, U.ACCENT.lightened(0.15) if c.is_player else Color.WHITE)
 	var kmh := int(c.speed * 3.6) if c.state == 1 else 0
 	draw_string(fb, Vector2(x + 92, y + 18), "%d" % kmh, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color.WHITE)
 	draw_string(f, Vector2(x + 128, y + 18), "km/h", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, U.MUTED_DARK)

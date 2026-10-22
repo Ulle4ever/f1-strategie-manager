@@ -30,7 +30,7 @@ func _ready() -> void:
 	var tb := U.title_bar("Freitagstraining", str(race["name"]))
 	tb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(tb)
-	head.add_child(U.button("Zurück", func(): main.show_weekend(), 120, 42))
+	head.add_child(U.dark_button("Zurück", func(): main.show_weekend(), 120, 42))
 
 	# Sessions
 	var lsc := ScrollContainer.new()

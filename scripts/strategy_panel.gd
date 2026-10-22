@@ -142,9 +142,9 @@ func _comp_row(selected: int, cb: Callable, only := -1) -> Dictionary:
 		b.custom_minimum_size = Vector2(0, 34)
 		b.add_theme_font_size_override("font_size", 13)
 		b.add_theme_color_override("font_color", cd["ink"])
-		b.add_theme_color_override("font_pressed_color", cd["ink"])
 		b.add_theme_color_override("font_hover_color", cd["ink"])
 		b.add_theme_color_override("font_disabled_color", Color(cd["ink"], 0.35))
+		U.tyre_button(b, cd["color"])
 		b.button_pressed = k == selected
 		b.pressed.connect(cb.bind(k))
 		if only >= 0 and k != only:

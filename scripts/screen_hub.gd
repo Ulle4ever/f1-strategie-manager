@@ -40,13 +40,13 @@ func _ready() -> void:
 	head.add_child(tb)
 	head.add_child(TeamCrest.make(Game.team_id, 40.0 if M else 52.0))
 	var bud := U.vbox(0)
-	bud.add_child(U.label("BUDGET", 11, U.MUTED, true))
-	budget_label = U.label("", 18 if M else 24, U.GOOD, true)
+	bud.add_child(U.label("BUDGET", 11, U.MUTED_DARK, true))
+	budget_label = U.display("", 18 if M else 24, Color("4ade80"))
 	bud.add_child(budget_label)
 	head.add_child(bud)
-	save_button = U.button("Speichern", _on_save, 84 if M else 110, 42)
+	save_button = U.dark_button("Speichern", _on_save, 84 if M else 110, 42)
 	head.add_child(save_button)
-	head.add_child(U.button("Menü" if M else "Hauptmenü", func(): main.show_start(), 80 if M else 120, 42))
+	head.add_child(U.dark_button("Menü" if M else "Hauptmenü", func(): main.show_start(), 80 if M else 120, 42))
 
 	var cols := U.hbox(16)
 	cols.size_flags_vertical = Control.SIZE_EXPAND_FILL

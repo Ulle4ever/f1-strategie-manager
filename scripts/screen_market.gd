@@ -62,21 +62,21 @@ func _ready() -> void:
 	tb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(tb)
 	var bud := U.vbox(0)
-	bud.add_child(U.label("BUDGET", 11, U.MUTED, true))
-	budget_label = U.label("", 18 if M else 22, U.GOOD, true)
+	bud.add_child(U.label("BUDGET", 11, U.MUTED_DARK, true))
+	budget_label = U.display("", 18 if M else 22, Color("4ade80"))
 	bud.add_child(budget_label)
 	head.add_child(bud)
 	var cap_v := U.vbox(2)
 	cap_v.custom_minimum_size = Vector2(130 if M else 190, 0)
-	cap_v.add_child(U.label("GEHÄLTER / LIMIT", 11, U.MUTED, true))
-	cap_label = U.label("", 14 if M else 18, U.TEXT, true)
+	cap_v.add_child(U.label("GEHÄLTER / LIMIT", 11, U.MUTED_DARK, true))
+	cap_label = U.label("", 14 if M else 18, U.ON_DARK, true)
 	cap_v.add_child(cap_label)
 	cap_bar = ProgressBar.new()
 	cap_bar.custom_minimum_size = Vector2(0, 8)
 	cap_bar.show_percentage = false
 	cap_v.add_child(cap_bar)
 	head.add_child(cap_v)
-	head.add_child(U.button("Zentrale", func(): main.show_hub(), 90 if M else 110, 42))
+	head.add_child(U.dark_button("Zentrale", func(): main.show_hub(), 90 if M else 110, 42))
 
 	# Links: mein Team
 	var left := U.panel(12, U.WARN)

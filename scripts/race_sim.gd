@@ -25,7 +25,7 @@ const CLIMATE := {
 const STYLE_NAMES := ["Reifen schonen", "Ruhig", "Standard", "Zügig", "Angriff"]
 const STYLE_PACE := [-0.0065, -0.0030, 0.0, 0.0024, 0.0045]
 const STYLE_WEAR := [0.72, 0.86, 1.0, 1.15, 1.32]
-const STYLE_FUEL := [0.94, 0.97, 1.0, 1.02, 1.04]
+const STYLE_FUEL := [0.95, 0.98, 1.0, 1.01, 1.02]    # Tempo kostet etwas Sprit, aber nur wenig (Hauptregler bleibt der Kraftstoffmodus)
 const STYLE_STD := 2
 # Reifentemperatur (°C): Arbeitsfenster je Mischung (Mitte ± TYRE_WIN); Tempo heizt auf oder kühlt
 const TYRE_OPT := [95.0, 100.0, 105.0, 80.0, 70.0]
