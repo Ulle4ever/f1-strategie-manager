@@ -379,14 +379,16 @@ func _start_flying_lap(q: QCar) -> void:
 	if near > 0 and rng.randf() < minf(0.6, 0.08 * near):
 		lap += rng.randf_range(0.1, 0.55) * scale_time
 		q.traffic = true
-	# Fehler / Unfall
+	# Fehler / Unfall: Grundrisiko je schneller Runde, mal Fahrstil (Risiko), Fahrer (Unfallquote aus der Karriere,
+	# Mittel etwa 0,09), Nässe und falsche Reifen. Ziel: im Trockenen etwa jedes vierte Qualifying ein Unfall.
 	var risk_mul := [0.55, 1.0, 2.2]
-	var crash_mul := [0.3, 1.0, 3.0]
+	var crash_mul := [0.35, 1.0, 2.2]
 	var wrong := 0.0
 	if q.comp < DRY_COUNT and wet > 0.2:
 		wrong = 1.0 + 4.0 * (wet - 0.2)
+	var driver_k := clampf(float(c.crash_rate) / 0.09, 0.5, 2.0)
 	var p_mist: float = 0.04 * risk_mul[q.risk] * (1.0 + wet) * (1.0 + wrong)
-	var p_crash: float = 0.008 * crash_mul[q.risk] * (1.0 + 2.0 * wet) * (1.0 + wrong)
+	var p_crash: float = 0.0035 * crash_mul[q.risk] * driver_k * (1.0 + 2.0 * wet) * (1.0 + wrong)
 	var r := rng.randf()
 	if r < p_crash:
 		q.fly_end = time + lap * rng.randf_range(0.2, 0.7)

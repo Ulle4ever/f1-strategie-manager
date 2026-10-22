@@ -146,16 +146,19 @@ func _k() -> float:
 	return 0.82 if compact else 1.0
 
 
+## Kleine Karte am Handy (Fahrer-Panel daneben): schmale Einblendungen, damit die Strecke sichtbar bleibt.
+func _mini() -> bool:
+	return compact and size.x < 520.0
+
+
 func _fd() -> Font:
 	return U.display_font()
 
 
-## Dunkle Glas-Kachel: links gerade, rechts schräg; dünne Kante oben in der Farbe col.
-func _slab(r: Rect2, col: Color, a := 1.0, slant := -1.0) -> void:
-	var s := r.size.y * 0.28 if slant < 0.0 else slant
-	var p := PackedVector2Array([r.position, Vector2(r.end.x, r.position.y), Vector2(r.end.x - s, r.end.y), Vector2(r.position.x, r.end.y)])
-	draw_colored_polygon(p, Color(GLASS, GLASS.a * a))
-	draw_rect(Rect2(r.position, Vector2(r.size.x - s * 0.0, 2.0)), Color(col, a))
+## Dunkle Glas-Kachel mit geraden Kanten (damit nichts abgeschnitten wird); dünne Kante oben in der Farbe col.
+func _slab(r: Rect2, col: Color, a := 1.0) -> void:
+	draw_rect(r, Color(GLASS, GLASS.a * a))
+	draw_rect(Rect2(r.position, Vector2(r.size.x, 2.0)), Color(col, a))
 
 
 ## Schräges Feld mit Text in der Mitte (Positionsfeld, Marken).
@@ -214,7 +217,7 @@ func _team_col(c) -> Color:
 func _draw() -> void:
 	if sim == null:
 		return
-	var tight := compact and size.y < 250.0   # sehr wenig Platz: nur Fahrerkarte und Laufband
+	var tight := compact and size.y < 150.0   # sehr wenig Platz: nur Fahrerkarte und Laufband
 	if not sim.started:
 		_draw_grid()
 	else:
@@ -224,7 +227,8 @@ func _draw() -> void:
 		# Handy mit Fahrer-Panel neben der Karte: Fahrerkarte weglassen (das Panel zeigt dieselben Werte), nur auf der großen Karte zeigen
 		if selected != null and not (compact and (size.y < 170.0 or size.x < 600.0)):
 			_draw_card(selected)
-		var top := 40.0 * _k()
+		# Einblendungen oben rechts (große Karte: ganz oben, sonst unter den Kartenknöpfen)
+		var top := 8.0 if big else 44.0 * _k()
 		if _toast_t > 0.0 and not tight:
 			top = _draw_toast(top) + 6.0
 		if _battle_t > 0.0 and not _battle.is_empty() and not tight:
@@ -289,21 +293,26 @@ func _draw_card(c) -> void:
 		_txt(Vector2(sx, sy - 4.0 * k), "S%d %s" % [s + 1, ("%.1f" % tt) if (tt > 0.0 and int(c.sec_cols[s]) > 0) else "--"], int(11 * k), WHITE if int(c.sec_cols[s]) > 0 else DIM, f)
 
 
-## Rundenzeit oben mittig, gleitet von oben herein. Rückgabe: Unterkante.
+## Rundenzeit oben rechts, gleitet von rechts herein. Rückgabe: Unterkante.
 func _draw_toast(top: float) -> float:
 	var k := _k()
 	var fd := _fd()
 	var c = _toast["car"]
 	var a := clampf(_toast_t / 0.5, 0.0, 1.0)
 	var e := _ease_in(_toast_age)
-	var h := 36.0 * k
-	var w := minf(330.0 * k, size.x - 20.0)
-	var r := Rect2((size.x - w) * 0.5, top - (1.0 - e) * (h + top), w, h)
-	_slab(r, _team_col(c), a)
-	draw_rect(Rect2(r.position + Vector2(0, 2), Vector2(5.0 * k, h - 2.0)), Color(c.color, a))
-	draw_string(fd, Vector2(r.position.x + 14.0 * k, r.position.y + h * 0.5 + 7.0 * k), c.code, HORIZONTAL_ALIGNMENT_LEFT, -1, int(19 * k), Color(WHITE, a))
-	draw_string(fd, Vector2(r.position.x + 70.0 * k, r.position.y + h * 0.5 + 7.0 * k), str(_toast["time"]), HORIZONTAL_ALIGNMENT_LEFT, -1, int(19 * k), Color(WHITE, a))
 	var col: Color = _toast["col"]
+	var mini := _mini()
+	var h := (24.0 if mini else 32.0) * k
+	var w := minf((150.0 if mini else 300.0) * k, size.x - 20.0)
+	var r := Rect2(size.x - w - 8.0 + (1.0 - e) * (w + 16.0), top, w, h)
+	_slab(r, col if mini else _team_col(c), a)
+	draw_rect(Rect2(r.position + Vector2(0, 2), Vector2(5.0 * k, h - 2.0)), Color(c.color, a))
+	var fs0 := int((15 if mini else 19) * k)
+	draw_string(fd, Vector2(r.position.x + 12.0 * k, r.position.y + h * 0.5 + fs0 * 0.37), c.code, HORIZONTAL_ALIGNMENT_LEFT, -1, fs0, Color(WHITE, a))
+	# kleine Karte: nur Kürzel und Zeit, die Art der Runde zeigt die Farbe der Zeit
+	draw_string(fd, Vector2(r.position.x + (56.0 if mini else 70.0) * k, r.position.y + h * 0.5 + fs0 * 0.37), str(_toast["time"]), HORIZONTAL_ALIGNMENT_LEFT, -1, fs0, Color(col if mini else WHITE, a))
+	if mini:
+		return r.end.y
 	var tag: String = _toast["tag"]
 	var fs := int(11 * k)
 	var tw := U.font(true).get_string_size(tag, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + 18.0 * k
@@ -320,9 +329,28 @@ func _draw_battle(top: float) -> void:
 	var b: RaceSim.RaceCar = _battle["b"]
 	var fade := clampf(_battle_t / 0.5, 0.0, 1.0)
 	var e := _ease_in(_battle_age)
+	if _mini():
+		# schmal: [P] AAA  0.4 s  BBB
+		var mh := 24.0 * k
+		var mw := minf(178.0 * k, size.x - 20.0)
+		var mr := Rect2(size.x - mw - 8.0 + (1.0 - e) * 40.0, top, mw, mh)
+		var ma := fade * e
+		_slab(mr, U.ACCENT, ma)
+		var mfs := int(14 * k)
+		var my := mr.position.y + mh * 0.5 + mfs * 0.37
+		_tag(Rect2(mr.position.x + 4.0 * k, mr.position.y + 5.0 * k, 26.0 * k, mh - 8.0 * k), Color(WHITE, ma), "P%d" % int(_battle["pos"]), Color(0.05, 0.05, 0.08, ma), int(11 * k))
+		draw_rect(Rect2(mr.position.x + 33.0 * k, mr.position.y + 6.0 * k, 3.0 * k, mh - 10.0 * k), Color(a.color, ma))
+		draw_string(fd, Vector2(mr.position.x + 39.0 * k, my), a.code, HORIZONTAL_ALIGNMENT_LEFT, -1, mfs, Color(WHITE, ma))
+		var mg := "%.1f s" % b.gap_ahead
+		var mgw := fd.get_string_size(mg, HORIZONTAL_ALIGNMENT_LEFT, -1, mfs).x
+		draw_string(fd, Vector2(mr.position.x + mw * 0.58 - mgw * 0.5, my), mg, HORIZONTAL_ALIGNMENT_LEFT, -1, mfs, Color(GREEN_HI if b.gap_ahead < 1.0 else WHITE, ma))
+		_txt_r(Vector2(mr.end.x - 8.0 * k, my), b.code, mfs, Color(WHITE, ma), fd)
+		var bw := fd.get_string_size(b.code, HORIZONTAL_ALIGNMENT_LEFT, -1, mfs).x
+		draw_rect(Rect2(mr.end.x - 14.0 * k - bw, mr.position.y + 6.0 * k, 3.0 * k, mh - 10.0 * k), Color(b.color, ma))
+		return
 	var h := 34.0 * k
-	var w := minf(370.0 * k, size.x - 20.0)
-	var r := Rect2((size.x - w) * 0.5 + (1.0 - e) * 60.0, top, w, h)
+	var w := minf(340.0 * k, size.x - 20.0)
+	var r := Rect2(size.x - w - 8.0 + (1.0 - e) * 60.0, top, w, h)
 	var al := fade * e
 	_slab(r, U.ACCENT, al)
 	var cy := r.position.y + h * 0.5
@@ -335,13 +363,14 @@ func _draw_battle(top: float) -> void:
 	draw_rect(Rect2(x + 34.0 * k, by, 3.0 * k, bh - 4.0 * k), Color(a.color, al))
 	draw_string(fd, Vector2(x + 41.0 * k, by + bh * 0.5 + 3.0 * k), a.code, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(WHITE, al))
 	_tyre(Vector2(x + 94.0 * k, by + (bh - 4.0 * k) * 0.5), a.compound, 7.0 * k)
-	# Abstand in der Mitte
+	var x2 := r.end.x - 150.0 * k
+	# Abstand zwischen den beiden Fahrern
 	var gcol := GREEN_HI if b.gap_ahead < 1.0 else WHITE
 	var gt := "%.1f s" % b.gap_ahead
 	var gw := fd.get_string_size(gt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-	draw_string(fd, Vector2(r.position.x + w * 0.5 - gw * 0.5 + 6.0 * k, cy + 6.0 * k), gt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(gcol, al))
+	var gx := (x + 101.0 * k + x2 - 7.0 * k) * 0.5
+	draw_string(fd, Vector2(gx - gw * 0.5, cy + 6.0 * k), gt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(gcol, al))
 	# hinten
-	var x2 := r.end.x - 150.0 * k
 	_tyre(Vector2(x2, by + (bh - 4.0 * k) * 0.5), b.compound, 7.0 * k)
 	draw_rect(Rect2(x2 + 12.0 * k, by, 3.0 * k, bh - 4.0 * k), Color(b.color, al))
 	draw_string(fd, Vector2(x2 + 19.0 * k, by + bh * 0.5 + 3.0 * k), b.code, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(WHITE, al))
@@ -427,9 +456,9 @@ func _draw_ticker() -> void:
 				_draw_item(items[i], x, base, f, fs, r.position.y, th)
 			x += float(widths[i]) + 26.0
 			draw_circle(Vector2(x - 13.0, r.position.y + th * 0.5), 2.0, Color(1, 1, 1, 0.25))
-	# LIVE-Marke (schräg) mit pulsierendem Punkt
-	var lw := 76.0
-	draw_colored_polygon(PackedVector2Array([Vector2(0, r.position.y), Vector2(lw, r.position.y), Vector2(lw - th * 0.3, r.end.y), Vector2(0, r.end.y)]), U.ACCENT)
+	# LIVE-Marke mit pulsierendem Punkt
+	var lw := 70.0
+	draw_rect(Rect2(0, r.position.y, lw, th), U.ACCENT)
 	var pulse := 0.55 + 0.45 * sin(_t * 5.0)
 	draw_circle(Vector2(14.0, r.position.y + th * 0.5), 3.5, Color(1, 1, 1, pulse))
 	draw_string(_fd(), Vector2(24.0, base), "LIVE", HORIZONTAL_ALIGNMENT_LEFT, -1, fs, U.ACCENT_INK)

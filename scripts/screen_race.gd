@@ -262,10 +262,10 @@ func _ready() -> void:
 	add_child(lights)
 
 	# Banner
-	banner = U.panel(10, U.WARN)
+	banner = U.panel(5 if U.is_mobile() else 10, U.WARN)
 	banner.visible = false
 	banner.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	banner_label = U.label("", 26, U.WARN, true)
+	banner_label = U.label("", 15 if U.is_mobile() else 22, U.WARN, true)
 	banner.add_child(banner_label)
 	add_child(banner)
 
@@ -1915,9 +1915,10 @@ func _banner_msg(text: String, seconds: float, col: Color) -> void:
 	banner.visible = true
 	banner.modulate.a = 1.0
 	banner_t = seconds
+	# oben rechts statt mittig, damit die Meldung nicht mitten im Bild aufspringt
 	banner.reset_size()
-	banner.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
-	banner.offset_top = 72
+	banner.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT, Control.PRESET_MODE_MINSIZE, 12)
+	banner.offset_top = 54 if U.is_mobile() else 72   # am Handy in der freien Reiterzeile rechts
 
 
 ## Große Karte: PC blendet Tabelle, Funk-Panel und Log aus, das Handy die Cockpit-Leiste.

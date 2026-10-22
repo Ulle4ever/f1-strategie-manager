@@ -100,7 +100,7 @@ func _ready() -> void:
 		left.add_child(lh)
 		lv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		lh.add_child(lv)
-		finish_box.custom_minimum_size = Vector2(250, 0)
+		finish_box.custom_minimum_size = Vector2(220, 0)   # schmaler, damit lange Fahrerzeilen am Handy noch passen
 		lh.add_child(finish_box)
 	else:
 		lv.add_child(finish_box)
@@ -322,7 +322,7 @@ func _team_card(d: Dictionary) -> Control:
 		if Market.valid_next(d) or expiring:
 			bh.add_child(U.button("Verhandeln" if expiring else "Details", func(): _select(d), 0, 30))
 		if bool(d["contract"].get("option", false)) and int(d["contract"]["end"]) <= Game.year + 1:
-			bh.add_child(U.button("Option ziehen", func(): _on_option(d), 0, 30))
+			bh.add_child(U.button("Option" if U.is_mobile() else "Option ziehen", func(): _on_option(d), 0, 30))
 		if Game.market_open and Market.valid_next(d) and not expiring:
 			bh.add_child(U.button("Freistellen", func(): _on_release(d), 0, 30))
 	v.add_child(bh)

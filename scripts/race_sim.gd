@@ -24,7 +24,9 @@ const CLIMATE := {
 # Tempo (Fahrstil) in fünf Stufen wie am Kommandostand; 0 = Reifen schonen, 2 = Standard, 4 = Angriff
 const STYLE_NAMES := ["Reifen schonen", "Ruhig", "Standard", "Zügig", "Angriff"]
 const STYLE_PACE := [-0.0065, -0.0030, 0.0, 0.0024, 0.0045]
-const STYLE_WEAR := [0.72, 0.86, 1.0, 1.15, 1.32]
+const STYLE_WEAR := [0.78, 0.89, 1.0, 1.15, 1.32]   # Schonen: etwa +28 % Lebensdauer in freier Fahrt (plus kühlere Reifen)
+const SC_WEAR := [1.0, 0.45, 0.3]     # Verschleiß je Runde bei Grün / VSC / Safety Car
+const SC_FUEL := [1.0, 0.7, 0.6]      # Verbrauch je Runde bei Grün / VSC / Safety Car
 const STYLE_FUEL := [0.95, 0.98, 1.0, 1.01, 1.02]    # Tempo kostet etwas Sprit, aber nur wenig (Hauptregler bleibt der Kraftstoffmodus)
 const STYLE_STD := 2
 # Reifentemperatur (°C): Arbeitsfenster je Mischung (Mitte ± TYRE_WIN); Tempo heizt auf oder kühlt
@@ -1472,9 +1474,11 @@ func tick(dt: float) -> void:
 		_update_tyre_temp(c, dt)
 		var wear_mul: float = tyre_temp_wear(c) * STYLE_WEAR[c.style] * (1.18 if c.dirty else 1.0) * wet_wear_factor(c.compound) * (1.0 - 0.07 * c.tyre_trait)
 		wear_mul *= (1.0 - 0.09 * c.tyre_care) * clampf(1.0 + 0.0018 * (c.fuel - 50.0), 0.9, 1.2)
+		# hinter dem Safety Car / VSC wird langsam gefahren: kaum Reifenverschleiß, deutlich weniger Sprit
+		wear_mul *= SC_WEAR[status]
 		c.tyre_wear += lap_frac * wear_mul
 		_track_sectors(c, nd)
-		var fuel_mul: float = float(STYLE_FUEL[c.style]) * (1.0 if has_ers() else float(ENG_FUEL[c.eng_mode])) * (1.0 if status == Status.GREEN else 0.7) * (0.94 if c.lico else 1.0) * float(FUEL_MODE_BURN[c.fuel_mode])
+		var fuel_mul: float = float(STYLE_FUEL[c.style]) * (1.0 if has_ers() else float(ENG_FUEL[c.eng_mode])) * float(SC_FUEL[status]) * (0.94 if c.lico else 1.0) * float(FUEL_MODE_BURN[c.fuel_mode])
 		c.fuel = maxf(0.0, c.fuel - burn_per_lap * lap_frac * fuel_mul)
 		if c.fuel <= 0.02 and c.state == State.RACING:
 			make_log("dnf", "TANK LEER: %s bleibt auf der Strecke stehen!" % c.code, c)

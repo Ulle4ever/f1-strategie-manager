@@ -11,6 +11,9 @@ const SPEEDS := [0, 1, 4, 16, 64]
 const SPEED_NAMES := ["Pause", "1x", "4x", "16x", "64x"]
 const SPEED_NAMES_SHORT := ["II", "1x", "4x", "16x", "64x"]
 const RISK_NAMES := ["Sicher", "Normal", "Attacke"]
+const RISK_HINTS := ["ca. 0,15 % langsamer, halb so viele Fehler, kaum Unfälle",
+	"Unfall etwa 1 von 300 Runden (Nässe und falsche Reifen mehr)",
+	"ca. 0,25 % schneller, doppelt so viele Fehler und Unfälle"]
 
 var main
 var sim
@@ -215,6 +218,10 @@ func _build_card(q) -> Control:
 	v.add_child(U.label("Risiko", 12, U.MUTED))
 	v.add_child(rr)
 	card["risk_buttons"] = rbtn
+	var rh := U.label("", 11, U.MUTED)
+	rh.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(rh)
+	card["risk_hint"] = rh
 	var go := U.primary_button("AUF DIE STRECKE", _on_go.bind(card), 0, 46)
 	v.add_child(go)
 	card["go"] = go
@@ -235,6 +242,8 @@ func _refresh_card_buttons(card: Dictionary) -> void:
 		card["comp_buttons"][k].set_pressed_no_signal(k == int(card["comp"]))
 	for i in 3:
 		card["risk_buttons"][i].set_pressed_no_signal(i == int(card["risk"]))
+	if card.has("risk_hint"):
+		card["risk_hint"].text = RISK_HINTS[int(card["risk"])]
 
 
 func _on_comp(card: Dictionary, k: int) -> void:

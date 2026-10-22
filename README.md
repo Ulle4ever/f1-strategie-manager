@@ -15,7 +15,7 @@ Die Autos sind Punkte auf der Streckenkarte (Ansicht von oben).
    dieses oder nächstes Jahr; Zuverlässigkeit, Boxencrew, Fahrertraining), Personal, nächstes Rennen mit Streckenkarte.
 3. **Rennwochenende:** Streckeninfo, Wetterprognose, Startplatzstrafen, dann das **Qualifying**: Q1/Q2/Q3
    (2006-2025; 2003-2005 Einzelrunden, 2000-2002 eine Stunde). Du schickst deine Autos selbst raus
-   (Reifen, Risiko Sicher/Normal/Attacke), mit Verkehr, Streckenentwicklung, Fehlern, Unfällen und Regen,
+   (Reifen, Risiko Sicher/Normal/Attacke), mit Verkehr, Streckenentwicklung, Fehlern, Unfällen und Regen (Unfallrisiko je schneller Runde aus Risikostufe, Unfallquote des Fahrers, Nässe und falschen Reifen; im Trockenen etwa jedes vierte Qualifying ein Unfall),
    ausgeschieden wird nach jedem Abschnitt. Bei 2010-2021 starten die Top 10 auf ihren Q2-Reifen.
    Alternativ: Qualifying automatisch simulieren. Danach Startaufstellung und Strategieplaner für beide Autos
    (Start-Reifen, Boxenstopps mit Runde und Mischung, geschätzte Renndauer). Oder "Sofort simulieren".
@@ -99,7 +99,7 @@ Das Teamfeld bleibt über die Karriere nicht gleich (`field.gd`; auf dem Startbi
 ## Atmosphäre und Pressekonferenz
 - **Intro-Karte:** Beim ersten Öffnen eines Rennwochenendes erscheint eine Einblendung wie zu Beginn einer Übertragung: Streckenumriss, der sich zeichnet, Name des Grand Prix, Länge, Runden, Distanz, Reifenabbau, Überholen, Regenrisiko, dein Rennziel, dein Platz in der Konstrukteurs-WM und die Sieger der Karriere auf dieser Strecke (`race_intro.gd`).
 - **Startaufstellung:** zwei versetzte Reihen wie auf der echten Startaufstellung, mit Fahrerfotos, Teamfarbe, Zeit und Abstand.
-- **TV-Grafik im Rennen:** schräge Glas-Kacheln mit Teamfarben-Kante, Fahrerkarte mit Foto, Tempo, Reifen, Batterie, Abstand und Sektoren; Rundenzeit und Zweikampf gleiten oben herein; auf der großen Karte eine Mini-Zeitentafel (Top 10); Laufband mit grünen/roten Pfeilen für Positionswechsel; Namensschilder an den Autos mit Positionsfeld.
+- **TV-Grafik im Rennen:** dunkle Glas-Kacheln mit Teamfarben-Kante (gerade Kanten, damit nichts abgeschnitten wird), Fahrerkarte mit Foto, Tempo, Reifen, Batterie, Abstand und Sektoren; Rundenzeit, Zweikampf und Funkmeldungen wie "Box diese Runde" gleiten oben rechts herein statt mitten im Bild (auf der kleinen Handy-Karte in einer schmalen Form); auf der großen Karte eine Mini-Zeitentafel (Top 10); Laufband mit grünen/roten Pfeilen für Positionswechsel; Namensschilder an den Autos mit Positionsfeld.
 - **Pressekonferenz:** Nach jedem Rennen der Karriere stellen Reporter ein bis zwei Fragen passend zum Ergebnis (Sieg, Podium, Ausfall durch Unfall oder Technik, verpasstes Ziel, Duell der Teamkollegen, Sponsorwünsche). Jede Antwort zeigt ihre Wirkung auf die Stimmung der Fahrer, das Vertrauen des Vorstands oder das Budget; die Stimmungsbalken ändern sich sichtbar. Überspringen ist möglich (`press.gd`, `press_dialog.gd`).
 - **Stimmung wirkt aufs Tempo:** sehr gute Laune bringt etwa +0,15 %, sehr schlechte kostet etwa 0,15 % Rennpace (Qualifying etwas weniger).
 
@@ -158,7 +158,7 @@ Das Teamfeld bleibt über die Karriere nicht gleich (`field.gd`; auf dem Startbi
 - Teamstärke, Fahrerstärke, technische Ausfälle und Unfallneigung werden aus den echten Ergebnissen der Saison abgeleitet.
 - Reifenverschleiß (je Strecke), Spritgewicht, Fahrstil, Verkehr/Dirty Air, DRS (ab 2011), Überholen je nach Streckencharakter.
 - Boxenstopps mit streckenabhängigem Zeitverlust, Nachtanken bis 2009, Zwei-Mischungen-Regel ab 2007.
-- Safety Car / VSC, Ausfälle, Regen mit Intermediates/Regenreifen und Wettervorhersage.
+- Safety Car / VSC, Ausfälle, Regen mit Intermediates/Regenreifen und Wettervorhersage. Hinter dem Safety Car verschleißen die Reifen nur etwa 30 % (VSC 45 %) und der Verbrauch sinkt auf etwa 60 % (VSC 70 %); Reifen schonen und Sprit sparen wirken dort zusätzlich.
 - **Reifentemperatur:** Jede Mischung hat ein Arbeitsfenster (Soft um 95 °C, Medium 100, Hard 105, jeweils ±10 °C). Die Temperatur folgt einem Zielwert (etwa 35 s Verzögerung): Tempostufe (-9 bis +9 °C), verwirbelte Luft hinter einem Gegner (+4), Streckenbelastung, Safety Car/VSC (-22, die Reifen kühlen aus) und Nässe. Zu heiß: 3,5 % mehr Verschleiß und 0,012 s Zeitverlust je Grad über dem Fenster; zu kalt (ab der zweiten Runde eines Satzes, etwa beim Restart): 0,022 s je Grad. Nach dem Stopp kommen die Reifen mit 80 °C aus den Heizdecken. Die KI fährt rund 90 % der Zeit im Fenster; Angriff im Windschatten überhitzt die Reifen (114 bis 118 °C).
 - **Tempo in fünf Stufen:** Reifen schonen (-0,65 % Pace, 28 % weniger Verschleiß, 5 % weniger Sprit), Ruhig, Standard, Zügig, Angriff (+0,45 % Pace, 32 % mehr Verschleiß, 2 % mehr Sprit). Die Seite *Fahren* zeigt die Wirkung jeder Stufe in Sekunden.
 - **Reifenmischungen:** Soft ist am schnellsten und nutzt sich schnell ab, Medium liegt etwa 0,8 s pro Runde dahinter, Hard 1,5 s, dafür hält Hard fast dreimal so lange. Harte Reifen brauchen länger zum Aufwärmen (Ausfahrt ca. 1 s langsamer). Die KI wählt Mischung und Stintlängen nach dem erwarteten Zeitverlust (Stintlänge passt zur Haltbarkeit, Zwei-Mischungen-Regel wird mit einem Stopp mehr erfüllt, wenn nötig); es fahren je nach Strecke etwa 15 bis 25 % der Runden auf Soft, 35 bis 45 % auf Medium und der Rest auf Hard.
