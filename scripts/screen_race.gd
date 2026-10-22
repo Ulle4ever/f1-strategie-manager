@@ -88,6 +88,7 @@ var goal_label: Label
 var goal_line: Label
 var decision_layer: Control
 var decision_card: PanelContainer
+var decision_chip: Button     # Handy: Hinweis oben, wenn eine Funkanfrage wartet und die Karte nicht sichtbar ist
 var decision_box: VBoxContainer
 var decision_data: Dictionary = {}
 var decision_car = null
@@ -116,6 +117,7 @@ var pit_when_key := ""
 var pit_touched := false      # Spieler hat im Assistenten etwas geändert (sonst folgt er dem nächsten geplanten Stopp)
 var pit_plan_sig := ""
 var pit_confirm_btn: Button
+var pit_add_btn: Button
 var pit_cancel_btn: Button
 var pit_edit_label: Label
 var pit_edit_reset: Button
@@ -198,7 +200,7 @@ func _ready() -> void:
 			pbox.add_child(dp)
 			driver_panels.append(dp)
 	center.add_child(pbox)
-	_build_decision_layer(null if M else mp)   # Handy: Karte über dem ganzen Bildschirm (sichtbar auf jedem Reiter)
+	_build_decision_layer(mp)   # über der Karte; am Handy auf anderen Reitern nur ein Hinweis oben (die Karte verdeckte sonst die Knöpfe)
 	var lp := U.panel(8)
 	lp.custom_minimum_size = Vector2(0, 62 if M else 150)
 	log_label = RichTextLabel.new()
@@ -234,6 +236,7 @@ func _ready() -> void:
 		race_tabs = race_main_tabs
 		U.compact_tabs(race_main_tabs, 9, 14)
 		race_main_tabs.current_tab = 1
+		race_main_tabs.tab_changed.connect(func(_i): _update_decision_chip())
 
 	# Startampel
 	lights = StartLights.new()
@@ -314,6 +317,12 @@ func _build_top() -> Control:
 	status_chip = U.chip("GRÜN", Color("14562f"), U.GOOD)
 	status_label = status_chip.get_child(0)
 	h.add_child(status_chip)
+	if M:
+		decision_chip = U.button("Funk ▸", _on_decision_chip, 0, 30)
+		decision_chip.add_theme_font_size_override("font_size", 12)
+		decision_chip.add_theme_color_override("font_color", U.WARN)
+		decision_chip.visible = false
+		h.add_child(decision_chip)
 	weather_label = U.label("", 14, U.MUTED)
 	weather_label.clip_text = true
 	weather_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -450,6 +459,25 @@ func _hide_decision() -> void:
 	decision_card.visible = false
 	decision_data = {}
 	decision_car = null
+	_update_decision_chip()
+
+
+## Handy: wartet eine Funkanfrage, während ein anderer Reiter als die Karte offen ist, erscheint oben ein Hinweis.
+func _update_decision_chip() -> void:
+	if decision_chip == null or race_main_tabs == null:
+		return
+	var on_map: bool = race_main_tabs.current_tab == 1
+	decision_chip.visible = decision_card.visible and not on_map
+	# die Karte ist am Handy niedrig: solange eine Anfrage offen ist, macht das Fahrer-Panel ihr Platz
+	for n in _hide_when_big:
+		(n as Control).visible = not map_big and not decision_card.visible
+	_place_decision.call_deferred()
+
+
+func _on_decision_chip() -> void:
+	if map_big:
+		_toggle_map_big()
+	race_main_tabs.current_tab = 1
 
 
 func _show_decision(c, d: Dictionary) -> void:
@@ -485,6 +513,7 @@ func _show_decision(c, d: Dictionary) -> void:
 		oc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		holder.add_child(oc)
 	decision_card.visible = true
+	_update_decision_chip()
 	_place_decision.call_deferred()
 	get_tree().create_timer(0.06).timeout.connect(_place_decision)
 	get_tree().create_timer(0.3).timeout.connect(_place_decision)
@@ -789,8 +818,14 @@ func _build_page_pit(M: bool) -> Control:
 	cv.add_child(U.section("Stopp planen", 13))
 	pit_edit_label = _wrap_label("", 12, U.BLUE, true)
 	cv.add_child(pit_edit_label)
-	pit_edit_reset = U.button("Änderung verwerfen", _on_edit_reset, 0, 30)
-	cv.add_child(pit_edit_reset)
+	var erow := U.hbox(5)
+	cv.add_child(erow)
+	pit_add_btn = U.button("+ Zusätzlicher Stopp", _on_add_stop, 0, 34)
+	pit_add_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	erow.add_child(pit_add_btn)
+	pit_edit_reset = U.button("Verwerfen", _on_edit_reset, 0, 34)
+	pit_edit_reset.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	erow.add_child(pit_edit_reset)
 	cv.add_child(_step_head("1", "Reifen"))
 	var brow := HFlowContainer.new()
 	brow.add_theme_constant_override("h_separation", 4)
@@ -1305,6 +1340,15 @@ func _on_edit_plan(lap: int, comp: int) -> void:
 	_plan_key = "x"
 
 
+## Neuen Stopp zusätzlich zu den geplanten anlegen (statt den nächsten geplanten zu ändern).
+func _on_add_stop() -> void:
+	pit_edit_lap = -1
+	pit_when_lap = -1          # wird auf die laufende Runde gesetzt
+	pit_touched = true
+	pit_when_key = ""
+	_plan_key = "x"
+
+
 func _on_edit_reset() -> void:
 	pit_edit_lap = -1
 	pit_when_lap = -1
@@ -1685,29 +1729,37 @@ func _update_car_pit(c) -> void:
 		if not has:
 			opts.append({"lap": pit_edit_lap, "t": "R%d\ngeplant" % pit_edit_lap})
 	opts.sort_custom(func(a, b): return int(a["lap"]) < int(b["lap"]))
-	var wkey := "%d|%d|%s" % [now_lap, pit_when_lap, str(opts.size())]
+	var wkey := "%d|%d|%s|%d" % [now_lap, pit_when_lap, str(opts.size()), int(racing)]
 	if wkey != pit_when_key:
 		pit_when_key = wkey
-		U.clear(pit_when_box)
-		for o4 in opts:
-			var wb := Button.new()
-			wb.toggle_mode = true
-			wb.text = str(o4["t"])
-			wb.custom_minimum_size = Vector2(70, 44)
-			wb.add_theme_font_size_override("font_size", 12)
-			wb.button_pressed = int(o4["lap"]) == pit_when_lap
+		# Knöpfe nur bei geänderter Anzahl neu anlegen, sonst beschriften: ein neu erzeugter Knopf verliert einen laufenden Fingertipp
+		if pit_when_box.get_child_count() != opts.size():
+			U.clear(pit_when_box)
+			for i in opts.size():
+				var nb := Button.new()
+				nb.toggle_mode = true
+				nb.custom_minimum_size = Vector2(70, 44)
+				nb.add_theme_font_size_override("font_size", 12)
+				nb.pressed.connect(func(): _on_when(int(nb.get_meta("lap"))))
+				pit_when_box.add_child(nb)
+		for i in opts.size():
+			var wb: Button = pit_when_box.get_child(i)
+			wb.set_meta("lap", int(opts[i]["lap"]))
+			wb.text = str(opts[i]["t"])
+			wb.set_pressed_no_signal(int(opts[i]["lap"]) == pit_when_lap)
 			wb.disabled = not racing
-			wb.pressed.connect(_on_when.bind(int(o4["lap"])))
-			pit_when_box.add_child(wb)
 	# Worauf sich der Assistent bezieht
 	if pit_edit_lap > 0 and pit_edit_lap == nxt:
 		pit_edit_label.text = "Nächster geplanter Stopp: Ende R%d. Hier änderst du Reifen und Zeitpunkt." % pit_edit_lap
 	elif pit_edit_lap > 0:
 		pit_edit_label.text = "Du änderst den geplanten Stopp am Ende von Runde %d." % pit_edit_lap
+	elif not c.plan.is_empty():
+		pit_edit_label.text = "Neuer Stopp zusätzlich zum Plan."
 	else:
 		pit_edit_label.text = "Kein Stopp geplant: hier planst du einen neuen."
 	pit_edit_label.visible = racing
 	pit_edit_reset.visible = pit_touched and racing
+	pit_add_btn.visible = racing and pit_edit_lap > 0
 	# Rennplan: Stints mit Prüfung, Ändern / Löschen
 	var pkey := "%s|%d|%d" % [c.plan_note, pit_edit_lap, int(racing)]
 	for e in checks:
@@ -1794,7 +1846,7 @@ func _update_car_pit(c) -> void:
 			pit_confirm_btn.text = "BOX ANGEFORDERT"
 			pit_confirm_btn.disabled = true
 		elif unchanged:
-			pit_confirm_btn.text = "PLAN: %s, %s" % [cn, when_s]
+			pit_confirm_btn.text = "GEPLANT: %s, %s" % [cn, when_s]
 			pit_confirm_btn.disabled = true
 		else:
 			pit_confirm_btn.text = ("ÄNDERN: %s, %s" if pit_edit_lap > 0 else "STOPP: %s, %s") % [cn, when_s]
@@ -1851,6 +1903,7 @@ func _toggle_map_big() -> void:
 	for n in _hide_when_big:
 		(n as Control).visible = not map_big
 	map.set_expanded(map_big)
+	_update_decision_chip()
 	_update_quick()
 	if U.is_mobile() and race_main_tabs != null:
 		race_main_tabs.tabs_visible = not map_big
