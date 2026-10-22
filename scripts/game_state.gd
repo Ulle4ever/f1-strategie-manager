@@ -32,6 +32,8 @@ var driver_points := {}
 var team_points := {}
 var wins := {}
 var history: Array = []      # je Rennen: {"name":..., "order":[Codes], "points":{id:pts}}
+var race_winners := {}       # Strecken-ID -> [{year, code, name, team, team_id}] (Sieger der Karriere, für die Intro-Karte)
+var intro_seen := ""         # Rennwochenende, dessen Intro-Karte schon gezeigt wurde (nicht gespeichert)
 var budget := 60.0
 var upgrades := {}
 var dev_pace := {}           # Team-ID -> Entwicklung (Pace-Zuwachs)
@@ -122,6 +124,7 @@ func _setup_base(base_year: int) -> void:
 	field_log = []
 	field_last_entry = -99
 	season_log = []
+	race_winners = {}
 	driver_points = {}
 	team_points = {}
 	wins = {}
@@ -416,6 +419,10 @@ func finish_race(sim) -> Dictionary:
 		team_points[c.team_id] = float(team_points.get(c.team_id, 0.0)) + p
 		if i == 0:
 			wins[did] = int(wins.get(did, 0)) + 1
+			var cid := str(calendar[round_index].get("circuitId", ""))
+			var lst: Array = race_winners.get(cid, [])
+			lst.append({"year": year, "code": c.code, "name": c.driver_name, "team": c.team_name, "team_id": c.team_id})
+			race_winners[cid] = lst.slice(maxi(0, lst.size() - 6))
 		gained[c.code] = p
 		rows.append({"pos": i + 1, "code": c.code, "name": c.driver_name, "team": c.team_name, "team_id": c.team_id, "color": c.color,
 			"points": p, "laps": c.finish_laps, "best": c.best_lap, "stops": c.pit_stops, "out": c.out_reason,
@@ -649,7 +656,7 @@ func save() -> void:
 		"history": history, "team_pace": pace, "drivers": drivers, "news": news, "market_log": market_log, "market_open": market_open,
 		"season_log": season_log, "team_meta": team_meta, "solo_code": solo_code, "board": board, "sponsor_id": sponsor_id, "season_goal_rank": season_goal_rank, "season_eval_done": season_eval_done,
 		"last_season_eval": last_season_eval, "pending_event": pending_event, "event_seen": event_seen, "event_last": event_last, "event_mods": event_mods,
-		"career_log": career_log, "career_race_no": career_race_no, "goal_log": goal_log, "finance_log": finance_log, "dev_spent": dev_spent, "cap_spent_fees": cap_spent_fees, "engines": engines, "crew_form": crew_form,
+		"career_log": career_log, "career_race_no": career_race_no, "goal_log": goal_log, "finance_log": finance_log, "dev_spent": dev_spent, "cap_spent_fees": cap_spent_fees, "engines": engines, "crew_form": crew_form, "race_winners": race_winners,
 		"saved_at": int(Time.get_unix_time_from_system()),
 	}
 	var f := FileAccess.open(SAVE_PATH, FileAccess.WRITE)
@@ -706,6 +713,7 @@ func load_game() -> bool:
 	cap_spent_fees = float(d.get("cap_spent_fees", 0.0))
 	engines = d.get("engines", {})
 	crew_form = float(d.get("crew_form", 0.0))
+	race_winners = d.get("race_winners", {})
 	solo_code = str(d.get("solo_code", ""))
 	board = float(d.get("board", 60.0))
 	sponsor_id = str(d.get("sponsor_id", ""))

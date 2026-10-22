@@ -10,6 +10,7 @@ const WeatherPanel = preload("res://scripts/weather_panel.gd")
 const BiasBar = preload("res://scripts/bias_bar.gd")
 const TeamCrest = preload("res://scripts/team_crest.gd")
 const StrategyPanel = preload("res://scripts/strategy_panel.gd")
+const DriverPhoto = preload("res://scripts/driver_photo.gd")
 
 var main
 var sim
@@ -40,6 +41,7 @@ func _ready() -> void:
 		Game.weekend_round = Game.round_index
 	else:
 		sim = Game.weekend_sim
+	_maybe_intro.call_deferred()
 
 	var head := U.hbox(12)
 	root.add_child(head)
@@ -359,52 +361,97 @@ func _on_auto_quali() -> void:
 
 
 func _grid_panel() -> Control:
-	var p := U.panel(14, U.ACCENT)
+	var M := U.is_mobile()
+	var p := U.dark_panel(10 if M else 14, U.ACCENT)
 	p.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var v := U.vbox(4)
+	var v := U.vbox(6)
 	p.add_child(v)
-	v.add_child(U.heading("Startaufstellung", 20))
+	v.add_child(U.heading("Startaufstellung", 18 if M else 20, U.ON_DARK))
 	var sc := ScrollContainer.new()
 	sc.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	v.add_child(sc)
-	var g := GridContainer.new()
-	g.columns = 6
-	g.add_theme_constant_override("h_separation", 12)
-	g.add_theme_constant_override("v_separation", 3)
-	g.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	sc.add_child(g)
+	# zwei versetzte Spalten wie auf der echten Startaufstellung
+	var cols := U.hbox(10)
+	cols.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	sc.add_child(cols)
+	var lc := U.vbox(5)
+	var rc := U.vbox(5)
+	for c2 in [lc, rc]:
+		c2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		cols.add_child(c2)
+	var sp := Control.new()
+	sp.custom_minimum_size = Vector2(0, 22 if M else 26)
+	rc.add_child(sp)
 	var order: Array = sim.grid_order()
 	var best: float = 0.0
 	for c in order:
 		if c.quali_time > 0.0 and (best == 0.0 or c.quali_time < best):
 			best = c.quali_time
-	for c in order:
-		var col: Color = U.WARN if c.is_player else U.TEXT
-		var pos := U.label(str(c.grid), 17, col, true)
-		pos.custom_minimum_size = Vector2(26, 0)
-		g.add_child(pos)
-		g.add_child(U.color_bar(c.color, 5, 20))
-		var nm := U.label("%s  %s" % [c.code, c.driver_name], 15, col, c.is_player)
-		nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		g.add_child(nm)
-		g.add_child(U.label(sim.fmt_time(c.quali_time) if c.quali_time > 0.0 else "ohne Zeit", 14, col))
-		g.add_child(U.label("" if c.quali_time <= 0.0 or is_equal_approx(c.quali_time, best) else "+%.3f" % (c.quali_time - best), 14, U.MUTED))
-		var note := HBoxContainer.new()
-		if c.grid_penalty > 0:
-			note.add_child(U.chip("-%d" % c.grid_penalty, U.ACCENT_DARK))
-		if c.forced_start >= 0:
-			var cd: Dictionary = RaceSim.COMPOUNDS[c.forced_start]
-			var cl := U.label(cd["short"], 14, cd["ink"], true)
-			note.add_child(cl)
-		g.add_child(note)
+	for i in order.size():
+		(lc if i % 2 == 0 else rc).add_child(_grid_slot(order[i], best, M))
 	return p
+
+
+## Ein Startplatz: Position, Teamfarbe, Foto, Kürzel und Name, Zeit bzw. Abstand, Strafe und Startreifen.
+func _grid_slot(c, best: float, M: bool) -> Control:
+	var card := PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(U.ACCENT, 0.22) if c.is_player else U.DARK2
+	sb.border_color = c.color
+	sb.border_width_left = 4
+	sb.set_corner_radius_all(4)
+	sb.content_margin_left = 6
+	sb.content_margin_right = 6
+	sb.content_margin_top = 3
+	sb.content_margin_bottom = 3
+	card.add_theme_stylebox_override("panel", sb)
+	var h := U.hbox(6)
+	card.add_child(h)
+	var pos := U.display(str(c.grid), 18 if M else 20, U.ON_DARK)
+	pos.custom_minimum_size = Vector2(24, 0)
+	pos.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	h.add_child(pos)
+	h.add_child(DriverPhoto.make(c.driver_id, 30.0 if M else 36.0))
+	var nv := U.vbox(-3)
+	nv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	h.add_child(nv)
+	nv.add_child(U.display(c.code, 14 if M else 16, U.ACCENT.lightened(0.2) if c.is_player else U.ON_DARK))
+	var sub: String = c.team_name if M else "%s  ·  %s" % [c.driver_name, c.team_name]
+	var nl := U.label(sub, 10 if M else 12, U.MUTED_DARK)
+	nl.clip_text = true
+	nv.add_child(nl)
+	var tv := U.vbox(-3)
+	h.add_child(tv)
+	var tl := U.label(sim.fmt_time(c.quali_time) if c.quali_time > 0.0 else "ohne Zeit", 11 if M else 13, U.ON_DARK, true)
+	tl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	tv.add_child(tl)
+	var gl := U.label("" if c.quali_time <= 0.0 or is_equal_approx(c.quali_time, best) else "+%.3f" % (c.quali_time - best), 10 if M else 12, U.MUTED_DARK)
+	gl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	tv.add_child(gl)
+	if c.grid_penalty > 0:
+		h.add_child(U.chip("-%d" % c.grid_penalty, U.BAD))
+	if c.forced_start >= 0:
+		var cd: Dictionary = RaceSim.COMPOUNDS[c.forced_start]
+		h.add_child(U.label(cd["short"], 13, cd["color"], true))
+	return card
 
 
 func _strategy_panel() -> Control:
 	var sp = StrategyPanel.new()
 	sp.setup(sim, laps)
 	return sp
+
+
+## Intro-Karte einmal pro Rennwochenende (beim ersten Öffnen), danach nicht mehr.
+func _maybe_intro() -> void:
+	var key := "%d-%d" % [Game.year, Game.round_index]
+	if not Game.active or Game.intro_seen == key or sim.quali_done:
+		return
+	Game.intro_seen = key
+	var ri = load("res://scripts/race_intro.gd").new()
+	ri.setup(track, sim, laps)
+	add_child(ri)
 
 
 func _on_start() -> void:
