@@ -57,18 +57,19 @@ func setup(p_sim, p_laps: int) -> void:
 	add_child(root)
 	if not U.is_mobile():
 		root.add_child(U.section("Strategie", 14))
+	var M := U.is_mobile()
 	var crow := U.hbox(6)
 	for i in cars.size():
 		var b := Button.new()
 		b.toggle_mode = true
-		b.text = cars[i].driver_name
+		b.text = cars[i].code if M else cars[i].driver_name
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.custom_minimum_size = Vector2(0, 30 if U.is_mobile() else 38)
 		b.add_theme_font_size_override("font_size", 14)
 		b.pressed.connect(_on_car.bind(i))
 		crow.add_child(b)
 		car_btns.append(b)
-	if cars.size() > 1:
+	if cars.size() > 1 or M:
 		root.add_child(crow)
 	tabs = TabContainer.new()
 	tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -77,6 +78,32 @@ func setup(p_sim, p_laps: int) -> void:
 	tyre_box = _tab("Reifen")
 	var_box = _tab("Varianten")
 	rule_box = _tab("Regeln")
+	if M:
+		# Handy: Fahrerwahl und Reiter in einer Zeile, damit der Inhalt Platz hat
+		tabs.tabs_visible = false
+		if cars.size() > 1:
+			var sep := VSeparator.new()
+			crow.add_child(sep)
+		var tbs: Array = []
+		for i in tabs.get_tab_count():
+			var tb := Button.new()
+			tb.toggle_mode = true
+			tb.text = tabs.get_tab_title(i)
+			tb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			tb.custom_minimum_size = Vector2(0, 30)
+			tb.add_theme_font_size_override("font_size", 13)
+			tb.add_theme_stylebox_override("pressed", U.tab_style("selected"))
+			tb.add_theme_stylebox_override("hover_pressed", U.tab_style("selected"))
+			tb.add_theme_color_override("font_pressed_color", U.ON_DARK)
+			tb.add_theme_color_override("font_hover_pressed_color", U.ON_DARK)
+			tb.set_pressed_no_signal(i == 0)
+			crow.add_child(tb)
+			tbs.append(tb)
+		for i in tbs.size():
+			tbs[i].pressed.connect(func(): tabs.current_tab = i)
+		tabs.tab_changed.connect(func(t: int):
+			for k in tbs.size():
+				tbs[k].set_pressed_no_signal(k == t))
 	_on_car(0)
 
 

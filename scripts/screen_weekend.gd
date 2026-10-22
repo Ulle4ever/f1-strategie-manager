@@ -47,7 +47,11 @@ func _ready() -> void:
 	tb.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(tb)
 	head.add_child(TeamCrest.make(Game.team_id, 40.0 if U.is_mobile() else 50.0))
-	head.add_child(U.dark_button("Zurück", func(): main.show_hub(), 120, 42))
+	if U.is_mobile() and sim.quali_done:
+		# Handy: Start-Knöpfe oben in der Kopfzeile statt in einer eigenen Fußzeile (mehr Platz für Aufstellung und Strategie)
+		head.add_child(U.dark_button("Sofort", _on_instant, 76, 40))
+		head.add_child(U.primary_button("START", _on_start, 96, 40))
+	head.add_child(U.dark_button("Zurück", func(): main.show_hub(), 84 if U.is_mobile() else 120, 42))
 
 	var entries := _left_entries()
 	if not sim.quali_done:
@@ -57,7 +61,7 @@ func _ready() -> void:
 		entries.append({"name": "Strategie", "node": _strategy_panel(), "min": 400.0, "self_scroll": true})
 	var cols := U.columns(entries, 14)
 	root.add_child(cols)
-	if sim.quali_done:
+	if sim.quali_done and not U.is_mobile():
 		var foot := U.hbox(12)
 		root.add_child(foot)
 		foot.add_child(U.spacer())

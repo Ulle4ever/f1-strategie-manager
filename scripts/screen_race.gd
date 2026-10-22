@@ -955,6 +955,7 @@ func _build_page_drive(M: bool) -> Control:
 		b.custom_minimum_size = Vector2(0, 38)
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.pressed.connect(_on_style.bind(i))
+		b.clip_text = M
 		srow.add_child(b)
 		style_buttons.append(b)
 	style_hint = _wrap_label("", 11, U.MUTED)
@@ -970,6 +971,7 @@ func _build_page_drive(M: bool) -> Control:
 		b.custom_minimum_size = Vector2(0, 38)
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.pressed.connect(_on_follow.bind(i == 1))
+		b.clip_text = M
 		frow.add_child(b)
 		follow_buttons.append(b)
 	follow_hint = _wrap_label("", 11, U.MUTED)
@@ -1013,6 +1015,7 @@ func _build_page_drive(M: bool) -> Control:
 		b.custom_minimum_size = Vector2(0, 38)
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.pressed.connect(_on_energy_mode.bind(i))
+		b.clip_text = M          # Handy: lieber kürzen als die Seite verbreitern
 		mrow.add_child(b)
 		mode_buttons.append(b)
 	mode_hint = _wrap_label("", 11, U.MUTED)
@@ -1037,6 +1040,7 @@ func _build_page_drive(M: bool) -> Control:
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.add_theme_font_size_override("font_size", 12)
 		b.tooltip_text = tips[i]
+		b.clip_text = M
 		trow.add_child(b)
 		order_buttons.append(b)
 	order_buttons.append(U.button("Befehle aufheben", _on_order.bind(3), 0, 30))

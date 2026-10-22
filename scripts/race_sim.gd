@@ -1702,6 +1702,16 @@ func _decide_pit(c: RaceCar, fl: int) -> void:
 						if ac.is_player:
 							make_log("radio", "Funk: %s versucht den Undercut gegen %s!" % [c.code, ac.code], c)
 		# Zwei-Mischungen-Regel
+	# KI ohne zweite Mischung und ohne weiteren geplanten Stopp: Pflichtstopp vor Schluss (Zwei-Mischungen-Regel)
+	if not do_pit and not c.is_player and int(rules["min_compounds"]) >= 2 and not rain_seen and c.compound < DRY_COUNT \
+			and c.used_compounds.size() < 2 and remaining <= 15 and remaining > 2 and c.state == State.RACING:
+		var planned := false
+		for s in c.plan:
+			if int(s["lap"]) > fl:
+				planned = true
+		if not planned:
+			do_pit = true
+			comp = 1 if c.compound != 1 else 0
 	if not do_pit:
 		return
 	if remaining <= 0:
@@ -1710,8 +1720,17 @@ func _decide_pit(c: RaceCar, fl: int) -> void:
 	var used: Array = c.used_compounds.duplicate()
 	if not used.has(comp):
 		used.append(comp)
-	if int(rules["min_compounds"]) >= 2 and used.size() < 2 and remaining <= 22 and not rain_seen and comp < DRY_COUNT:
-		comp = (c.compound + 1) % 3
+	# (spätestens beim letzten Stopp: kurz vor Schluss oder wenn danach kein weiterer Stopp geplant ist)
+	var later_stop := false
+	for s in c.plan:
+		if int(s["lap"]) > fl:
+			later_stop = true
+	var last_stop := not later_stop or life_eff(comp) * 0.95 >= float(remaining)
+	if int(rules["min_compounds"]) >= 2 and used.size() < 2 and not rain_seen and comp < DRY_COUNT:
+		if remaining <= 22:
+			comp = (c.compound + 1) % 3
+		elif not c.is_player and last_stop:
+			comp = 1 if c.compound != 1 else 2      # KI: haltbarste andere Mischung
 	_enter_pit(c, comp, fl)
 
 

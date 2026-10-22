@@ -68,7 +68,7 @@ func _ready() -> void:
 	head.add_child(bud)
 	var cap_v := U.vbox(2)
 	cap_v.custom_minimum_size = Vector2(130 if M else 190, 0)
-	cap_v.add_child(U.label("GEHÄLTER / LIMIT", 11, U.MUTED_DARK, true))
+	cap_v.add_child(U.label("GEHÄLTER %d / LIMIT" % Market.next_year(), 11, U.MUTED_DARK, true))
 	cap_label = U.label("", 14 if M else 18, U.ON_DARK, true)
 	cap_v.add_child(cap_label)
 	cap_bar = ProgressBar.new()
