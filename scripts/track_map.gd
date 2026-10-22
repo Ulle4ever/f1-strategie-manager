@@ -22,6 +22,8 @@ var dots: Array = []          # Qualifying: [{"pos": Vector2 (Welt), "color", "c
 var selected = null
 var show_drs := true
 var show_sectors := true
+var sector_style := 0                 # 0 = dezente Marken (Rennen), 1 = farbige Sektoren mit Beschriftung (Streckenansicht)
+const SECTOR_COLS := [Color("e8364b"), Color("2f7bf6"), Color("f2a900")]
 var interactive := false
 
 # Kamera
@@ -555,6 +557,13 @@ func _draw() -> void:
 	# Strecke: Schatten, Rand, Asphalt
 	draw_polyline(line, Color(0.05, 0.08, 0.2, 0.22), rw + 10.0, _aa)
 	draw_polyline(line, Color(0.99, 0.99, 1.0), rw + 3.5, _aa)
+	if show_sectors and sector_style == 1:
+		# Streckenrand in den Farben der drei Sektoren
+		for k in 3:
+			var sl := _line_points(track.length * float(k) / 3.0, track.length * float(k + 1) / 3.0, maxf(8.0, track.length / 600.0))
+			sl.append(to_screen(track.point_at(track.length * float(k + 1) / 3.0 - 0.5)))
+			if sl.size() > 1:
+				draw_polyline(sl, SECTOR_COLS[k], rw + 7.0, _aa)
 	draw_polyline(line, Color(0.27, 0.30, 0.37), rw - 1.5, _aa)
 	if racing:
 		# Gummispur wird mit den Runden dunkler, Nässe glänzt
@@ -590,7 +599,25 @@ func _draw() -> void:
 				draw_polyline(sg, Color(U.GOOD, 0.95), 2.5, _aa)
 	# Sektoren
 	var font := U.font(true)
-	if show_sectors:
+	if show_sectors and sector_style == 1:
+		# Sektorgrenzen als Querbalken, Beschriftung in der Mitte jedes Sektors
+		for k in 3:
+			var s0: float = track.length * float(k) / 3.0
+			if k > 0:
+				var bp := to_screen(track.point_at(s0))
+				var bt := _tangent_screen(s0)
+				var bn := Vector2(-bt.y, bt.x)
+				draw_line(bp - bn * (rw * 0.5 + 7.0), bp + bn * (rw * 0.5 + 7.0), Color.WHITE, 5.0)
+				draw_line(bp - bn * (rw * 0.5 + 6.0), bp + bn * (rw * 0.5 + 6.0), SECTOR_COLS[k], 3.0)
+			var mid: float = s0 + track.length / 6.0
+			var mt := _tangent_screen(mid)
+			var mp := to_screen(track.point_at(mid)) + Vector2(-mt.y, mt.x) * (rw * 0.5 + 16.0)
+			var txt := "S%d" % (k + 1)
+			var tw := font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
+			var br := Rect2(mp - Vector2(tw * 0.5 + 5.0, 9.0), Vector2(tw + 10.0, 18.0))
+			draw_rect(br, SECTOR_COLS[k])
+			draw_string(font, Vector2(br.position.x + 5.0, br.position.y + 13.5), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color.WHITE)
+	elif show_sectors:
 		for k in 2:
 			var sp := to_screen(track.point_at(track.length * float(k + 1) / 3.0))
 			draw_circle(sp, 4.0, U.tint(0.55))

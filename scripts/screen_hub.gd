@@ -12,6 +12,7 @@ const TeamCard = preload("res://scripts/team_card.gd")
 const Career = preload("res://scripts/career.gd")
 const Field = preload("res://scripts/field.gd")
 const NavRail = preload("res://scripts/nav_rail.gd")
+const Flag = preload("res://scripts/flag.gd")
 
 var cap_label: Label
 var cap_bar: ProgressBar
@@ -145,6 +146,7 @@ func _build_calendar() -> void:
 		var num := U.label("%02d" % int(r["round"]), 20, U.MUTED if done else U.TEXT, true)
 		num.custom_minimum_size = Vector2(36, 0)
 		h.add_child(num)
+		h.add_child(Flag.make(str(r["country"]), 18.0))
 		var col := U.vbox(0)
 		col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		col.add_child(U.label(str(r["name"]).to_upper(), 16, U.MUTED if done else U.TEXT, true))
@@ -539,9 +541,13 @@ func _build_next_race() -> Control:
 	var tag := U.hbox(8)
 	tag.add_child(U.chip("Runde %d / %d" % [Game.round_index + 1, Game.calendar.size()]))
 	v.add_child(tag)
+	var nrow := U.hbox(10)
+	nrow.add_child(Flag.make(str(race["country"]), 24.0 if U.is_mobile() else 28.0))
 	var nm := U.label(str(race["name"]).to_upper(), 26, U.TEXT, true)
 	nm.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	v.add_child(nm)
+	nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	nrow.add_child(nm)
+	v.add_child(nrow)
 	var cl := U.label("%s  |  %s, %s" % [race["circuit"], race["locality"], race["country"]], 13, U.MUTED)
 	cl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(cl)
@@ -551,6 +557,7 @@ func _build_next_race() -> Control:
 		return p
 	var laps := Game.race_laps(race, tr)
 	var map := TrackMap.new()
+	map.sector_style = 1
 	map.custom_minimum_size = Vector2(0, 250)
 	map.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	map.set_track(tr)

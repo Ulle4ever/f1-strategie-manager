@@ -11,6 +11,7 @@ const BiasBar = preload("res://scripts/bias_bar.gd")
 const TeamCrest = preload("res://scripts/team_crest.gd")
 const StrategyPanel = preload("res://scripts/strategy_panel.gd")
 const DriverPhoto = preload("res://scripts/driver_photo.gd")
+const Flag = preload("res://scripts/flag.gd")
 
 var main
 var sim
@@ -212,15 +213,45 @@ func _fit_row(d: Dictionary) -> Control:
 	return row
 
 
+## Sektoren der Strecke: Farbe wie auf der Karte, Länge und ungefährer Anteil an der Rundenzeit.
+func _sector_legend() -> Control:
+	var row := HFlowContainer.new()
+	row.add_theme_constant_override("h_separation", 6)
+	row.add_theme_constant_override("v_separation", 4)
+	var third: float = track.length / 3.0
+	for k in 3:
+		var t0: float = track.time_at(third * float(k))
+		var t1: float = track.time_at(third * float(k + 1)) if k < 2 else track.lap_ref
+		var c := PanelContainer.new()
+		var sb := U.button_style(Color(TrackMap.SECTOR_COLS[k], 0.12), TrackMap.SECTOR_COLS[k], 2, 4)
+		sb.content_margin_top = 3
+		sb.content_margin_bottom = 3
+		c.add_theme_stylebox_override("panel", sb)
+		var h := U.hbox(6)
+		c.add_child(h)
+		h.add_child(U.label("S%d" % (k + 1), 13, TrackMap.SECTOR_COLS[k].darkened(0.15), true))
+		h.add_child(U.label("%.2f km  ·  ca. %.1f s" % [third / 1000.0, t1 - t0], 12, U.TEXT))
+		row.add_child(c)
+	return row
+
+
 func _info_content() -> Control:
 	var v := U.vbox(8)
-	v.add_child(U.label(str(track.track_name).to_upper(), 22, U.TEXT, true))
+	var trow := U.hbox(10)
+	trow.add_child(Flag.make(str(track.country), 26.0))
+	var tn := U.label(str(track.track_name).to_upper(), 22, U.TEXT, true)
+	tn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	tn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	trow.add_child(tn)
+	v.add_child(trow)
 	v.add_child(U.label("%s, %s" % [track.locality, track.country], 14, U.MUTED))
 	var map := TrackMap.new()
+	map.sector_style = 1
 	map.custom_minimum_size = Vector2(0, 220)
 	map.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	map.set_track(track)
 	v.add_child(map)
+	v.add_child(_sector_legend())
 	var g := GridContainer.new()
 	g.columns = 3
 	g.add_theme_constant_override("h_separation", 18)
@@ -388,9 +419,43 @@ func _grid_panel() -> Control:
 	for c in order:
 		if c.quali_time > 0.0 and (best == 0.0 or c.quali_time < best):
 			best = c.quali_time
+	var slots: Array = []
 	for i in order.size():
-		(lc if i % 2 == 0 else rc).add_child(_grid_slot(order[i], best, M))
+		var slot := _grid_slot(order[i], best, M)
+		slot.modulate.a = 0.0
+		slots.append(slot)
+		(lc if i % 2 == 0 else rc).add_child(slot)
+	# Präsentation: sobald die Aufstellung sichtbar wird, erscheinen die Plätze nacheinander
+	var shown := [false]
+	var start := func():
+		if shown[0] or not p.is_visible_in_tree():
+			return
+		shown[0] = true
+		_animate_grid(slots)
+	p.visibility_changed.connect(start)
+	p.ready.connect(func(): start.call_deferred())
 	return p
+
+
+## Plätze von der Pole an nacheinander einblenden (leicht vergrößert hereinfedern), die Pole leuchtet danach kurz auf.
+func _animate_grid(slots: Array) -> void:
+	await get_tree().process_frame
+	for i in slots.size():
+		var s: Control = slots[i]
+		if not is_instance_valid(s):
+			return
+		s.pivot_offset = s.size * 0.5
+		s.scale = Vector2(1.12, 1.12)
+		var tw := s.create_tween().set_parallel(true)
+		tw.tween_property(s, "modulate:a", 1.0, 0.22).set_delay(0.05 * float(i))
+		tw.tween_property(s, "scale", Vector2.ONE, 0.32).set_delay(0.05 * float(i)).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	if slots.is_empty():
+		return
+	var pole: Control = slots[0]
+	var glow := pole.create_tween()
+	glow.tween_interval(0.05 * float(slots.size()) + 0.25)
+	glow.tween_property(pole, "self_modulate", Color(1.5, 1.4, 1.1), 0.18)
+	glow.tween_property(pole, "self_modulate", Color.WHITE, 0.45)
 
 
 ## Ein Startplatz: Position, Teamfarbe, Foto, Kürzel und Name, Zeit bzw. Abstand, Strafe und Startreifen.
