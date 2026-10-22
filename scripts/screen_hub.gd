@@ -90,6 +90,7 @@ func _ready() -> void:
 		cols.add_child(rail)
 		cols.move_child(rail, 0)
 	_refresh_budget()
+	load("res://scripts/anim.gd").count_label(budget_label)
 	if not Game.pending_event.is_empty() and not Game.event_seen:
 		_show_event_dialog.call_deferred()
 

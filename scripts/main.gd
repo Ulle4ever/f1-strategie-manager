@@ -3,6 +3,7 @@ extends Node
 ## Handy-Modus: kleinere virtuelle Bildschirmgröße (große Bedienelemente), Touch-Mindestgrößen, Hinweis zum Drehen.
 
 const U = preload("res://scripts/ui.gd")
+const Anim = preload("res://scripts/anim.gd")
 const StartScreen = preload("res://scripts/screen_start.gd")
 const HubScreen = preload("res://scripts/screen_hub.gd")
 const WeekendScreen = preload("res://scripts/screen_weekend.gd")
@@ -183,7 +184,8 @@ func apply_scale() -> void:
 		get_window().content_scale_size = U.mobile_base_size()
 
 
-## Knöpfe nehmen keinen Tastaturfokus an (kein Fokus-Zustand mit hellem Text nach dem Tippen).
+## Knöpfe nehmen keinen Tastaturfokus an (kein Fokus-Zustand mit hellem Text nach dem Tippen). Außerdem hängen hier die
+## Effekte an neuen Knoten: gleitende Reiter, Balken füllen sich, Milchglas, einklappbare Erklärtexte (siehe anim.gd).
 func _no_focus(n: Node) -> void:
 	if n is BaseButton:
 		(n as BaseButton).focus_mode = Control.FOCUS_NONE
@@ -191,6 +193,25 @@ func _no_focus(n: Node) -> void:
 			U.animate_button(n)
 	elif n is TabContainer:
 		U.animate_tabs(n)
+		Anim.glide_tabs.call_deferred(n)
+		Anim.frost.call_deferred(n)
+	elif n is ProgressBar:
+		Anim.bar_in.call_deferred(n)
+	elif n is PanelContainer:
+		Anim.frost.call_deferred(n)
+	elif n is Label:
+		_maybe_hint.call_deferred(n)
+
+
+## Lange graue Erklärtexte (nicht im Rennen/Qualifying, wo Werte laufend wechseln) einklappbar machen.
+func _maybe_hint(l: Label) -> void:
+	if not is_instance_valid(l) or not l.is_inside_tree() or l.autowrap_mode == TextServer.AUTOWRAP_OFF or l.text.length() < 80:
+		return
+	if current is RaceScreen or current is QualiScreen:
+		return
+	if l.get_theme_font_size("font_size") > 14 or not l.get_theme_color("font_color").is_equal_approx(U.MUTED):
+		return
+	Anim.make_hint(l)
 
 
 ## Alle Bedienelemente auf Fingergröße bringen.
@@ -242,6 +263,15 @@ func _switch(node: Control) -> void:
 	if node is Control:
 		(node as Control).position.x = 24.0
 		tw.tween_property(node, "position:x", 0.0, 0.28).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		_stagger_later(node)
+
+
+## Karten des neuen Bildschirms nacheinander hereinstaffeln, sobald das Layout steht.
+func _stagger_later(node: Control) -> void:
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if is_instance_valid(node) and node == current:
+		Anim.stagger_in(node)
 
 
 ## Akzentfarbe = Farbe des eigenen Teams (Karriere), sonst F1-Rot. Bei einem Wechsel wird das Theme neu gebaut.

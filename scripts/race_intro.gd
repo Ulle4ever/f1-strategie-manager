@@ -146,7 +146,9 @@ func _ready() -> void:
 			["Reifenabbau", sev_w], ["Überholen", ov_w], ["Regen", "%d %%" % int(sim.rain_chance * 100.0)]]:
 		var st := U.vbox(-2)
 		st.add_child(U.label(str(e[0]).to_upper(), 10 if M else 12, U.MUTED_DARK, true))
-		st.add_child(U.display(str(e[1]), 16 if M else 24, U.ON_DARK))
+		var dv := U.display(str(e[1]), 16 if M else 24, U.ON_DARK)
+		st.add_child(dv)
+		load("res://scripts/anim.gd").count_label(dv)
 		g.add_child(st)
 
 	# Ziel, WM-Stand, frühere Sieger

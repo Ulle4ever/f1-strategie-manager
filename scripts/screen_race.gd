@@ -8,6 +8,7 @@ const RaceSim = preload("res://scripts/race_sim.gd")
 const StartLights = preload("res://scripts/start_lights.gd")
 const Market = preload("res://scripts/market.gd")
 const TvOverlay = preload("res://scripts/tv_overlay.gd")
+const TyreIcon = preload("res://scripts/tyre_icon.gd")
 const StintBar = preload("res://scripts/stint_bar.gd")
 const FuelPlanBar = preload("res://scripts/fuel_plan_bar.gd")
 const DriverPanel = preload("res://scripts/driver_panel.gd")
@@ -855,7 +856,11 @@ func _build_page_pit(M: bool) -> Control:
 		var cd: Dictionary = RaceSim.COMPOUNDS[k]
 		b.toggle_mode = true
 		b.text = cd["name"]
-		b.custom_minimum_size = Vector2(58 if M else 62, 62)
+		b.custom_minimum_size = Vector2(58 if M else 62, 84)
+		b.icon = TyreIcon.texture(k, 24)
+		b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		b.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
+		b.add_theme_constant_override("h_separation", 2)
 		b.add_theme_color_override("font_color", cd["ink"])
 		b.add_theme_color_override("font_hover_color", cd["ink"])
 		b.add_theme_color_override("font_disabled_color", Color(cd["ink"], 0.35))
@@ -1262,6 +1267,16 @@ func _on_advice(action: String) -> void:
 func _on_pit_sel(k: int) -> void:
 	pit_sel = k
 	pit_touched = true
+	# gewählter Reifen federt kurz auf, die Vorschau blendet neu ein
+	if U.fx_on() and k < pit_buttons.size():
+		var b: Button = pit_buttons[k]
+		b.pivot_offset = b.size * 0.5
+		var tw := b.create_tween()
+		tw.tween_property(b, "scale", Vector2(1.12, 1.12), 0.08)
+		tw.tween_property(b, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		if pit_outlook != null:
+			pit_outlook.modulate.a = 0.0
+			pit_outlook.create_tween().tween_property(pit_outlook, "modulate:a", 1.0, 0.3)
 
 
 ## Zeitpunkt wählen (nur Auswahl, ausgeführt wird erst mit "Stopp bestätigen").
@@ -2149,6 +2164,8 @@ func _update_ui() -> void:
 	status_label.add_theme_color_override("font_color", chip_fg)
 	var sb: StyleBoxFlat = status_chip.get_theme_stylebox("panel")
 	sb.bg_color = chip_bg
+	# Safety Car / VSC: Marke pulsiert
+	status_chip.modulate.a = (0.6 + 0.4 * absf(sin(float(Time.get_ticks_msec()) / 220.0))) if sim.status != 0 else 1.0
 	weather_label.text = "%s  |  %d °C  |  %s" % [sim.weather_text(), int(round(sim.temp_race)), sim.forecast_text()]
 	var gcol: Color = U.TEXT
 	if sim.started:

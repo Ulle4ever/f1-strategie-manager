@@ -110,6 +110,32 @@ static func set_ui_level(l: int) -> void:
 	cf.save("user://settings.cfg")
 
 
+static var _fx := -1
+
+
+## Effekte (Animationen beim Öffnen, Hochzählen, lebendiger Hintergrund, wehende Flaggen, Milchglas) an oder aus;
+## gespeichert in user://settings.cfg. Aus = ruhiger und schonender für ältere Geräte. F1_FX=0 schaltet sie ab (Tests).
+static func fx_on() -> bool:
+	if _fx < 0:
+		_fx = 1
+		var env := OS.get_environment("F1_FX")
+		if env != "":
+			_fx = 1 if env == "1" else 0
+		else:
+			var cf := ConfigFile.new()
+			if cf.load("user://settings.cfg") == OK:
+				_fx = 1 if bool(cf.get_value("anzeige", "effekte", true)) else 0
+	return _fx == 1
+
+
+static func set_fx(on: bool) -> void:
+	_fx = 1 if on else 0
+	var cf := ConfigFile.new()
+	cf.load("user://settings.cfg")
+	cf.set_value("anzeige", "effekte", on)
+	cf.save("user://settings.cfg")
+
+
 ## Basisgröße des virtuellen Bildschirms im Handy-Modus.
 static func mobile_base_size() -> Vector2i:
 	var h: int = LEVEL_HEIGHTS[ui_level()]
@@ -456,6 +482,10 @@ static func primary_button(text: String, cb = null, min_w := 0, min_h := 50) -> 
 		b.add_theme_color_override(n, ACCENT_INK)
 	b.add_theme_color_override("font_disabled_color", Color(ACCENT_INK, 0.6))
 	b.add_theme_font_size_override("font_size", 19)
+	if fx_on():
+		b.clip_contents = true
+		var sh = load("res://scripts/shine.gd").new()
+		b.add_child(sh)
 	return b
 
 
@@ -692,7 +722,9 @@ static func screen_margin(screen: Control, m := 22) -> MarginContainer:
 static func stat(caption: String, value: String, col := TEXT) -> VBoxContainer:
 	var v := vbox(0)
 	v.add_child(label(caption.to_upper(), 11, MUTED, true))
-	v.add_child(display(value, 20, col))
+	var d := display(value, 20, col)
+	v.add_child(d)
+	load("res://scripts/anim.gd").count_label(d)      # Zahl zählt beim ersten Anzeigen hoch (Effekte an)
 	return v
 
 
@@ -739,7 +771,9 @@ static func animate_tabs(tc: TabContainer) -> void:
 			return
 		page.modulate.a = 0.0
 		var tw := page.create_tween()
-		tw.tween_property(page, "modulate:a", 1.0, 0.16))
+		tw.tween_property(page, "modulate:a", 1.0, 0.16)
+		# Inhalt des neuen Reiters staffelt sich herein (Effekte an)
+		load("res://scripts/anim.gd").stagger_in.call_deferred(page, 0.03, 18))
 
 
 ## Reifenwahl-Knopf: gewählt = dunkle Fläche mit Rand und Schrift in der Reifenfarbe (statt Akzentfläche, auf der Rot/Gelb verschwimmen).

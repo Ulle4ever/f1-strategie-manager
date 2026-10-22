@@ -24,7 +24,9 @@ func _ready() -> void:
 	head.add_child(tb)
 	var inc := U.vbox(0)
 	inc.add_child(U.label("BILANZ DIESES RENNENS", 11, U.MUTED, true))
-	inc.add_child(U.display("%+.1f Mio. $" % (float(res["income"]) - float(res.get("salaries", 0.0))), 22, U.GOOD))
+	var bal := U.display("%+.1f Mio. $" % (float(res["income"]) - float(res.get("salaries", 0.0))), 22, U.GOOD)
+	inc.add_child(bal)
+	load("res://scripts/anim.gd").count_label(bal)
 	inc.add_child(U.label("Einnahmen %.1f  |  Gehälter %.1f" % [float(res["income"]), float(res.get("salaries", 0.0))], 12, U.MUTED))
 	head.add_child(inc)
 	if M:

@@ -33,6 +33,11 @@ var _rank_timer := 0.0
 var _scroll := 0.0
 var _t := 0.0
 var compact := false
+var _status_prev := 0
+var _flag_kind := ""         # Banner: "sc", "vsc", "green"
+var _flag_t := 0.0
+var _flag_age := 99.0
+var _pits := {}              # Auto-Index -> {"car", "old", "new", "stat", "total", "end"} Boxenstopp-Grafik der eigenen Autos
 
 
 func _ready() -> void:
@@ -50,6 +55,10 @@ func _process(delta: float) -> void:
 	_toast_age += delta
 	_battle_age += delta
 	_scroll += delta * 55.0
+	_flag_t = maxf(0.0, _flag_t - delta)
+	_flag_age += delta
+	_poll_status()
+	_poll_pits(delta)
 	_poll_events()
 	_poll_laps()
 	_rank_timer -= delta
@@ -61,6 +70,40 @@ func _process(delta: float) -> void:
 
 
 # ------------------------------------------------------------------ Ereignisse sammeln
+
+## Safety Car / VSC / Grün: Wechsel des Rennstatus löst ein Banner aus.
+func _poll_status() -> void:
+	var st: int = sim.status
+	if st == _status_prev:
+		return
+	if st == 2 or st == 1:
+		_flag_kind = "sc" if st == 2 else "vsc"
+		_flag_t = 4.2
+		_flag_age = 0.0
+	elif _status_prev != 0 and st == 0 and sim.started:
+		_flag_kind = "green"
+		_flag_t = 3.0
+		_flag_age = 0.0
+	_status_prev = st
+
+
+## Boxenstopps der eigenen Autos verfolgen (für die Boxenstopp-Grafik, nach dem Stopp noch kurz sichtbar).
+func _poll_pits(delta: float) -> void:
+	for c in sim.cars:
+		if not c.is_player:
+			continue
+		if c.state == RaceSim.State.PIT:
+			if not _pits.has(c.index) or float(_pits[c.index]["end"]) >= 0.0:
+				_pits[c.index] = {"car": c, "old": c.compound, "new": c.pit_comp, "stat": c.pit_stat, "total": c.pit_total, "end": -1.0}
+			_pits[c.index]["new"] = c.pit_comp
+		elif _pits.has(c.index):
+			var e: Dictionary = _pits[c.index]
+			if float(e["end"]) < 0.0:
+				e["end"] = 2.6
+			else:
+				e["end"] = float(e["end"]) - delta
+				if float(e["end"]) <= 0.0:
+					_pits.erase(c.index)
 
 func _poll_events() -> void:
 	while _ev_index < sim.events.size():
@@ -233,7 +276,117 @@ func _draw() -> void:
 			top = _draw_toast(top) + 6.0
 		if _battle_t > 0.0 and not _battle.is_empty() and not tight:
 			_draw_battle(top)
+		if sim.status != 0:
+			_draw_sc_frame()
+		if not _pits.is_empty() and not tight:
+			_draw_pits(44.0 * _k() if not big else 8.0)
+		if _flag_t > 0.0:
+			_draw_flag_banner()
 	_draw_ticker()
+
+
+## Gelber Rahmen um die Karte, solange Safety Car oder VSC draußen sind (pulsiert).
+func _draw_sc_frame() -> void:
+	var a := 0.35 + 0.3 * absf(sin(_t * 3.0))
+	draw_rect(Rect2(Vector2(2, 2), size - Vector2(4, 4)), Color(YELLOW_HI, a), false, 4.0)
+
+
+## Banner in der Bildmitte oben: SAFETY CAR / VIRTUAL SAFETY CAR mit blinkenden Leuchten und laufenden Warnstreifen,
+## oder GRÜN, wenn das Rennen wieder freigegeben ist. Gleitet herein und blendet am Ende aus.
+func _draw_flag_banner() -> void:
+	var k := _k()
+	var mini := _mini()
+	var fd := _fd()
+	var e := _ease_in(_flag_age)
+	var a := clampf(_flag_t / 0.5, 0.0, 1.0)
+	var green := _flag_kind == "green"
+	var text := "GRÜN  ·  RENNEN FREI" if green else ("SAFETY CAR" if _flag_kind == "sc" else ("VSC" if mini else "VIRTUAL SAFETY CAR"))
+	var fs := int((16 if mini else 24) * k)
+	var tw := fd.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	var w := minf(tw + (90.0 if mini else 150.0) * k, size.x - 16.0)
+	var h := (30.0 if mini else 44.0) * k
+	var x := (size.x - w) * 0.5 - (1.0 - e) * (size.x * 0.5 + w)
+	var y := size.y * (0.2 if not mini else 0.32)
+	var r := Rect2(x, y, w, h)
+	var bg := Color("16a34a") if green else Color("facc15")
+	var ink := Color.WHITE if green else Color(0.05, 0.05, 0.08)
+	draw_rect(Rect2(r.position + Vector2(3, 4), r.size), Color(0, 0, 0, 0.25 * a))
+	draw_rect(r, Color(bg, a))
+	# laufende Warnstreifen an beiden Enden
+	var sw := (26.0 if mini else 42.0) * k
+	for side in 2:
+		var zx := r.position.x if side == 0 else r.end.x - sw
+		draw_rect(Rect2(zx, r.position.y, sw, h), Color(0.05, 0.05, 0.08, a) if not green else Color(1, 1, 1, 0.18 * a))
+		var off := fmod(_t * 40.0, 14.0)
+		var xx := zx - 14.0 + off
+		while xx < zx + sw:
+			var p0 := maxf(xx, zx)
+			var p1 := minf(xx + 7.0, zx + sw)
+			if p1 > p0:
+				draw_colored_polygon(PackedVector2Array([Vector2(p0, r.position.y), Vector2(p1, r.position.y), Vector2(maxf(p1 - 6.0, zx), r.end.y), Vector2(maxf(p0 - 6.0, zx), r.end.y)]), Color(bg, a) if not green else Color(1, 1, 1, 0.35 * a))
+			xx += 14.0
+	# blinkende Leuchten
+	if not green:
+		var on := fmod(_t, 0.5) < 0.25
+		var lr := 5.0 * k
+		draw_circle(Vector2(r.position.x + sw + 12.0 * k, r.position.y + h * 0.5), lr, Color(1.0, 0.55, 0.05, a if on else 0.25 * a))
+		draw_circle(Vector2(r.end.x - sw - 12.0 * k, r.position.y + h * 0.5), lr, Color(1.0, 0.55, 0.05, 0.25 * a if on else a))
+	draw_string(fd, Vector2(r.position.x + (w - tw) * 0.5, r.position.y + h * 0.5 + float(fs) * 0.36), text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(ink, a))
+
+
+## Boxenstopp-Grafik der eigenen Autos: Auto von oben, die vier Reifen wechseln nacheinander auf die neue Mischung,
+## Standzeit zählt mit; nach dem Stopp kurz die Endzeit.
+func _draw_pits(top: float) -> void:
+	var k := _k()
+	var mini := _mini()
+	var fd := _fd()
+	var y := top
+	for idx in _pits.keys():
+		var e: Dictionary = _pits[idx]
+		var c = e["car"]
+		var total: float = maxf(float(e["total"]), 0.1)
+		var stat: float = float(e["stat"])
+		var done := float(e["end"]) >= 0.0
+		var elapsed := total if done else total - float(c.pit_timer)
+		var t_in := maxf(0.0, (total - stat) * 0.45)
+		var u := clampf((elapsed - t_in) / maxf(stat, 0.1), 0.0, 1.0)     # Fortschritt der Standzeit
+		var phase := "STOPP" if u > 0.0 and u < 1.0 else ("EINFAHRT" if u <= 0.0 else "AUSFAHRT")
+		if done:
+			phase = "FERTIG"
+		var w := (170.0 if mini else 230.0) * k
+		var h := (52.0 if mini else 66.0) * k
+		var a := clampf(float(e["end"]) / 0.5, 0.0, 1.0) if done else 1.0
+		var r := Rect2(8.0, y, w, h)
+		_slab(r, YELLOW_HI if not done else GREEN_HI, a)
+		draw_rect(Rect2(r.position + Vector2(0, 2), Vector2(5.0 * k, h - 2.0)), Color(c.color, a))
+		var fs := int((13 if mini else 16) * k)
+		draw_string(fd, Vector2(r.position.x + 12.0 * k, r.position.y + 18.0 * k), c.code, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(WHITE, a))
+		_txt(Vector2(r.position.x + 12.0 * k, r.position.y + 32.0 * k), phase, int(10 * k), Color(YELLOW_HI if not done else GREEN_HI, a))
+		# Standzeit
+		var shown := stat * u if not done else stat
+		var ts := "%.1f s" % shown
+		draw_string(fd, Vector2(r.position.x + 12.0 * k, r.end.y - 7.0 * k), ts, HORIZONTAL_ALIGNMENT_LEFT, -1, int((15 if mini else 19) * k), Color(WHITE, a))
+		# Auto von oben mit vier Reifen
+		var cw := (60.0 if mini else 84.0) * k
+		var ch := h - 14.0 * k
+		var cr := Rect2(r.end.x - cw - 12.0 * k, r.position.y + 7.0 * k, cw, ch)
+		var body := Rect2(cr.position + Vector2(cw * 0.18, ch * 0.32), Vector2(cw * 0.64, ch * 0.36))
+		draw_rect(body, Color(c.color, a))
+		draw_rect(Rect2(body.end.x, body.position.y + body.size.y * 0.3, cw * 0.1, body.size.y * 0.4), Color(c.color, a))
+		var tr := minf(ch * 0.2, 9.0 * k)
+		var spots := [Vector2(0.24, 0.16), Vector2(0.76, 0.16), Vector2(0.24, 0.84), Vector2(0.76, 0.84)]
+		for i in 4:
+			var swap_at := 0.15 + 0.2 * float(i)
+			var changed := done or u > swap_at
+			var comp: int = int(e["new"]) if changed else int(e["old"])
+			var pop := 1.0
+			if changed and not done and u < swap_at + 0.12:
+				pop = 1.0 + 0.5 * sin((u - swap_at) / 0.12 * PI)
+			var cdv: Dictionary = RaceSim.COMPOUNDS[comp]
+			var pc := cr.position + Vector2(cw * spots[i].x, ch * spots[i].y)
+			draw_circle(pc, tr * pop, Color(cdv["color"], a))
+			draw_circle(pc, tr * pop * 0.55, Color(0.06, 0.07, 0.1, a))
+		y = r.end.y + 6.0
 
 
 ## Fahrerkarte unten links: Foto, Position, Kürzel, Tempo, Reifen, Batterie, Abstand, Sektoren.

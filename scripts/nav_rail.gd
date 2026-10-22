@@ -8,6 +8,8 @@ const Icon = preload("res://scripts/icon.gd")
 
 var tc: TabContainer
 var _btns: Array = []
+var _marker: Panel = null
+var _vbox: VBoxContainer = null
 
 
 func setup(p_tc: TabContainer, items: Array) -> void:
@@ -30,7 +32,26 @@ func setup(p_tc: TabContainer, items: Array) -> void:
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	v.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	sc.add_child(v)
+	# Halter ohne eigenes Layout: Liste füllt ihn, die Markierung liegt frei darin
+	var holder := Control.new()
+	holder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	holder.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	sc.add_child(holder)
+	holder.add_child(v)
+	U.fill(v)
+	v.minimum_size_changed.connect(func(): holder.custom_minimum_size = v.get_combined_minimum_size())
+	_vbox = v
+	# gleitende Markierung hinter dem gewählten Eintrag
+	_marker = Panel.new()
+	var ms := StyleBoxFlat.new()
+	ms.bg_color = Color(U.ACCENT, 0.16)
+	ms.set_corner_radius_all(4)
+	ms.border_color = U.ACCENT
+	ms.border_width_left = 3
+	_marker.add_theme_stylebox_override("panel", ms)
+	_marker.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_marker.top_level = false
+	_marker.visible = false
 	for it in items:
 		var idx := -1
 		for i in tc.get_tab_count():
@@ -78,14 +99,40 @@ func setup(p_tc: TabContainer, items: Array) -> void:
 			b.add_child(dot)
 		b.pressed.connect(func(): tc.current_tab = idx)
 		v.add_child(b)
-		_btns.append({"idx": idx, "ps": ps, "icon": ic, "label": l})
+		_btns.append({"idx": idx, "ps": ps, "icon": ic, "label": l, "btn": b})
+	holder.add_child(_marker)
+	holder.move_child(_marker, 0)
+	holder.custom_minimum_size = v.get_combined_minimum_size()
 	tc.tab_changed.connect(func(_t: int): _refresh())
 	_refresh()
+	resized.connect(func(): _move_marker(false))
 
 
 func _refresh() -> void:
+	_move_marker.call_deferred(true)
 	for e in _btns:
 		var on: bool = int(e["idx"]) == tc.current_tab
-		e["ps"].bg_color = Color(U.ACCENT, 0.16) if on else Color(0, 0, 0, 0)
+		e["ps"].bg_color = Color(0, 0, 0, 0) if _marker != null else (Color(U.ACCENT, 0.16) if on else Color(0, 0, 0, 0))
 		e["icon"].set_color(U.ACCENT_TEXT if on else U.MUTED)
 		e["label"].add_theme_color_override("font_color", U.TEXT if on else U.MUTED)
+
+
+## Markierung hinter den gewählten Eintrag schieben (gleitend, wenn Effekte an).
+func _move_marker(animate: bool) -> void:
+	if _marker == null or not is_instance_valid(_marker):
+		return
+	for e in _btns:
+		if int(e["idx"]) != tc.current_tab:
+			continue
+		var b: Control = e["btn"]
+		if b.size.y <= 0.0:
+			return
+		var target := Rect2(b.position + Vector2(2, 0), Vector2(b.size.x - 4.0, b.size.y))
+		if not _marker.visible or not animate or not U.fx_on():
+			_marker.position = target.position
+			_marker.size = target.size
+			_marker.visible = true
+			return
+		var tw := _marker.create_tween().set_parallel(true)
+		tw.tween_property(_marker, "position", target.position, 0.26).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		tw.tween_property(_marker, "size", target.size, 0.26).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)

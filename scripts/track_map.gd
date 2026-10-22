@@ -904,6 +904,27 @@ func _draw_sim_cars(rw: float, font: Font) -> void:
 			draw_arc(pos, (len_px * 0.7 if shapes else 14.0) + 2.4, 0.0, TAU, 28, U.ACCENT, 1.6)
 		if c.is_player or rank < 3 or (shapes and zoom >= 5.0) or c == selected:
 			_label_chip(pos, c.code, c.color, rank + 1)
+	if sim.status == 2 and not ranking.is_empty():
+		_draw_safety_car(ranking[0], len_px, shapes)
+
+
+## Safety Car etwa 140 m vor dem Führenden: weißes Auto bzw. Punkt mit blinkender Lichtleiste und Marke "SC".
+func _draw_safety_car(leader, len_px: float, shapes: bool) -> void:
+	var s: float = fposmod(_vdist(leader) + 140.0, track.length)
+	var pos := to_screen(track.point_at(s))
+	var ang := _tangent_screen(s).angle()
+	var on := fmod(_t, 0.5) < 0.25
+	if shapes:
+		_draw_car_shape(pos, ang, len_px, Color(0.96, 0.96, 0.98), Color(0.2, 0.2, 0.22), false)
+		var t := Vector2(cos(ang), sin(ang))
+		var nn := Vector2(-t.y, t.x)
+		draw_line(pos - nn * len_px * 0.18, pos, Color(1.0, 0.6, 0.0) if on else Color(0.2, 0.9, 0.3), 3.0)
+		draw_line(pos, pos + nn * len_px * 0.18, Color(0.2, 0.9, 0.3) if on else Color(1.0, 0.6, 0.0), 3.0)
+	else:
+		draw_circle(pos, 10.0, Color(1.0, 0.6, 0.0, 0.35 if on else 0.15))
+		draw_circle(pos, 6.5, Color.WHITE)
+		draw_circle(pos, 4.0, Color(1.0, 0.6, 0.0) if on else Color(0.95, 0.75, 0.1))
+	_label_chip(pos, "SC", Color("facc15"), 0)
 
 
 func _draw_dots(font: Font) -> void:

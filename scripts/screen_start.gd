@@ -21,6 +21,7 @@ var field_dynamic := true
 var field_button: Button
 var mode_button: Button
 var size_button: Button
+var fx_button: Button
 var year_button: Button
 var picker: Control = null
 var teams: Array = []
@@ -76,9 +77,36 @@ func _ready() -> void:
 	if not M:
 		top.add_child(U.button("Sicherung kopieren", _on_backup_copy, 170, 42))
 		top.add_child(U.button("Sicherung einfügen", _on_backup_paste, 170, 42))
+	fx_button = U.button("", _on_fx, 140, 42)
+	fx_button.toggle_mode = true
+	fx_button.set_pressed_no_signal(U.fx_on())
+	fx_button.text = _fx_text()
 	if M:
-		size_button = U.button("Größe: %s" % U.LEVEL_NAMES[U.ui_level()], _on_size, 120, 42)
-		top.add_child(size_button)
+		# Handy: Größe und Effekte hinter einem Zahnrad-Knopf (spart Breite in der Kopfzeile)
+		size_button = U.button("Größe: %s" % U.LEVEL_NAMES[U.ui_level()], _on_size, 140, 42)
+		var gear := U.button("", null, 46, 42)
+		var gi = load("res://scripts/icon.gd").make("gear", 20.0, U.TEXT)
+		gi.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		gi.offset_left = 12
+		gi.offset_right = -12
+		gi.offset_top = 10
+		gi.offset_bottom = -10
+		gear.add_child(gi)
+		top.add_child(gear)
+		var pop := U.panel(8)
+		pop.visible = false
+		pop.z_index = 10
+		var pv := U.vbox(6)
+		pop.add_child(pv)
+		pv.add_child(size_button)
+		pv.add_child(fx_button)
+		add_child(pop)
+		gear.pressed.connect(func():
+			pop.visible = not pop.visible
+			pop.reset_size()
+			pop.position = Vector2(gear.get_global_rect().end.x - pop.size.x, gear.get_global_rect().end.y + 6.0) - get_global_rect().position)
+	else:
+		top.add_child(fx_button)
 
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -263,6 +291,17 @@ func _on_year(_i: int) -> void:
 		grid.add_child(b)
 		team_buttons[t["id"]] = b
 		rank += 1
+
+
+func _fx_text() -> String:
+	return ("Effekte " if U.is_mobile() else "Effekte: ") + ("an" if U.fx_on() else "aus")
+
+
+## Effekte an/aus (Animationen, lebendiger Hintergrund, Milchglas); wirkt ab dem nächsten Bildschirm.
+func _on_fx() -> void:
+	U.set_fx(not U.fx_on())
+	fx_button.set_pressed_no_signal(U.fx_on())
+	fx_button.text = _fx_text()
 
 
 func _on_size() -> void:

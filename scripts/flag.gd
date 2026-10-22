@@ -1,8 +1,22 @@
 extends Control
 ## Nationalflagge eines Rennlandes, im Code gezeichnet (vereinfacht, Seitenverhältnis 3:2, keine Bilddateien).
 ## country = Ländername wie in den Strecken- und Saisondaten ("Italy", "UK", "USA", "Saudi Arabia" ...).
+## Mit Effekten weht die Flagge: alle Flaggen werden einmal in eine Atlas-Textur gezeichnet, jede Flagge dann in
+## schmalen Streifen mit Wellenversatz und Schattierung (günstig auch bei vielen Flaggen).
+
+const U = preload("res://scripts/ui.gd")
+const COUNTRIES := ["Australia", "USA", "Bahrain", "Azerbaijan", "India", "Spain", "Japan", "Germany", "Hungary", "Italy",
+	"Brazil", "Turkey", "Saudi Arabia", "Qatar", "France", "Singapore", "Monaco", "Portugal", "Austria", "Mexico", "Malaysia",
+	"China", "UK", "Russia", "Belgium", "Canada", "UAE", "Korea", "Netherlands"]
+const CELL := Vector2(120, 80)
+const COLS := 8
 
 var country := ""
+var _t := 0.0
+var _acc := 0.0
+
+static var _atlas: SubViewport = null
+static var _atlas_frame := 0
 
 
 static func make(p_country: String, h := 16.0) -> Control:
@@ -16,13 +30,75 @@ static func make(p_country: String, h := 16.0) -> Control:
 
 
 static func known(p_country: String) -> bool:
-	return p_country in ["Australia", "USA", "Bahrain", "Azerbaijan", "India", "Spain", "Japan", "Germany", "Hungary", "Italy",
-		"Brazil", "Turkey", "Saudi Arabia", "Qatar", "France", "Singapore", "Monaco", "Portugal", "Austria", "Mexico", "Malaysia",
-		"China", "UK", "Russia", "Belgium", "Canada", "UAE", "Korea", "Netherlands"]
+	return p_country in COUNTRIES
+
+
+## Atlas aller Flaggen (einmal gerendert, bleibt im Baum).
+static func _ensure_atlas() -> void:
+	if _atlas != null:
+		return
+	var tree := Engine.get_main_loop() as SceneTree
+	if tree == null:
+		return
+	_atlas = SubViewport.new()
+	_atlas.size = Vector2i(int(CELL.x) * COLS, int(CELL.y) * int(ceil(float(COUNTRIES.size()) / float(COLS))))
+	_atlas.transparent_bg = true
+	_atlas.disable_3d = true
+	_atlas.render_target_update_mode = SubViewport.UPDATE_ONCE
+	var painter := Control.new()
+	painter.size = Vector2(_atlas.size)
+	painter.draw.connect(func():
+		for i in COUNTRIES.size():
+			draw_flag(painter, _slot(i), COUNTRIES[i]))
+	_atlas.add_child(painter)
+	tree.root.add_child.call_deferred(_atlas)
+	_atlas_frame = Engine.get_process_frames() + 4
+
+
+static func _slot(i: int) -> Rect2:
+	return Rect2(Vector2(float(i % COLS) * CELL.x + 1.0, float(i / COLS) * CELL.y + 1.0), CELL - Vector2(2, 2))
+
+
+static func _atlas_ready() -> bool:
+	return _atlas != null and _atlas.is_inside_tree() and Engine.get_process_frames() > _atlas_frame
+
+
+func _ready() -> void:
+	if U.fx_on():
+		_ensure_atlas()
+		_t = randf() * 3.0
+
+
+func _process(delta: float) -> void:
+	if not U.fx_on() or not is_visible_in_tree():
+		return
+	_t += delta
+	_acc += delta
+	if _acc >= 1.0 / 24.0:
+		_acc = 0.0
+		queue_redraw()
 
 
 func _draw() -> void:
-	draw_flag(self, Rect2(Vector2.ZERO, size), country)
+	var idx := COUNTRIES.find(country)
+	if not U.fx_on() or idx < 0 or not _atlas_ready():
+		draw_flag(self, Rect2(Vector2.ZERO, size), country)
+		return
+	# Wehen: links am Mast ruhig, nach rechts zunehmende Welle; Wellenkämme etwas heller, Täler dunkler
+	var tex := _atlas.get_texture()
+	var src := _slot(idx)
+	var n := clampi(int(size.x / 3.0), 6, 22)
+	var amp := size.y * 0.07
+	for i in n:
+		var f0 := float(i) / float(n)
+		var f1 := float(i + 1) / float(n)
+		var ph := _t * 4.2 - f0 * 6.0
+		var k := 0.25 + 0.75 * f0
+		var dy := sin(ph) * amp * k
+		var shade := 1.0 + 0.13 * cos(ph) * k
+		var sr := Rect2(src.position.x + src.size.x * f0, src.position.y, src.size.x * (f1 - f0), src.size.y)
+		var dr := Rect2(size.x * f0, amp + dy, size.x * (f1 - f0) + 0.7, size.y - amp * 2.0)
+		draw_texture_rect_region(tex, dr, sr, Color(shade, shade, shade))
 
 
 static func _hbands(ci: CanvasItem, r: Rect2, cols: Array, weights := []) -> void:
