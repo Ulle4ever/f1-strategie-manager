@@ -53,3 +53,114 @@ virgin.png  <-  File:Virginracing.png
   Lizenz: Public domain  |  Urheber: Unknown authorUnknown author
   Seite: https://commons.wikimedia.org/wiki/File%3AVirginracing.png
 
+
+
+Weitere Team-Logos von Wikipedia (viele nicht frei lizenziert, z. B. "Fair use"). Auf Wunsch des Spielers eingebunden, nur zur Darstellung im Spiel; teils auf das Emblem zugeschnitten.
+
+alfa.png  <-  File:AlfaRomeoF1Stake.svg
+  Lizenz: Public domain  |  Urheber: Sauber Motorsport AG
+  Seite: https://commons.wikimedia.org/wiki/File:AlfaRomeoF1Stake.svg
+
+alphatauri.png  <-  File:Scuderia Alpha-Tauri.svg
+  Lizenz: Fair use  |  Urheber: ?
+  Seite: https://en.wikipedia.org/wiki/File:Scuderia_Alpha-Tauri.svg
+
+aston_martin.png  <-  File:Aston Martin F1 Team logo 2024.jpg
+  Lizenz: CC BY 4.0  |  Urheber: Unknown authorUnknown author
+  Seite: https://commons.wikimedia.org/wiki/File:Aston_Martin_F1_Team_logo_2024.jpg
+
+bar.png  <-  File:British american racing logo.png
+  Lizenz: Fair use  |  Urheber: ?
+  Seite: https://en.wikipedia.org/wiki/File:British_american_racing_logo.png
+
+benetton.png  <-  File:Benetton Formula logo.jpg
+  Lizenz: Fair use  |  Urheber: ?
+  Seite: https://en.wikipedia.org/wiki/File:Benetton_Formula_logo.jpg
+
+bmw_sauber.png  <-  File:BMW Sauber Logo.svg
+  Lizenz: Public domain  |  Urheber: This W3C-unspecified vector image was created with Inkscape by Lispir (Lispir) .
+  Seite: https://commons.wikimedia.org/wiki/File:BMW_Sauber_Logo.svg
+
+brawn.png  <-  File:Brawn GP logo.svg
+  Lizenz: Public domain  |  Urheber: Brawn GP
+  Seite: https://commons.wikimedia.org/wiki/File:Brawn_GP_logo.svg
+
+ferrari.png  <-  File:Scuderia Ferrari HP logo 24.svg
+  Lizenz: Fair use  |  Urheber: ?
+  Seite: https://en.wikipedia.org/wiki/File:Scuderia_Ferrari_HP_logo_24.svg
+
+force_india.png  <-  File:Force India.svg
+  Lizenz: Fair use  |  Urheber: ?
+  Seite: https://en.wikipedia.org/wiki/File:Force_India.svg
+
+honda.png  <-  File:Logo Honda F1 Racing.svg
+  Lizenz: Public domain  |  Urheber: Unknown authorUnknown author
+  Seite: https://commons.wikimedia.org/wiki/File:Logo_Honda_F1_Racing.svg
+
+hrt.png  <-  File:HRT F1 TEAM 2012.svg
+  Lizenz: Public domain  |  Urheber: Unknown authorUnknown author
+  Seite: https://commons.wikimedia.org/wiki/File:HRT_F1_TEAM_2012.svg
+
+jaguar.png  <-  File:JaguarRacing2000.svg
+  Lizenz: PD  |  Urheber: Unknown author
+  Seite: https://en.wikipedia.org/wiki/File:JaguarRacing2000.svg
+
+jordan.png  <-  File:Jordan Grand Prix logo.png
+  Lizenz: Fair use  |  Urheber: ?
+  Seite: https://en.wikipedia.org/wiki/File:Jordan_Grand_Prix_logo.png
+
+lotus_f1.png  <-  File:Lotus F1 Team logo.png
+  Lizenz: Fair use  |  Urheber: ?
+  Seite: https://en.wikipedia.org/wiki/File:Lotus_F1_Team_logo.png
+
+lotus_racing.png  <-  File:Lotus f1 racing.svg
+  Lizenz: Fair use  |  Urheber: ?
+  Seite: https://en.wikipedia.org/wiki/File:Lotus_f1_racing.svg
+
+marussia.png  <-  File:Marussia F1.png
+  Lizenz: Fair use  |  Urheber: ?
+  Seite: https://en.wikipedia.org/wiki/File:Marussia_F1.png
+
+mf1.png  <-  File:Midland F1 Racing logo.png
+  Lizenz: Fair use  |  Urheber: ?
+  Seite: https://en.wikipedia.org/wiki/File:Midland_F1_Racing_logo.png
+
+minardi.png  <-  File:Minardi logo.png
+  Lizenz: Fair use  |  Urheber: ?
+  Seite: https://en.wikipedia.org/wiki/File:Minardi_logo.png
+
+prost.png  <-  File:Prost Grand Prix Formula One Logo.png
+  Lizenz: CC BY-SA 4.0  |  Urheber: https://www.freepng.es/
+  Seite: https://commons.wikimedia.org/wiki/File:Prost_Grand_Prix_Formula_One_Logo.png
+
+racing_point.png  <-  File:Racing Point.svg
+  Lizenz: Public domain  |  Urheber: Racing Point UK Limited
+  Seite: https://commons.wikimedia.org/wiki/File:Racing_Point.svg
+
+rb.png  <-  File:VCARB F1 logo.svg
+  Lizenz: Fair use  |  Urheber: ?
+  Seite: https://en.wikipedia.org/wiki/File:VCARB_F1_logo.svg
+
+red_bull.png  <-  File:Red Bull Racing Logo 2026.svg
+  Lizenz: Fair use  |  Urheber: ?
+  Seite: https://en.wikipedia.org/wiki/File:Red_Bull_Racing_Logo_2026.svg
+
+renault.png  <-  File:Renault F1 Team logo 2019.svg
+  Lizenz: Fair use  |  Urheber: ?
+  Seite: https://en.wikipedia.org/wiki/File:Renault_F1_Team_logo_2019.svg
+
+spyker.png  <-  File:Spyker F1 Team logo.png
+  Lizenz: Fair use  |  Urheber: ?
+  Seite: https://en.wikipedia.org/wiki/File:Spyker_F1_Team_logo.png
+
+spyker_mf1.png  <-  File:Spyker F1 Team logo.png
+  Lizenz: Fair use  |  Urheber: ?
+  Seite: https://en.wikipedia.org/wiki/File:Spyker_F1_Team_logo.png
+
+toro_rosso.png  <-  File:Scuderia Toro Rosso logo.svg
+  Lizenz: Fair use  |  Urheber: ?
+  Seite: https://en.wikipedia.org/wiki/File:Scuderia_Toro_Rosso_logo.svg
+
+toyota.png  <-  File:Panasonic Toyota Racing logo.svg
+  Lizenz: Public domain  |  Urheber: Panasonic Toyota Racing
+  Seite: https://commons.wikimedia.org/wiki/File:Panasonic_Toyota_Racing_logo.svg
