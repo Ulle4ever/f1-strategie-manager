@@ -109,6 +109,21 @@ func _ready() -> void:
 		entries.insert(1, {"name": "Entscheidungen", "node": _decisions_panel(decs), "min": 340.0, "self_scroll": true})
 	var cols := U.columns(entries, 14)
 	root.add_child(cols)
+	_maybe_press.call_deferred()
+
+
+## Pressekonferenz einmal nach jedem Rennen der Karriere.
+func _maybe_press() -> void:
+	var res: Dictionary = Game.last_result
+	if not Game.active or bool(res.get("press_done", false)):
+		return
+	res["press_done"] = true
+	var qs: Array = load("res://scripts/press.gd").questions(res)
+	if qs.is_empty():
+		return
+	var dlg = load("res://scripts/press_dialog.gd").new()
+	dlg.qs = qs
+	add_child(dlg)
 
 
 ## Deine Entscheidungen im Rennen mit der Auswertung.

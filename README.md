@@ -96,6 +96,13 @@ Das Teamfeld bleibt über die Karriere nicht gleich (`field.gd`; auf dem Startbi
 - **Reiter Lage:** Rennplan beider Autos als Zeitleiste mit Regenprognose (blau) und Safety-Car-Phasen (gelb); ein Tipp auf eine Stopp-Marke öffnet die Änderung im Reiter Boxen. Darunter das Gegner-Radar: Autos rund um dich mit Abstand, Reifen, Reifenrest, erwartetem Stopp und Undercut-Warnung.
 - **Im Rennen:** Funkanweisungen (Push 3 Runden, Reifen managen, Lift & Coast), Fahrer-Rückmeldung zum Reifenzustand, Sätze-Anzeige im Reifenwahl-Fenster, Regeln auch auf der Seite "Fahren" schaltbar.
 
+## Atmosphäre und Pressekonferenz
+- **Intro-Karte:** Beim ersten Öffnen eines Rennwochenendes erscheint eine Einblendung wie zu Beginn einer Übertragung: Streckenumriss, der sich zeichnet, Name des Grand Prix, Länge, Runden, Distanz, Reifenabbau, Überholen, Regenrisiko, dein Rennziel, dein Platz in der Konstrukteurs-WM und die Sieger der Karriere auf dieser Strecke (`race_intro.gd`).
+- **Startaufstellung:** zwei versetzte Reihen wie auf der echten Startaufstellung, mit Fahrerfotos, Teamfarbe, Zeit und Abstand.
+- **TV-Grafik im Rennen:** schräge Glas-Kacheln mit Teamfarben-Kante, Fahrerkarte mit Foto, Tempo, Reifen, Batterie, Abstand und Sektoren; Rundenzeit und Zweikampf gleiten oben herein; auf der großen Karte eine Mini-Zeitentafel (Top 10); Laufband mit grünen/roten Pfeilen für Positionswechsel; Namensschilder an den Autos mit Positionsfeld.
+- **Pressekonferenz:** Nach jedem Rennen der Karriere stellen Reporter ein bis zwei Fragen passend zum Ergebnis (Sieg, Podium, Ausfall durch Unfall oder Technik, verpasstes Ziel, Duell der Teamkollegen, Sponsorwünsche). Jede Antwort zeigt ihre Wirkung auf die Stimmung der Fahrer, das Vertrauen des Vorstands oder das Budget; die Stimmungsbalken ändern sich sichtbar. Überspringen ist möglich (`press.gd`, `press_dialog.gd`).
+- **Stimmung wirkt aufs Tempo:** sehr gute Laune bringt etwa +0,15 %, sehr schlechte kostet etwa 0,15 % Rennpace (Qualifying etwas weniger).
+
 ## Karte, Kamera und TV-Grafik
 - **Kamera:** Mausrad zoomt (bis 16x), mit gedrückter Maustaste wird verschoben, ein Klick auf ein Auto wählt es. Voreinstellungen oben links (Gesamt, Auto 1, Auto 2, Führender, + / -),
   Tasten 1 bis 4 im Rennen. Folgemodus mit weicher Kamerafahrt, Minikarte beim Heranzoomen.

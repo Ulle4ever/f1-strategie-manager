@@ -321,8 +321,10 @@ func setup(p_year: int, p_track, teams: Array, p_laps: int, p_player_team: Strin
 				race_dev -= absf(rng.randfn(0.0, 0.0035))
 			elif day > 0.95:
 				race_dev += absf(rng.randfn(0.0, 0.0015))
-			c.pace_base = float(t["pace"]) * (1.0 + float(d["skill"]) + form + affinity + c.fit + race_dev)
-			c.qpace = float(t["pace"]) * (1.0 + float(d["skill"]) * 0.6 + float(d["qskill"]) + form + affinity + c.fit + race_dev * 0.35 + rng.randfn(0.0, 0.0026))
+			# Stimmung des Fahrers: sehr gut gelaunt etwa +0,15 %, sehr schlecht etwa -0,15 % Tempo
+			var mood := (float(d.get("morale", 0.62)) - 0.62) * 0.004
+			c.pace_base = float(t["pace"]) * (1.0 + float(d["skill"]) + form + affinity + c.fit + race_dev + mood)
+			c.qpace = float(t["pace"]) * (1.0 + float(d["skill"]) * 0.6 + float(d["qskill"]) + form + affinity + c.fit + race_dev * 0.35 + mood * 0.6 + rng.randfn(0.0, 0.0026))
 			c.mech_rate = float(t["mech_rate"]) * float(t.get("mech_mult", 1.0))
 			c.crash_rate = float(d["crash_rate"])
 			c.pit_skill = float(t.get("pit_skill", 0.0))
