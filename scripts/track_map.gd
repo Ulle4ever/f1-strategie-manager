@@ -461,13 +461,26 @@ func _count_teams() -> int:
 
 # ------------------------------------------------------------------ Zeichnen
 
-func _label_chip(pos: Vector2, text: String, col: Color) -> void:
-	var font := U.font(true)
-	var tw := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x
-	var r := Rect2(pos + Vector2(10, -20), Vector2(tw + 10, 20))
-	draw_style_box(_chip, r)
-	draw_rect(Rect2(r.position, Vector2(3, r.size.y)), col)
-	draw_string(font, r.position + Vector2(7, 15), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color.WHITE)
+## Namensschild neben dem Auto im TV-Stil: schräges weißes Positionsfeld, Kürzel auf dunklem Glas, Teamfarbe als Unterkante.
+func _label_chip(pos: Vector2, text: String, col: Color, place := 0) -> void:
+	var font := U.display_font()
+	var fs := 13
+	var h := 19.0
+	var tw := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	var x := pos.x + 10.0
+	var y := pos.y - h - 4.0
+	var sk := h * 0.25
+	if place > 0:
+		var ps := str(place)
+		var pw := font.get_string_size(ps, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + 10.0
+		draw_colored_polygon(PackedVector2Array([Vector2(x + sk, y), Vector2(x + pw + sk, y), Vector2(x + pw, y + h), Vector2(x, y + h)]), Color.WHITE)
+		draw_string(font, Vector2(x + sk * 0.5 + 5.0, y + h - 5.0), ps, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0.06, 0.06, 0.09))
+		x += pw + 1.0
+	var w := tw + 14.0
+	draw_colored_polygon(PackedVector2Array([Vector2(x + sk, y), Vector2(x + w + sk, y), Vector2(x + w, y + h), Vector2(x, y + h)]), Color(0.05, 0.06, 0.09, 0.9))
+	var cc := col.lightened(0.15) if col.get_luminance() < 0.25 else col
+	draw_colored_polygon(PackedVector2Array([Vector2(x + sk * 0.16, y + h - 3.0), Vector2(x + w + sk * 0.16, y + h - 3.0), Vector2(x + w, y + h), Vector2(x, y + h)]), cc)
+	draw_string(font, Vector2(x + sk + 4.0, y + h - 6.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color.WHITE)
 
 
 func _line_points(from_s: float, to_s: float, step: float) -> PackedVector2Array:
@@ -860,9 +873,10 @@ func _draw_sim_cars(rw: float, font: Font) -> void:
 			draw_circle(pos, r + 1.6, Color.WHITE if c.is_player else Color(0, 0, 0, 0.75))
 			draw_circle(pos, r, c.color)
 		if c == selected:
-			draw_arc(pos, (len_px * 0.7 if shapes else 14.0), 0.0, TAU, 28, U.WARN, 2.2)
+			draw_arc(pos, (len_px * 0.7 if shapes else 14.0), 0.0, TAU, 28, Color.WHITE, 2.4)
+			draw_arc(pos, (len_px * 0.7 if shapes else 14.0) + 2.4, 0.0, TAU, 28, U.ACCENT, 1.6)
 		if c.is_player or rank < 3 or (shapes and zoom >= 5.0) or c == selected:
-			_label_chip(pos, "P%d %s" % [rank + 1, c.code], c.color)
+			_label_chip(pos, c.code, c.color, rank + 1)
 
 
 func _draw_dots(font: Font) -> void:
