@@ -130,7 +130,6 @@ func _focus_line(a: String, target: String) -> String:
 
 ## Charakter des eigenen Autos: Profilbalken mit Entwicklung und Standfestigkeit.
 func _character() -> Control:
-	var M := U.is_mobile()
 	var box := U.vbox(4)
 	box.name = "Character"
 	box.add_child(U.section("Charakter des Autos", 12))
@@ -153,20 +152,29 @@ func _character() -> Control:
 	var slow := (dd * 1.0 * 0.0032 + dp * -0.6 * 0.0026) * 80.0
 	var fast := (dd * -1.0 * 0.0032 + dp * 1.0 * 0.0026) * 80.0
 	var wear := int(round(-0.09 * (float(prof["tyre"]) - float(base["tyre"])) * 100.0))
-	var rel := float(prof.get("rel", 0.0))
-	var mf := Dev.mech_factor()
-	var rt := "Profil-Wirkung: kurvige Strecke (Monaco) %+.2f s/Runde, schnelle Strecke (Monza) %+.2f s/Runde, Reifenverschleiß %+d %%, technische Defekte %+d %%." % [-slow, -fast, wear, int(round((mf - 1.0) * 100.0))]
-	if absf(rel) < 0.02 and absf(dd) + absf(dp) < 0.02 and wear == 0:
-		rt = "Noch keine Profil-Änderung in dieser Saison."
+	var defects := int(round((Dev.mech_factor() - 1.0) * 100.0))
+	# Wirkung als Kacheln: Rundenzeit auf kurviger/schneller Strecke, Reifenverschleiß, Defekte (grün = besser)
+	var tiles := GridContainer.new()
+	tiles.columns = 4
+	tiles.add_theme_constant_override("h_separation", 6)
+	box.add_child(tiles)
+	for t in [["Monaco", "%+.2f s" % -slow, -slow], ["Monza", "%+.2f s" % -fast, -fast], ["Reifen", "%+d %%" % wear, float(wear) * 0.01], ["Defekte", "%+d %%" % defects, float(defects) * 0.01]]:
+		var v := float(t[2])
+		var col := U.GOOD if v < -0.004 else (U.BAD if v > 0.004 else U.MUTED)
+		var c := U.card(8)
+		c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var st := U.stat(str(t[0]), str(t[1]), col)
+		c.add_child(st)
+		tiles.add_child(c)
 	var nx: Dictionary = Dev.profile_shift("next")
 	var nparts: Array = []
 	for e in [["df", "Abtrieb"], ["power", "Topspeed"], ["tyre", "Reifen"], ["wet", "Regen"]]:
 		if absf(float(nx[e[0]])) >= 0.02:
 			nparts.append("%s %+.2f" % [e[1], float(nx[e[0]])])
+	var hint := "Rundenzeit-Wirkung des Profils seit Saisonstart. Heller Kreis = Auto zum Saisonstart."
 	if not nparts.is_empty():
-		rt += "  Auto %d bisher: %s." % [Game.year + 1, ", ".join(nparts)]
-	box.add_child(_wl(rt, 11 if M else 12, U.MUTED))
-	box.add_child(_wl("Heller Kreis: Auto zum Saisonstart. Der Schwerpunkt eines Projekts verschiebt das Profil – Abtrieb hilft auf kurvigen Strecken, Topspeed auf schnellen.", 11, U.MUTED))
+		hint += "  Auto %d bisher: %s." % [Game.year + 1, ", ".join(nparts)]
+	box.add_child(_wl(hint, 11, U.MUTED))
 	return box
 
 

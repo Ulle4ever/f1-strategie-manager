@@ -1,28 +1,29 @@
 extends RefCounted
-## Gemeinsame UI-Hilfen im Stil "Race Control": dunkle Kopfleisten und Zeitentafel wie in der TV-Grafik, helle klare Karten,
-## die Farbe des eigenen Teams als Akzent, kursive Display-Schrift (Saira) für Titel und Zahlen. Farben, Schrift, Theme, Widget-Fabrik.
+## Gemeinsame UI-Hilfen im dunklen Stil wie F1 TV: grafitfarbene Flächen ohne Rahmen, runde Ecken, Pillen-Reiter,
+## die Farbe des eigenen Teams als Leuchtakzent, kursive Display-Schrift (Saira) für Titel und Zahlen. Farben, Schrift, Theme, Widget-Fabrik.
 
-const BG0 := Color("eceef3")
-const BG1 := Color("e2e5ec")
-const PANEL := Color(1, 1, 1, 0.98)
-const PANEL2 := Color("f3f4f7")
-const PANEL3 := Color("e6e9ef")
-const LINE := Color(0.07, 0.08, 0.12, 0.12)
-const RADIUS := 8
-const DARK := Color("15171d")           # Kopfleisten, Zeitentafel
-const DARK2 := Color("1f2229")
-const DARK3 := Color("2b2f38")
-const TEXT := Color("15171d")
-const MUTED := Color("5f6575")
-const ON_DARK := Color("f3f4f7")        # Text auf dunklen Flächen (Kopfleiste, TV-Grafik, Karte)
-const MUTED_DARK := Color("9aa0ad")
-const GOOD := Color("0f9d58")
-const WARN := Color("d98200")
-const BAD := Color("d93025")
-const PURPLE := Color("8a3fd1")
-const BLUE := Color("2563eb")
+const BG0 := Color("0d0f14")
+const BG1 := Color("08090c")
+const PANEL := Color("171a21")          # Karten und Panels
+const PANEL2 := Color("1e222b")         # erhöhte Flächen (Knöpfe, Eingaben)
+const PANEL3 := Color("2a2f3a")         # Hover, Spuren, Chips
+const LINE := Color(1, 1, 1, 0.07)
+const RADIUS := 14
+const DARK := Color("07080b")           # Kopfleisten, Zeitentafel (tiefer als der Grund)
+const DARK2 := Color("12141a")
+const DARK3 := Color("232833")
+const TEXT := Color("eef0f5")
+const MUTED := Color("8b93a5")
+const INK := Color("0b0d12")            # dunkle Schrift auf hellen Flächen (Chips, Reifenfarben)
+const ON_DARK := Color("eef0f5")        # Text auf dunklen Flächen (Kopfleiste, TV-Grafik, Karte)
+const MUTED_DARK := Color("8b93a5")
+const GOOD := Color("34d399")
+const WARN := Color("fbbf24")
+const BAD := Color("f87171")
+const PURPLE := Color("c084fc")
+const BLUE := Color("60a5fa")
 const RED := Color("e10600")
-const SKEW := 0.2                        # Schräge der Knöpfe, Marken und Reiter (Renn-Look)
+const SKEW := 0.0                        # früher schräge Knöpfe/Reiter; im modernen Stil gerade
 # alte Namen
 const BG := BG0
 
@@ -31,28 +32,37 @@ static var ACCENT := RED
 static var ACCENT_HI := RED.lightened(0.12)
 static var ACCENT_DARK := RED.darkened(0.28)
 static var ACCENT_INK := Color.WHITE     # Schrift auf Akzentflächen
-static var ACCENT_TEXT := RED.darkened(0.1)   # Akzent als gut lesbare Schrift auf Weiß
+static var ACCENT_TEXT := RED.lightened(0.25)   # Akzent als gut lesbare Schrift auf dunklem Grund
+
+
+static var _accent_raw := RED
 
 
 static func set_accent(c: Color) -> bool:
-	if c.is_equal_approx(ACCENT):
+	if c.is_equal_approx(_accent_raw):
 		return false
+	_accent_raw = c
+	# sehr dunkle Teamfarben (z. B. Marineblau) leuchten auf dunklem Grund nicht: aufhellen
+	var n := 0
+	while c.get_luminance() < 0.3 and n < 8:
+		c = c.lightened(0.12)
+		n += 1
 	ACCENT = c
 	ACCENT_HI = c.lightened(0.12)
 	ACCENT_DARK = c.darkened(0.28)
-	ACCENT_INK = TEXT if c.get_luminance() > 0.55 else Color.WHITE
+	ACCENT_INK = INK if c.get_luminance() > 0.55 else Color.WHITE
 	var t := c
-	while t.get_luminance() > 0.42:
-		t = t.darkened(0.08)
+	while t.get_luminance() < 0.5:
+		t = t.lightened(0.08)
 	ACCENT_TEXT = t
 	_chk_on = null
 	_chk_off = null
 	return true
 
 
-## Dezente Tönung für Flächen auf hellem Grund (a = Stärke).
+## Dezente Aufhellung für Flächen auf dunklem Grund (a = Stärke).
 static func tint(a: float) -> Color:
-	return Color(0.07, 0.08, 0.12, a)
+	return Color(1, 1, 1, a * 0.9)
 
 
 static var _font: Font
@@ -165,39 +175,41 @@ static func _box(col: Color, radius := RADIUS, border := Color(0, 0, 0, 0), bw :
 	return sb
 
 
-## Knopf-/Balkenstil: flach mit feinem Rand (edge). left >= 2 betont den Rand (Auswahl), 0 = ohne Rand.
-static func button_style(bg: Color, edge: Color, left := 4, radius := 6) -> StyleBoxFlat:
-	var sb := _box(bg, radius, Color(0, 0, 0, 0), 0)
+## Knopf-/Balkenstil: flache Fläche; bei Auswahl/Status (left >= 2) ein Farbstreifen links in edge, sonst randlos.
+static func button_style(bg: Color, edge: Color, left := 4, radius := 10) -> StyleBoxFlat:
+	var sb := _box(bg, maxi(radius, 8), Color(0, 0, 0, 0), 0)
 	sb.border_color = edge
-	sb.set_border_width_all(0 if left <= 0 else (1 if left < 2 else 2))
-	sb.content_margin_left = 10
-	sb.content_margin_right = 10
+	sb.set_border_width_all(0)
+	if left >= 2:
+		sb.border_width_left = 3
+	sb.content_margin_left = 12
+	sb.content_margin_right = 12
 	return sb
 
 
-## Schräger Stil (Parallelogramm) für Hauptknöpfe, Marken und Reiter.
-static func slant_style(bg: Color, edge := Color(0, 0, 0, 0), bw := 0, radius := 3) -> StyleBoxFlat:
-	var sb := _box(bg, radius, edge, bw)
+## Stil für Hauptknöpfe, Marken und Chips (früher schräg, jetzt als Pille).
+static func slant_style(bg: Color, edge := Color(0, 0, 0, 0), bw := 0, radius := 12) -> StyleBoxFlat:
+	var sb := _box(bg, maxi(radius, 10), edge, bw)
 	sb.skew = Vector2(SKEW, 0)
-	sb.content_margin_left = 14
-	sb.content_margin_right = 14
+	sb.content_margin_left = 16
+	sb.content_margin_right = 16
 	return sb
 
 
-## Reiter-Stile mit einstellbarem seitlichem Abstand (für schmale Bereiche mit vielen Reitern).
-## Gewählt: dunkle Fläche mit Akzentkante unten (wie die Kopfleiste), sonst zurückhaltend hell.
+## Reiter als Pillen: gewählt in der Akzentfarbe, sonst nur Schrift.
 static func tab_style(kind: String, pad := 8) -> StyleBoxFlat:
 	var sb: StyleBoxFlat
 	match kind:
 		"selected":
-			sb = slant_style(DARK, ACCENT, 0)
-			sb.border_width_bottom = 3
+			sb = _box(ACCENT, 20)
+			sb.shadow_color = Color(ACCENT, 0.35)
+			sb.shadow_size = 6
 		"hover":
-			sb = slant_style(Color(1, 1, 1, 0.9), tint(0.16), 1)
+			sb = _box(tint(0.08), 20)
 		_:
-			sb = slant_style(Color(1, 1, 1, 0.55), tint(0.08), 1)
-	sb.content_margin_left = pad + 4
-	sb.content_margin_right = pad + 4
+			sb = _box(Color(0, 0, 0, 0), 20)
+	sb.content_margin_left = pad + 6
+	sb.content_margin_right = pad + 6
 	sb.content_margin_top = 5
 	sb.content_margin_bottom = 5
 	return sb
@@ -217,11 +229,14 @@ static func make_theme() -> Theme:
 	th.set_font("font", "Label", font(false))
 	th.set_font("font", "Button", font(true))
 	th.set_font_size("font_size", "Button", 17)
-	th.set_stylebox("normal", "Button", button_style(Color.WHITE, tint(0.16), 1))
-	th.set_stylebox("hover", "Button", button_style(Color.WHITE, Color(ACCENT, 0.9), 1))
-	th.set_stylebox("pressed", "Button", button_style(ACCENT, ACCENT_DARK, 1))
-	th.set_stylebox("hover_pressed", "Button", button_style(ACCENT_HI, ACCENT_DARK, 1))
-	th.set_stylebox("disabled", "Button", button_style(Color(0.91, 0.92, 0.94, 0.9), tint(0.06), 1))
+	th.set_stylebox("normal", "Button", button_style(PANEL2, LINE, 0))
+	th.set_stylebox("hover", "Button", button_style(PANEL3, LINE, 0))
+	var bp := button_style(ACCENT, ACCENT_DARK, 0)
+	bp.shadow_color = Color(ACCENT, 0.3)
+	bp.shadow_size = 5
+	th.set_stylebox("pressed", "Button", bp)
+	th.set_stylebox("hover_pressed", "Button", button_style(ACCENT_HI, ACCENT_DARK, 0))
+	th.set_stylebox("disabled", "Button", button_style(Color(PANEL2, 0.5), LINE, 0))
 	th.set_stylebox("focus", "Button", StyleBoxEmpty.new())
 	th.set_color("font_color", "Button", TEXT)
 	th.set_color("font_hover_color", "Button", TEXT)
@@ -232,25 +247,26 @@ static func make_theme() -> Theme:
 	th.set_color("font_focus_color", "CheckBox", TEXT)
 	th.set_color("font_hover_pressed_color", "CheckBox", TEXT)
 	th.set_color("font_pressed_color", "CheckBox", TEXT)
-	th.set_color("font_disabled_color", "Button", Color("a3a8b4"))
-	th.set_stylebox("panel", "PanelContainer", _box(PANEL, RADIUS, LINE, 1))
+	th.set_color("font_disabled_color", "Button", Color("5b6272"))
+	th.set_stylebox("panel", "PanelContainer", _box(PANEL, RADIUS))
 	th.set_color("font_color", "Label", TEXT)
-	th.set_stylebox("panel", "PopupMenu", _box(Color.WHITE, 6, LINE, 1))
-	th.set_stylebox("hover", "PopupMenu", _box(Color(ACCENT, 0.16), 4))
+	th.set_stylebox("panel", "PopupMenu", _box(PANEL2, 10, LINE, 1))
+	th.set_stylebox("hover", "PopupMenu", _box(Color(ACCENT, 0.25), 6))
 	th.set_color("font_color", "PopupMenu", TEXT)
 	th.set_color("font_hover_color", "PopupMenu", TEXT)
-	th.set_stylebox("normal", "OptionButton", button_style(Color.WHITE, tint(0.16), 1))
-	th.set_stylebox("hover", "OptionButton", button_style(Color.WHITE, Color(ACCENT, 0.9), 1))
-	th.set_stylebox("pressed", "OptionButton", button_style(Color.WHITE, ACCENT, 1))
+	th.set_stylebox("normal", "OptionButton", button_style(PANEL2, LINE, 0))
+	th.set_stylebox("hover", "OptionButton", button_style(PANEL3, LINE, 0))
+	th.set_stylebox("pressed", "OptionButton", button_style(PANEL3, ACCENT, 2))
 	th.set_color("font_color", "OptionButton", TEXT)
 	th.set_color("font_hover_color", "OptionButton", TEXT)
 	th.set_color("font_pressed_color", "OptionButton", TEXT)
-	th.set_stylebox("panel", "TabContainer", _box(PANEL, RADIUS, LINE, 1))
+	th.set_stylebox("panel", "TabContainer", _box(PANEL, RADIUS))
+	th.set_stylebox("tabbar_background", "TabContainer", StyleBoxEmpty.new())
 	th.set_stylebox("tab_selected", "TabContainer", tab_style("selected"))
 	th.set_stylebox("tab_unselected", "TabContainer", tab_style("unselected"))
 	th.set_stylebox("tab_hovered", "TabContainer", tab_style("hover"))
 	th.set_constant("side_margin", "TabContainer", 4)
-	th.set_color("font_selected_color", "TabContainer", ON_DARK)
+	th.set_color("font_selected_color", "TabContainer", ACCENT_INK)
 	th.set_color("font_unselected_color", "TabContainer", MUTED)
 	th.set_color("font_hovered_color", "TabContainer", TEXT)
 	th.set_font("font", "TabContainer", font(true))
@@ -275,13 +291,13 @@ static func make_theme() -> Theme:
 	# Fortschrittsbalken: flach, Akzentfüllung
 	var pbg := StyleBoxFlat.new()
 	pbg.bg_color = tint(0.09)
-	pbg.set_corner_radius_all(2)
+	pbg.set_corner_radius_all(4)
 	var pfill := StyleBoxFlat.new()
 	pfill.bg_color = ACCENT
-	pfill.set_corner_radius_all(2)
+	pfill.set_corner_radius_all(4)
 	th.set_stylebox("background", "ProgressBar", pbg)
 	th.set_stylebox("fill", "ProgressBar", pfill)
-	th.set_stylebox("normal", "SpinBox", _box(Color.WHITE, 6, tint(0.22), 1))
+	th.set_stylebox("normal", "SpinBox", _box(PANEL2, 10))
 	var trk := StyleBoxFlat.new()
 	trk.bg_color = tint(0.12)
 	trk.set_corner_radius_all(3)
@@ -295,9 +311,9 @@ static func make_theme() -> Theme:
 	ga.content_margin_bottom = 3
 	th.set_stylebox("grabber_area", "HSlider", ga)
 	th.set_stylebox("grabber_area_highlight", "HSlider", ga)
-	var le := _box(Color.WHITE, 6, tint(0.25), 1)
+	var le := _box(PANEL2, 10)
 	th.set_stylebox("normal", "LineEdit", le)
-	th.set_stylebox("focus", "LineEdit", _box(Color.WHITE, 6, ACCENT, 2))
+	th.set_stylebox("focus", "LineEdit", _box(PANEL2, 10, ACCENT, 2))
 	th.set_stylebox("read_only", "LineEdit", _box(PANEL2, 6, LINE, 1))
 	th.set_color("font_color", "LineEdit", TEXT)
 	th.set_color("caret_color", "LineEdit", ACCENT)
@@ -313,7 +329,7 @@ static func make_theme() -> Theme:
 	th.set_icon("checked_disabled", "CheckBox", _check_icon(true))
 	th.set_icon("unchecked_disabled", "CheckBox", _check_icon(false))
 	th.set_font_size("font_size", "CheckBox", 14)
-	var tip := _box(DARK, 4)
+	var tip := _box(DARK3, 8)
 	th.set_stylebox("panel", "TooltipPanel", tip)
 	th.set_color("font_color", "TooltipLabel", ON_DARK)
 	return th
@@ -346,8 +362,8 @@ static func checkbox(text := "", on_dark := false) -> CheckBox:
 static func _check_icon(checked: bool) -> ImageTexture:
 	var img := Image.create(24, 24, false, Image.FORMAT_RGBA8)
 	img.fill(Color(0, 0, 0, 0))
-	var bg := ACCENT if checked else Color.WHITE
-	var edge := ACCENT_DARK if checked else Color("8a90a0")
+	var bg := ACCENT if checked else PANEL3
+	var edge := ACCENT if checked else Color("5b6272")
 	for y in range(2, 22):
 		for x in range(2, 22):
 			var border := x < 4 or x > 19 or y < 4 or y > 19
@@ -391,14 +407,17 @@ static func button(text: String, cb = null, min_w := 0, min_h := 38) -> Button:
 	return b
 
 
-## Hauptknopf: schräg, in der Akzent- bzw. Teamfarbe, Renn-Schrift.
+## Hauptknopf: Pille in der Akzent- bzw. Teamfarbe mit leichtem Leuchten, Renn-Schrift.
 static func primary_button(text: String, cb = null, min_w := 0, min_h := 50) -> Button:
 	var b := button(text, cb, min_w, min_h)
-	b.add_theme_stylebox_override("normal", slant_style(ACCENT, ACCENT_DARK, 1))
-	b.add_theme_stylebox_override("hover", slant_style(ACCENT_HI, ACCENT_DARK, 1))
-	b.add_theme_stylebox_override("pressed", slant_style(ACCENT_DARK, ACCENT_DARK, 1))
-	b.add_theme_stylebox_override("hover_pressed", slant_style(ACCENT_DARK, ACCENT_DARK, 1))
-	b.add_theme_stylebox_override("disabled", slant_style(Color(ACCENT, 0.28), Color(0, 0, 0, 0), 0))
+	var nb := slant_style(ACCENT, Color(0, 0, 0, 0), 0, 14)
+	nb.shadow_color = Color(ACCENT, 0.4)
+	nb.shadow_size = 10
+	b.add_theme_stylebox_override("normal", nb)
+	b.add_theme_stylebox_override("hover", slant_style(ACCENT_HI, Color(0, 0, 0, 0), 0, 14))
+	b.add_theme_stylebox_override("pressed", slant_style(ACCENT_DARK, Color(0, 0, 0, 0), 0, 14))
+	b.add_theme_stylebox_override("hover_pressed", slant_style(ACCENT_DARK, Color(0, 0, 0, 0), 0, 14))
+	b.add_theme_stylebox_override("disabled", slant_style(Color(ACCENT, 0.22), Color(0, 0, 0, 0), 0, 14))
 	b.add_theme_font_override("font", display_font())
 	for n in ["font_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color", "font_focus_color"]:
 		b.add_theme_color_override(n, ACCENT_INK)
@@ -410,11 +429,11 @@ static func primary_button(text: String, cb = null, min_w := 0, min_h := 50) -> 
 ## Dunkler Knopf für Kopfleisten (Zurück, Speichern, Menü).
 static func dark_button(text: String, cb = null, min_w := 0, min_h := 38) -> Button:
 	var b := button(text, cb, min_w, min_h)
-	b.add_theme_stylebox_override("normal", button_style(DARK3, Color(1, 1, 1, 0.12), 1))
-	b.add_theme_stylebox_override("hover", button_style(DARK3, ACCENT, 1))
-	b.add_theme_stylebox_override("pressed", button_style(ACCENT, ACCENT, 1))
-	b.add_theme_stylebox_override("hover_pressed", button_style(ACCENT, ACCENT, 1))
-	b.add_theme_stylebox_override("disabled", button_style(DARK2, Color(1, 1, 1, 0.06), 1))
+	b.add_theme_stylebox_override("normal", button_style(Color(1, 1, 1, 0.07), LINE, 0, 12))
+	b.add_theme_stylebox_override("hover", button_style(Color(1, 1, 1, 0.13), LINE, 0, 12))
+	b.add_theme_stylebox_override("pressed", button_style(ACCENT, ACCENT, 0, 12))
+	b.add_theme_stylebox_override("hover_pressed", button_style(ACCENT, ACCENT, 0, 12))
+	b.add_theme_stylebox_override("disabled", button_style(Color(1, 1, 1, 0.03), LINE, 0, 12))
 	for n in ["font_color", "font_hover_color", "font_focus_color"]:
 		b.add_theme_color_override(n, ON_DARK)
 	b.add_theme_color_override("font_pressed_color", ACCENT_INK)
@@ -425,15 +444,14 @@ static func dark_button(text: String, cb = null, min_w := 0, min_h := 38) -> But
 
 static func panel(margin := 14, accent := Color(0, 0, 0, 0)) -> PanelContainer:
 	var p := PanelContainer.new()
-	var sb := _box(PANEL, RADIUS, LINE, 1)
+	var sb := _box(PANEL, RADIUS)
 	sb.set_content_margin_all(margin)
-	sb.shadow_color = Color(0.05, 0.07, 0.12, 0.10)
-	sb.shadow_size = 8
-	sb.shadow_offset = Vector2(0, 3)
+	sb.shadow_color = Color(0, 0, 0, 0.35)
+	sb.shadow_size = 10
+	sb.shadow_offset = Vector2(0, 4)
 	if accent.a > 0.0:
-		sb.set_border_width_all(0)
-		sb.border_width_top = 3
-		sb.border_color = accent
+		sb.border_width_top = 2
+		sb.border_color = Color(accent, 0.85)
 	p.add_theme_stylebox_override("panel", sb)
 	return p
 
@@ -444,16 +462,16 @@ static func dark_panel(margin := 10, accent := Color(0, 0, 0, 0)) -> PanelContai
 	var sb := _box(DARK, RADIUS, Color(1, 1, 1, 0.06), 1)
 	sb.set_content_margin_all(margin)
 	if accent.a > 0.0:
-		sb.border_width_bottom = 3
+		sb.border_width_bottom = 2
 		sb.border_color = accent
 	p.add_theme_stylebox_override("panel", sb)
 	return p
 
 
 ## Dezente Unterkarte innerhalb eines Panels (für Gruppen von Bedienelementen).
-static func card(margin := 10, tint_col := Color(0.07, 0.08, 0.12, 0.035), edge := Color(0.07, 0.08, 0.12, 0.10)) -> PanelContainer:
+static func card(margin := 10, tint_col := Color(1, 1, 1, 0.04), edge := Color(0, 0, 0, 0)) -> PanelContainer:
 	var p := PanelContainer.new()
-	var sb := _box(tint_col, 8, edge, 1)
+	var sb := _box(tint_col, 12, edge, 1 if edge.a > 0.0 else 0)
 	sb.set_content_margin_all(margin)
 	p.add_theme_stylebox_override("panel", sb)
 	return p
@@ -462,7 +480,7 @@ static func card(margin := 10, tint_col := Color(0.07, 0.08, 0.12, 0.035), edge 
 ## Antippbare Auswahlkarte: Titel und Erklärung in einer Fläche. strong = hervorgehobene Hauptaktion in der Farbe accent.
 static func option_card(title: String, hint: String, accent: Color, cb: Callable, strong := false) -> PanelContainer:
 	var p := PanelContainer.new()
-	var sbx := _box(Color(accent, 0.11) if strong else Color.WHITE, 8, Color(accent, 0.8) if strong else tint(0.16), 1)
+	var sbx := _box(Color(accent, 0.16) if strong else PANEL2, 12, Color(accent, 0.8) if strong else Color(0, 0, 0, 0), 0)
 	if strong:
 		sbx.border_width_left = 4
 	sbx.content_margin_left = 11
@@ -482,8 +500,8 @@ static func option_card(title: String, hint: String, accent: Color, cb: Callable
 	var b := Button.new()
 	b.flat = true
 	b.focus_mode = Control.FOCUS_NONE
-	var hov := _box(Color(accent, 0.08), 8)
-	var prs := _box(Color(accent, 0.2), 8)
+	var hov := _box(Color(accent, 0.1), 12)
+	var prs := _box(Color(accent, 0.22), 12)
 	var emp := StyleBoxEmpty.new()
 	b.add_theme_stylebox_override("normal", emp)
 	b.add_theme_stylebox_override("focus", emp)
@@ -497,12 +515,15 @@ static func option_card(title: String, hint: String, accent: Color, cb: Callable
 ## Abschnittsüberschrift mit schrägem Marker in der Akzentfarbe.
 static func section(text: String, size := 12) -> Control:
 	var h := hbox(6)
-	var m = load("res://scripts/slant_mark.gd").new()
-	m.color = ACCENT
-	m.custom_minimum_size = Vector2(9, size + 3)
+	var m := PanelContainer.new()
+	var ms := _box(ACCENT, 2)
+	ms.set_content_margin_all(0)
+	m.add_theme_stylebox_override("panel", ms)
+	m.custom_minimum_size = Vector2(4, size + 2)
 	m.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	h.add_child(m)
 	var l := label(text.to_upper(), size, MUTED, true)
+	l.add_theme_constant_override("outline_size", 0)
 	h.add_child(l)
 	return h
 
@@ -649,11 +670,11 @@ static func chip(text: String, bg := Color(0, 0, 0, 0), fg := Color(0, 0, 0, 0))
 	if bg.a == 0.0:
 		bg = ACCENT
 	if fg.a == 0.0:
-		fg = Color.WHITE if bg.get_luminance() < 0.5 or bg.a < 0.9 and bg.get_luminance() < 0.7 else TEXT
+		fg = Color.WHITE if bg.get_luminance() < 0.5 or bg.a < 0.9 and bg.get_luminance() < 0.7 else INK
 	var p := PanelContainer.new()
-	var sb := slant_style(bg)
-	sb.content_margin_left = 10
-	sb.content_margin_right = 10
+	var sb := slant_style(bg, Color(0, 0, 0, 0), 0, 10)
+	sb.content_margin_left = 9
+	sb.content_margin_right = 9
 	sb.content_margin_top = 1
 	sb.content_margin_bottom = 1
 	p.add_theme_stylebox_override("panel", sb)

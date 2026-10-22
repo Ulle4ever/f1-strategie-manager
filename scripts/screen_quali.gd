@@ -320,13 +320,13 @@ func _collect_events(allow_slow: bool) -> void:
 		var col := "#c8cfdc"
 		match e["kind"]:
 			"crash":
-				col = "#d93025"
+				col = "#f87171"
 			"mistake":
 				col = "#ff9a3d"
 			"lap":
-				col = "#0f9d58"
+				col = "#34d399"
 			"weather":
-				col = "#1f5fd6"
+				col = "#60a5fa"
 		var m := "%s  %s" % [_fmt_clock(qsim.time), e["text"]]
 		log_lines.append("[color=%s]%s[/color]" % [col, m])
 		if allow_slow and auto_slow and speed_idx > 2 and (e["kind"] == "crash" or e["kind"] == "weather" or (e["kind"] == "lap" and e["player"])):

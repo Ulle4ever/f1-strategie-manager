@@ -502,7 +502,7 @@ func _show_decision(c, d: Dictionary) -> void:
 	var psb: StyleBoxFlat = decision_card.get_theme_stylebox("panel")
 	psb.border_color = col
 	var head := U.hbox(6)
-	head.add_child(U.chip(str(kinds.get(str(d["kind"]), "Hinweis")), col, Color.WHITE))
+	head.add_child(U.chip(str(kinds.get(str(d["kind"]), "Hinweis")), col, U.INK))
 	head.add_child(U.label(c.code, 13, U.MUTED, true))
 	decision_box.add_child(head)
 	decision_box.add_child(_wrap_label(str(d["title"]), 16, U.TEXT, true))
@@ -634,7 +634,7 @@ func _driver_bar() -> Control:
 func _step_head(num: String, text: String) -> Control:
 	var h := U.hbox(7)
 	if num != "":
-		h.add_child(U.chip(num, U.TEXT, Color.WHITE))
+		h.add_child(U.chip(num, U.PANEL3, U.TEXT))
 	h.add_child(U.label(text, 14, U.TEXT, true))
 	return h
 
@@ -1164,7 +1164,7 @@ func _update_overview() -> void:
 		mid.add_child(sub)
 		h.add_child(mid)
 		if bool(o["threat"]):
-			h.add_child(U.chip("UNDERCUT", U.BAD, Color.WHITE))
+			h.add_child(U.chip("UNDERCUT", U.BAD, U.INK))
 		ov_radar_box.add_child(card)
 
 
@@ -1588,7 +1588,7 @@ func _plan_row(e: Dictionary) -> Control:
 		top.add_child(U.label("-> %s" % nc["name"], 14, nc["ink"], true))
 	top.add_child(U.spacer())
 	if st != "ok" or not is_end:
-		top.add_child(U.chip(_state_word(st), scol, Color.WHITE if st != "tight" else U.TEXT))
+		top.add_child(U.chip(_state_word(st), scol, U.INK))
 	if not is_end:
 		top.add_child(U.button("Ändern", _on_edit_plan.bind(stop_lap, int(e["comp"])), 66, 30))
 		top.add_child(U.button("x", _on_unplan.bind(stop_lap), 34, 30))
@@ -2043,20 +2043,20 @@ func _skip_to_end(blocking := false) -> void:
 func _event_color(kind: String) -> String:
 	match kind:
 		"sc":
-			return "#b86f00"
+			return "#fbbf24"
 		"dnf":
-			return "#d93025"
+			return "#f87171"
 		"weather":
-			return "#1f5fd6"
+			return "#60a5fa"
 		"fastest":
-			return "#8a3fd1"
+			return "#c084fc"
 		"pass":
-			return "#0f9d58"
+			return "#34d399"
 		"pit":
-			return "#2b3347"
+			return "#dfe3ea"
 		"radio":
-			return "#1d6fb8"
-	return "#5b657b"
+			return "#7dd3fc"
+	return "#aab2c2"
 
 
 func _after_tick(allow_slow := true) -> void:
@@ -2130,15 +2130,15 @@ func _update_ui() -> void:
 		1:
 			chip_text = "VSC"
 			chip_bg = Color("facc15")
-			chip_fg = U.TEXT
+			chip_fg = U.INK
 		2:
 			chip_text = "SAFETY CAR"
 			chip_bg = Color("facc15")
-			chip_fg = U.TEXT
+			chip_fg = U.INK
 	if sim.leader_finished and not sim.over:
 		chip_text = "ZIELFLAGGE"
 		chip_bg = Color.WHITE
-		chip_fg = U.TEXT
+		chip_fg = U.INK
 	if not sim.started:
 		chip_text = "STARTAUFSTELLUNG"
 		chip_bg = U.DARK3

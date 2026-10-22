@@ -162,7 +162,7 @@ func _podium(rows: Array) -> Control:
 			continue
 		var r: Dictionary = rows[idx]
 		var p := U.panel(10)
-		var sb := U.button_style(Color(1, 1, 1, 0.92), r["color"], 2, 8)
+		var sb := U.button_style(U.PANEL2, r["color"], 2, 8)
 		sb.border_width_top = 5
 		sb.border_color = cols_c[k]
 		sb.set_content_margin_all(10)

@@ -53,8 +53,11 @@ const INFO := {
 ## Darstellungsfarbe: sehr helle Teamfarben werden für hellen Hintergrund abgedunkelt.
 static func ui_color(id: String) -> Color:
 	var c: Color = DB.team_color(id)
-	if c.get_luminance() > 0.72:
-		c = c.darkened(0.38)
+	# auf dunklem Grund: sehr dunkle Teamfarben aufhellen, damit Balken und Schrift leuchten
+	var n := 0
+	while c.get_luminance() < 0.2 and n < 8:
+		c = c.lightened(0.12)
+		n += 1
 	return c
 
 

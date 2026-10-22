@@ -103,9 +103,9 @@ func _draw() -> void:
 		var col: Color = cd["color"]
 		var ink: Color = cd["ink"]
 		var r := Rect2(x0 + 1.0, top, x1 - x0 - 2.0, bh)
-		var fillc := ink.lerp(Color.WHITE, 0.15) if int(s["comp"]) != 2 else Color(0.62, 0.66, 0.74)
+		var fillc := U.PANEL2.lerp(col, 0.32)
 		draw_rect(r, fillc)
-		draw_rect(Rect2(r.position.x, r.position.y, r.size.x, 3.0), col if int(s["comp"]) != 2 else Color(0.85, 0.88, 0.93))
+		draw_rect(Rect2(r.position.x, r.position.y, r.size.x, 3.0), col)
 		var len_laps: float = float(s["b"] - s["a"])
 		var life: float = float(s["life"])
 		if len_laps > life * 1.02 and life > 0.0:
@@ -119,7 +119,7 @@ func _draw() -> void:
 		var txt := "%s  %d" % [cd["short"], int(len_laps)]
 		var tw := font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 		if tw < r.size.x - 4.0:
-			draw_string(font, Vector2(r.position.x + (r.size.x - tw) * 0.5, top + bh * 0.5 + fs * 0.4 + 2.0), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color.WHITE)
+			draw_string(font, Vector2(r.position.x + (r.size.x - tw) * 0.5, top + bh * 0.5 + fs * 0.4 + 2.0), txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, ink)
 		# Stopp-Marke am Ende
 		if int(s["b"]) < laps:
 			var mx: float = x1

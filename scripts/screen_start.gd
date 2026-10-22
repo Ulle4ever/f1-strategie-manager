@@ -215,9 +215,9 @@ func _on_year(_i: int) -> void:
 		b.custom_minimum_size = Vector2(0, 62 if U.is_mobile() else 82)
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var col: Color = TeamStyle.ui_color(t["id"])
-		b.add_theme_stylebox_override("normal", U.button_style(Color.WHITE.lerp(col, 0.07), Color(col, 0.55), 1))
-		b.add_theme_stylebox_override("hover", U.button_style(Color.WHITE.lerp(col, 0.14), col, 2))
-		var pressed := U.button_style(Color.WHITE.lerp(col, 0.22), col, 2)
+		b.add_theme_stylebox_override("normal", U.button_style(U.PANEL2.lerp(col, 0.08), Color(col, 0.55), 1))
+		b.add_theme_stylebox_override("hover", U.button_style(U.PANEL2.lerp(col, 0.16), col, 2))
+		var pressed := U.button_style(U.PANEL2.lerp(col, 0.26), col, 2)
 		b.add_theme_stylebox_override("pressed", pressed)
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 14)

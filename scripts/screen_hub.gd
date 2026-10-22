@@ -11,6 +11,7 @@ const TeamCrest = preload("res://scripts/team_crest.gd")
 const TeamCard = preload("res://scripts/team_card.gd")
 const Career = preload("res://scripts/career.gd")
 const Field = preload("res://scripts/field.gd")
+const NavRail = preload("res://scripts/nav_rail.gd")
 
 var cap_label: Label
 var cap_bar: ProgressBar
@@ -69,6 +70,24 @@ func _ready() -> void:
 	_build_career_tab()
 	if not M:
 		cols.add_child(_build_next_race())
+	else:
+		# Handy: Navigationsleiste mit Symbolen statt der langen Reiterzeile
+		cols.add_theme_constant_override("separation", 8)
+		var rail = NavRail.new()
+		var car_tab := "Karriere" if Game.pending_event.is_empty() else "Karriere (!)"
+		rail.setup(tabs, [
+			{"tab": "Rennen", "icon": "race", "label": "Rennen"},
+			{"tab": "Team", "icon": "team", "label": "Team"},
+			{"tab": "Kalender", "icon": "calendar", "label": "Kalender"},
+			{"tab": "Fahrer-WM", "icon": "trophy", "label": "Fahrer-WM"},
+			{"tab": "Konstrukteurs-WM", "icon": "podium", "label": "Team-WM"},
+			{"tab": "Entwicklung", "icon": "gear", "label": "Technik"},
+			{"tab": "Personal", "icon": "people", "label": "Personal"},
+			{"tab": "Fahrer", "icon": "driver", "label": "Fahrer"},
+			{"tab": car_tab, "icon": "career", "label": "Karriere", "badge": not Game.pending_event.is_empty()},
+		])
+		cols.add_child(rail)
+		cols.move_child(rail, 0)
 	_refresh_budget()
 	if not Game.pending_event.is_empty() and not Game.event_seen:
 		_show_event_dialog.call_deferred()
@@ -236,7 +255,7 @@ func _build_drivers_tab() -> void:
 		var p := U.panel(10)
 		var h := U.hbox(12)
 		p.add_child(h)
-		h.add_child(DriverPhoto.make(str(d["id"]), 64))
+		h.add_child(DriverPhoto.make(str(d["id"]), 48 if U.is_mobile() else 64))
 		var r := Market.rating_of(d)
 		var rl := U.label(str(r), 30, Market.rating_color(r), true)
 		rl.custom_minimum_size = Vector2(48, 0)
@@ -245,7 +264,9 @@ func _build_drivers_tab() -> void:
 		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		v.add_child(U.label(str(d["name"]), 18, U.TEXT, true))
 		var c: Dictionary = d["contract"]
-		v.add_child(U.label("%d Jahre  |  Vertrag bis %d  |  %.1f Mio. $  |  %s" % [Market.age_of(d, Game.year), int(c["end"]), float(c["salary"]), Market.ROLE_NAMES.get(c["role"], "")], 13, U.MUTED))
+		var cl := U.label("%d Jahre  |  Vertrag bis %d  |  %.1f Mio. $  |  %s" % [Market.age_of(d, Game.year), int(c["end"]), float(c["salary"]), Market.ROLE_NAMES.get(c["role"], "")], 13, U.MUTED)
+		cl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(cl)
 		h.add_child(v)
 		var m: float = d["morale"]
 		var mt := "Zufrieden"
@@ -492,7 +513,7 @@ func _on_event_choice(i: int) -> void:
 
 
 func _build_next_race() -> Control:
-	var p := U.panel(16, U.ACCENT)
+	var p := U.panel(10 if U.is_mobile() else 16, U.ACCENT)
 	p.custom_minimum_size = Vector2(420, 0)
 	var v := U.vbox(8)
 	p.add_child(v)
@@ -536,7 +557,7 @@ func _build_next_race() -> Control:
 	v.add_child(map)
 	var g := GridContainer.new()
 	g.columns = 3
-	g.add_theme_constant_override("h_separation", 22)
+	g.add_theme_constant_override("h_separation", 12 if U.is_mobile() else 22)
 	g.add_theme_constant_override("v_separation", 8)
 	g.add_child(U.stat("Länge", "%.3f km" % (tr.length / 1000.0)))
 	g.add_child(U.stat("Runden", str(laps)))
@@ -554,7 +575,7 @@ func _build_next_race() -> Control:
 		v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		h.add_child(v)
 		v.remove_child(map)
-		map.custom_minimum_size = Vector2(240, 250)
+		map.custom_minimum_size = Vector2(170, 220)
 		map.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		h.add_child(map)
 		# der Haupt-Knopf soll ohne Scrollen sichtbar sein

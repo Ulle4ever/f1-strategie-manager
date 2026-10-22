@@ -57,7 +57,7 @@ func _draw() -> void:
 		var py := y + 4.0
 		var ph := ROW_H - 9.0
 		draw_colored_polygon(PackedVector2Array([Vector2(13, py), Vector2(38, py), Vector2(33, py + ph), Vector2(8, py + ph)]), Color(pc, pc.a * dim))
-		draw_string(fd, Vector2(8, y + 20), str(i + 1), HORIZONTAL_ALIGNMENT_CENTER, 30, 15, U.TEXT if i == 0 else Color(U.ON_DARK, dim))
+		draw_string(fd, Vector2(8, y + 20), str(i + 1), HORIZONTAL_ALIGNMENT_CENTER, 30, 15, U.INK if i == 0 else Color(U.ON_DARK, dim))
 		draw_rect(Rect2(42, y + 4, 4, ROW_H - 9), Color(c.color, dim))
 		draw_string(fd, Vector2(52, y + 20), c.code, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(U.ON_DARK, dim) if not q.is_player else U.ACCENT.lightened(0.15))
 		var tcol := Color("c084fc") if (i == 0 and not elim and q.best > 0.0) else U.ON_DARK

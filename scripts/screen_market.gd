@@ -7,15 +7,15 @@ const DriverPhoto = preload("res://scripts/driver_photo.gd")
 const Field = preload("res://scripts/field.gd")
 
 const KIND_STYLE := {
-	"signing": ["VERPFLICHTET", Color("d6f3e3"), Color("0b7a43")], "extension": ["VERLÄNGERT", Color("dbe8ff"), Color("1d4fb8")],
-	"release": ["ABGANG", Color("e6e9f0"), Color("5b657b")], "retire": ["RÜCKTRITT", Color("fff0c2"), Color("8a5a00")],
-	"rumor": ["GERÜCHT", Color("efdcff"), Color("6b2fb0")], "poach": ["ABGEWORBEN", Color("ffdcd8"), Color("b3261e")],
-	"transfer": ["TRANSFER", Color("ffdcd8"), Color("b3261e")], "exit": ["KLAUSEL", Color("ffdcd8"), Color("b3261e")],
-	"info": ["INFO", Color("e6e9f0"), Color("3d465a")], "rookie": ["NACHWUCHS", Color("dbe8ff"), Color("1d4fb8")],
-	"team_in": ["NEUES TEAM", Color("d6f3e3"), Color("0b7a43")], "team_out": ["RÜCKZUG", Color("ffdcd8"), Color("b3261e")],
-	"team_merge": ["FUSION", Color("efdcff"), Color("6b2fb0")], "team_name": ["UMBENANNT", Color("dbe8ff"), Color("1d4fb8")],
-	"field": ["TEAMFELD", Color("fff0c2"), Color("8a5a00")],
-	"dev": ["ENTWICKLUNG", Color("dbe8ff"), Color("1d4fb8")], "press": ["PRESSE", Color("e6e9f0"), Color("3d465a")],
+	"signing": ["VERPFLICHTET", Color("123d2b"), Color("6ee7a8")], "extension": ["VERLÄNGERT", Color("15284d"), Color("93c5fd")],
+	"release": ["ABGANG", Color("262b35"), Color("b4bccb")], "retire": ["RÜCKTRITT", Color("3d3012"), Color("fcd34d")],
+	"rumor": ["GERÜCHT", Color("2f1d47"), Color("d8b4fe")], "poach": ["ABGEWORBEN", Color("45191a"), Color("fca5a5")],
+	"transfer": ["TRANSFER", Color("45191a"), Color("fca5a5")], "exit": ["KLAUSEL", Color("45191a"), Color("fca5a5")],
+	"info": ["INFO", Color("262b35"), Color("c7cdd9")], "rookie": ["NACHWUCHS", Color("15284d"), Color("93c5fd")],
+	"team_in": ["NEUES TEAM", Color("123d2b"), Color("6ee7a8")], "team_out": ["RÜCKZUG", Color("45191a"), Color("fca5a5")],
+	"team_merge": ["FUSION", Color("2f1d47"), Color("d8b4fe")], "team_name": ["UMBENANNT", Color("15284d"), Color("93c5fd")],
+	"field": ["TEAMFELD", Color("3d3012"), Color("fcd34d")],
+	"dev": ["ENTWICKLUNG", Color("15284d"), Color("93c5fd")], "press": ["PRESSE", Color("262b35"), Color("c7cdd9")],
 }
 
 var main
@@ -224,7 +224,7 @@ func _rating_color(r: int) -> Color:
 
 func _rating_box(r: int, size := 40, fsize := 20) -> Control:
 	var p := PanelContainer.new()
-	var sb := U.button_style(Color(1, 1, 1, 0.9), _rating_color(r), 2, 6)
+	var sb := U.button_style(U.PANEL2, _rating_color(r), 2, 6)
 	sb.border_width_bottom = 3
 	sb.border_width_left = 0
 	sb.border_width_top = 0
@@ -552,7 +552,7 @@ func _refresh_detail() -> void:
 		var trow := HFlowContainer.new()
 		trow.add_theme_constant_override("h_separation", 6)
 		for t in tl:
-			trow.add_child(U.chip(str(t), Color("e1e7fb"), Color("2a3a82")))
+			trow.add_child(U.chip(str(t), Color("15284d"), Color("93c5fd")))
 		detail_left.add_child(trow)
 	var status_txt := ""
 	if d["status"] == "retired":

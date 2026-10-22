@@ -51,9 +51,15 @@ func setup(p_sim, p_laps: int) -> void:
 	for c in sim.cars:
 		if c.is_player:
 			cars.append(c)
-	var sb := U.panel(6 if U.is_mobile() else 14, U.ACCENT)
-	add_theme_stylebox_override("panel", sb.get_theme_stylebox("panel"))
-	sb.free()
+	if U.is_mobile():
+		# Handy: keine zweite Rahmenfläche im Reiter, der Inhalt bekommt die volle Breite
+		var flat := StyleBoxEmpty.new()
+		flat.set_content_margin_all(2)
+		add_theme_stylebox_override("panel", flat)
+	else:
+		var sb := U.panel(14, U.ACCENT)
+		add_theme_stylebox_override("panel", sb.get_theme_stylebox("panel"))
+		sb.free()
 	custom_minimum_size = Vector2(400, 0)
 	var root := U.vbox(8)
 	add_child(root)
@@ -524,7 +530,7 @@ class SetsRow extends Control:
 			var s: Dictionary = sets[i]
 			var r := Rect2(x, 2, 16, 16)
 			var used: float = float(s["used"])
-			draw_rect(r, Color.WHITE)
+			draw_rect(r, U.PANEL3)
 			if used <= 0.0:
 				draw_rect(r.grow(-2.0), Color(0.10, 0.62, 0.35))
 			else:
@@ -556,7 +562,7 @@ func _build_tyres() -> void:
 		h.add_child(U.spacer())
 		var n_need: int = int(need.get(k, 0))
 		if n_need > 0:
-			h.add_child(U.chip("im Plan x%d" % n_need, cd["ink"], Color.WHITE))
+			h.add_child(U.chip("im Plan x%d" % n_need, cd["ink"]))
 		v.add_child(h)
 		if not sim.tyre_unlimited():
 			var row = SetsRow.new()
