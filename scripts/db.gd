@@ -112,9 +112,22 @@ func build_teams(year: int) -> Array:
 	var s := season(year)
 	var teams: Array = s["teams"]
 	var drivers: Array = s["drivers"]
+	# Wertungsbasis der Autostärke: Teampunkte. Hat ein Fahrer klar die meisten Punkte geholt (über 65 % des Teams), lag
+	# das Auto meist näher an der Spitze, als die Teampunkte zeigen (z. B. Red Bull 2025: Verstappen 389, Tsunoda ca. 30).
+	# Dann zählt die Hochrechnung des besseren Fahrers (doppelte Punkte) zu höchstens 35 % mit.
+	var eff := {}
+	for t in teams:
+		var best := 0.0
+		for d in drivers:
+			if d["team"] == t["id"]:
+				best = maxf(best, float(d["points"]))
+		var tp := float(t["points"])
+		var share := best / tp if tp > 0.0 else 0.5
+		var w := clampf((share - 0.65) / 0.25, 0.0, 1.0) * 0.35
+		eff[t["id"]] = (1.0 - w) * tp + w * 2.0 * minf(best, tp)
 	var max_p := 1.0
 	for t in teams:
-		max_p = maxf(max_p, float(t["points"]))
+		max_p = maxf(max_p, float(eff[t["id"]]))
 	var out: Array = []
 	var zero_rank := 0
 	for t in teams:
@@ -125,7 +138,7 @@ func build_teams(year: int) -> Array:
 				break
 		if not has_driver:
 			continue
-		var pf := clampf(float(t["points"]) / max_p, 0.0, 1.0)
+		var pf := clampf(float(eff[t["id"]]) / max_p, 0.0, 1.0)
 		var pace := 1.0 - 0.036 * (1.0 - sqrt(pf))
 		if float(t["points"]) <= 0.0:
 			pace -= 0.002 * zero_rank

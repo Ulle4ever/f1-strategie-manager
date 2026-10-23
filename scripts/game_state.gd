@@ -457,13 +457,16 @@ func finish_race(sim) -> Dictionary:
 			"grid": c.grid, "state": c.state, "gap": sim.gap_text(c, order[0]), "player": c.is_player, "time": c.finish_time})
 	# Budget
 	var rank_now := _team_standing_rank()
-	var income := 10.0 + 14.0 * (1.0 - float(rank_now) / maxf(1.0, float(teams.size() - 1)))
+	# Preisgeld nach WM-Platz: 60 bis 120 Mio. $ pro Saison, auf die Rennen verteilt (vorher 10 bis 24 Mio. pro Rennen –
+	# damit lag das Budget weit über dem, was die Kostenobergrenze auszugeben erlaubt, Geld war bedeutungslos)
+	var n_cal: float = maxf(1.0, float(calendar.size()))
+	var income := (60.0 + 60.0 * (1.0 - float(rank_now) / maxf(1.0, float(teams.size() - 1)))) / n_cal
 	var team_gain := 0.0
 	for r in rows:
 		if r["team_id"] == team_id:
 			team_gain += float(r["points"])
 	var sp: Dictionary = Career.sponsor()
-	income += team_gain * 0.35 * float(sp["pts"]) + float(sp["base"])
+	income += team_gain * Career.point_value() * float(sp["pts"]) + float(sp["base"]) * Career.race_scale()
 	# Gehälter laufen pro Rennen, Bezahlfahrer bringen Sponsorgelder
 	var n_races: float = maxf(1.0, float(calendar.size()))
 	var salaries := payroll_current() / n_races

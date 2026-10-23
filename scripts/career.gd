@@ -6,8 +6,8 @@ const Market = preload("res://scripts/market.gd")
 const Field = preload("res://scripts/field.gd")
 
 const SPONSORS := [
-	{"id": "safe", "name": "Nordwind Energie", "tag": "Sicher", "base": 2.4, "pts": 0.75, "goal": 0.8, "desc": "Hohes Fixum, aber wenig Prämie für Punkte und Rennziele."},
-	{"id": "mid", "name": "Vertex Telekom", "tag": "Ausgewogen", "base": 1.2, "pts": 1.0, "goal": 1.0, "desc": "Mittleres Fixum, normale Prämien."},
+	{"id": "safe", "name": "Nordwind Energie", "tag": "Sicher", "base": 1.8, "pts": 0.75, "goal": 0.8, "desc": "Hohes Fixum, aber wenig Prämie für Punkte und Rennziele."},
+	{"id": "mid", "name": "Vertex Telekom", "tag": "Ausgewogen", "base": 0.9, "pts": 1.0, "goal": 1.0, "desc": "Mittleres Fixum, normale Prämien."},
 	{"id": "perf", "name": "Atlas Motorwelt", "tag": "Erfolgsabhängig", "base": 0.0, "pts": 1.5, "goal": 1.6, "desc": "Kein Fixum, dafür deutlich mehr Geld für Punkte und erreichte Rennziele."},
 ]
 
@@ -92,8 +92,19 @@ static func sponsor() -> Dictionary:
 
 
 ## Erwartete Einnahmen pro Rennen aus Sponsor, Punkten und Rennziel-Prämien (halbe Erfolgsquote) mit diesem Vertrag.
+## Fixum und Prämien sind auf eine Saison mit 22 Rennen bemessen; bei mehr oder weniger Rennen pro Rennen entsprechend
+## weniger oder mehr, damit die Saisonsumme gleich bleibt.
+static func race_scale() -> float:
+	return 22.0 / maxf(1.0, float(Game.calendar.size()))
+
+
+## Geld pro WM-Punkt (Mio. $), auf das heutige Punkteschema umgerechnet (früher gab es für einen Sieg 10 statt 25 Punkte).
+static func point_value() -> float:
+	return 0.08 * 25.0 / float(Game.rules["points"][0])
+
+
 static func sponsor_income(sp: Dictionary) -> float:
-	return float(sp["base"]) + 0.35 * float(sp["pts"]) * expected_points(pace_rank()) + 0.5 * 3.0 * float(sp["goal"])
+	return (float(sp["base"]) + 0.5 * 1.0 * float(sp["goal"])) * race_scale() + point_value() * float(sp["pts"]) * expected_points(pace_rank())
 
 
 static func board_word() -> String:
@@ -191,7 +202,7 @@ static func _make_goal() -> Dictionary:
 			else:
 				text = "%s %s" % [who, place]
 	var sp := sponsor()
-	return {"kind": kind, "target": target, "stretch": stretch, "text": text, "rival": rival, "bonus": 3.0 * float(sp["goal"]), "bonus_hi": 6.0 * float(sp["goal"])}
+	return {"kind": kind, "target": target, "stretch": stretch, "text": text, "rival": rival, "bonus": 1.0 * float(sp["goal"]) * race_scale(), "bonus_hi": 2.0 * float(sp["goal"]) * race_scale()}
 
 
 ## Platzierungsliste aus Ergebniszeilen: [{"team", "pos", "player"}], Ausgefallene als 99.
