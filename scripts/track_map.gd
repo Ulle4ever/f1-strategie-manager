@@ -62,6 +62,40 @@ const BODY := [Vector2(0.50, 0.0), Vector2(0.38, 0.045), Vector2(0.22, 0.07), Ve
 const FRONT_WING := [Vector2(0.40, -0.27), Vector2(0.50, -0.27), Vector2(0.50, 0.27), Vector2(0.40, 0.27)]
 const REAR_WING := [Vector2(-0.50, -0.2), Vector2(-0.42, -0.2), Vector2(-0.42, 0.2), Vector2(-0.50, 0.2)]
 
+var _layer: EnvLayer
+
+
+## Echte Umgebung (OSM-Netz) als eigene Ebene hinter der Karte, damit nur sie den Umgebungs-Shader bekommt
+## (Rasen mit Mähstreifen, Wasser mit Wellen, Tribünen mit Zuschauern, Wolkenschatten).
+class EnvLayer extends Node2D:
+	var map
+	static var _noise: Texture2D
+
+	func _init() -> void:
+		show_behind_parent = true
+		texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
+		if _noise == null:
+			var fn := FastNoiseLite.new()
+			fn.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
+			fn.frequency = 0.02
+			fn.fractal_octaves = 4
+			var img := fn.get_seamless_image(256, 256)
+			img.generate_mipmaps()
+			_noise = ImageTexture.create_from_image(img)
+		var m := ShaderMaterial.new()
+		m.shader = preload("res://assets/env/terrain.gdshader")
+		m.set_shader_parameter("noise_tex", _noise)
+		material = m
+
+	func _draw() -> void:
+		if map == null or map._osm == null or not map.show_env:
+			return
+		var m: ShaderMaterial = material
+		m.set_shader_parameter("px_per_m", map._scale)
+		m.set_shader_parameter("anim", 1.0 if U.fx_on() else 0.0)
+		draw_rect(Rect2(Vector2.ZERO, map.size), map._osm.ground)
+		draw_mesh(map._osm.mesh, null, Transform2D(0.0, Vector2(map._scale, map._scale), 0.0, map._view_center() - map.cam * map._scale))
+
 
 func _init() -> void:
 	_aa = not U.is_mobile()
@@ -74,6 +108,9 @@ func _init() -> void:
 	_chip.content_margin_bottom = 1
 	clip_contents = true
 	add_to_group("no_touch_scroll")
+	_layer = EnvLayer.new()
+	_layer.map = self
+	add_child(_layer)
 
 
 func _ready() -> void:
@@ -134,6 +171,7 @@ func set_track(t) -> void:
 	_last_size = Vector2.ZERO
 	_build_kerbs()
 	queue_redraw()
+	_layer.queue_redraw()
 
 
 # ------------------------------------------------------------------ Kamera
@@ -155,6 +193,7 @@ func _ensure_layout() -> void:
 		target_zoom = 1.0
 	_last_size = size
 	_scale = _base_scale * zoom
+	_layer.queue_redraw()
 
 
 ## Bildmitte der Kamera: beim Heranzoomen etwas nach oben, damit TV-Grafiken unten nichts verdecken.
@@ -339,6 +378,7 @@ func _process(delta: float) -> void:
 		cam = Vector2(clampf(cam.x, b.position.x, b.end.x), clampf(cam.y, b.position.y, b.end.y))
 	if sim != null or not dots.is_empty() or interactive:
 		queue_redraw()
+		_layer.queue_redraw()
 
 
 ## Weltposition eines Autos (Boxengasse berücksichtigt) als Kamera-Ziel.
@@ -521,8 +561,6 @@ func _draw() -> void:
 	line.append(line[0])
 	var racing := sim != null
 	if show_env and _osm != null:
-		draw_rect(Rect2(Vector2.ZERO, size), _osm.ground)
-		draw_mesh(_osm.mesh, null, Transform2D(0.0, Vector2(_scale, _scale), 0.0, _view_center() - cam * _scale))
 		_draw_osm_fade()
 	elif show_env and not _env.is_empty():
 		_draw_env()
@@ -575,7 +613,8 @@ func _draw() -> void:
 		if sim.wet > 0.08:
 			draw_polyline(line, Color(0.25, 0.45, 0.90, 0.22 * sim.wet), rw - 3.5, _aa)
 			draw_polyline(line, Color(0.85, 0.93, 1.0, 0.30 * sim.wet), rw * 0.18, _aa)
-	# Randsteine innen an engen Kurven
+	# Randsteine innen an engen Kurven (Breite wächst mit dem Zoom, wie echte Kerbs ca. 1,5 m)
+	var kw := clampf(rw * 0.13, 3.0, 12.0)
 	for kb in _kerbs:
 		var seg := PackedVector2Array()
 		var idx := 0
@@ -584,10 +623,10 @@ func _draw() -> void:
 			if tt2.length() < 0.001:
 				continue
 			tt2 = tt2.normalized()
-			var p: Vector2 = to_screen(track.pts[i]) + Vector2(-tt2.y, tt2.x) * float(kb["side"]) * (rw * 0.5 - 1.2)
+			var p: Vector2 = to_screen(track.pts[i]) + Vector2(-tt2.y, tt2.x) * float(kb["side"]) * (rw * 0.5 - kw * 0.4)
 			if idx > 0 and seg.size() > 0:
 				var col := Color(0.9, 0.12, 0.10) if (idx / 1) % 2 == 0 else Color(0.95, 0.95, 0.95)
-				draw_line(seg[seg.size() - 1], p, col, 3.0)
+				draw_line(seg[seg.size() - 1], p, col, kw)
 			seg.append(p)
 			idx += 1
 	# DRS-Zonen
@@ -836,6 +875,11 @@ func _draw_car_shape(pos: Vector2, ang: float, len_px: float, col: Color, tyre: 
 	# Draufsicht des 3D-Autos in Teamlackierung, sobald gerendert; sonst die gezeichnete Form
 	var tex: Texture2D = CarSprites.get_tex(key) if key != "" else null
 	if tex != null:
+		# weicher Schatten leicht versetzt (Sonne wie bei Gebäuden und Bäumen)
+		draw_set_transform(pos + Vector2(len_px * 0.06, len_px * 0.09), ang, Vector2(len_px, len_px))
+		draw_rect(Rect2(-0.47, -0.22, 0.94, 0.44), Color(0.05, 0.07, 0.12, 0.16 * col.a))
+		draw_rect(Rect2(-0.44, -0.18, 0.88, 0.36), Color(0.05, 0.07, 0.12, 0.16 * col.a))
+		draw_set_transform(pos, ang, Vector2(len_px, len_px))
 		draw_texture_rect(tex, CarSprites.RECT, false, Color(1, 1, 1, col.a))
 		draw_circle(Vector2(-0.16, 0.0), 0.06, tyre)
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)

@@ -202,18 +202,21 @@ func build(circuit_id: String, kind: String) -> void:
 				want -= 1
 	if not lite:
 		for p in trees:
-			_ngon(p + SUN * 3.0, 4.2, Color(0.08, 0.14, 0.06, 0.20), 6)
+			_ngon(p + SUN * 3.0, 4.4, Color(0.08, 0.14, 0.06, 0.22), 8)
 	for p in trees:
 		var tc: Color = TREE[int(absf(p.x * 7.0 + p.y * 13.0)) % TREE.size()]
-		_ngon(p, 4.0 + fmod(absf(p.x * 0.37 + p.y * 0.11), 1.6), tc, 6)
+		var tr_r := 4.0 + fmod(absf(p.x * 0.37 + p.y * 0.11), 1.6)
+		_ngon(p, tr_r, tc.darkened(0.12), 8)
+		_ngon(p - Vector2(0.5, 0.5), tr_r * 0.78, tc, 8)
 		if not lite:
-			_ngon(p - Vector2(1.1, 1.1), 1.8, tc.lightened(0.18), 5)
+			_ngon(p - Vector2(1.3, 1.3), tr_r * 0.4, tc.lightened(0.2), 6)
 	if _v.is_empty():
 		return
 	var arrays := []
 	arrays.resize(Mesh.ARRAY_MAX)
 	arrays[Mesh.ARRAY_VERTEX] = _v
 	arrays[Mesh.ARRAY_COLOR] = _c
+	arrays[Mesh.ARRAY_TEX_UV] = _v      # Weltkoordinaten für den Umgebungs-Shader (Körnung, Wasser, Wolken)
 	arrays[Mesh.ARRAY_INDEX] = _i
 	mesh = ArrayMesh.new()
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
