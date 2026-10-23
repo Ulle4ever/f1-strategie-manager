@@ -57,5 +57,7 @@ const run = (c) => cp.execSync(c, { cwd: out, stdio: 'pipe' }).toString();
 run('git init -q');
 run('git checkout -q -b gh-pages');
 run('git add -A');
-run('git commit -q -m "Web-Export"');
+// Autor wie im Projekt-Repo (lokal gesetzt, nicht unbedingt global)
+const who = (k) => cp.execSync('git config ' + k, { cwd: proj }).toString().trim();
+run('git -c user.name="' + who('user.name') + '" -c user.email="' + who('user.email') + '" commit -q -m "Web-Export"');
 console.log(run('git push -q --force ' + remote + ' gh-pages 2>&1 || true'));
