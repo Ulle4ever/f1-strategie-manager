@@ -41,6 +41,9 @@ func _ready() -> void:
 	var rows: Array = res["rows"]
 	if not M:
 		root.add_child(_podium(rows))
+	# Sieg eines eigenen Fahrers: Konfetti (Effekte an)
+	if not rows.is_empty() and bool(rows[0].get("player", false)):
+		load("res://scripts/confetti.gd").burst.call_deferred(self)
 
 	var p1 := U.panel(14, U.ACCENT)
 	p1.size_flags_horizontal = Control.SIZE_EXPAND_FILL

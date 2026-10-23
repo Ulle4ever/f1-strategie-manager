@@ -516,28 +516,31 @@ func _on_reset() -> void:
 
 # ------------------------------------------------------------------ Reiter Reifen
 
+## Reifensätze einer Mischung als kleine Reifen: der farbige Ring zeigt das Restprofil (voll = neu), eingeplante Sätze
+## haben einen Akzentstrich darunter.
 class SetsRow extends Control:
 	var sets: Array = []
 	var need := 0
+	var col := Color.WHITE
 
 	func _init() -> void:
-		custom_minimum_size = Vector2(0, 20)
+		custom_minimum_size = Vector2(0, 34)
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	func _draw() -> void:
-		var x := 0.0
+		var x := 13.0
 		for i in sets.size():
 			var s: Dictionary = sets[i]
-			var r := Rect2(x, 2, 16, 16)
+			var c := Vector2(x, 13)
 			var used: float = float(s["used"])
-			draw_rect(r, U.PANEL3)
-			if used <= 0.0:
-				draw_rect(r.grow(-2.0), Color(0.10, 0.62, 0.35))
-			else:
-				var fillh: float = clampf(1.0 - used / 20.0, 0.25, 0.9) * 12.0
-				draw_rect(Rect2(x + 2, 2 + 14 - fillh, 12, fillh), Color(0.95, 0.65, 0.1))
-			draw_rect(r, U.tint(0.45) if i >= need else U.ACCENT, false, 1.5 if i >= need else 2.5)
-			x += 20.0
+			var rest := 1.0 if used <= 0.0 else clampf(1.0 - used / 20.0, 0.2, 0.92)
+			draw_circle(c, 12.0, Color(0.1, 0.11, 0.13))
+			draw_arc(c, 9.0, 0.0, TAU, 28, Color(col, 0.25), 3.0, true)
+			draw_arc(c, 9.0, -PI / 2.0, -PI / 2.0 + TAU * rest, 28, col, 3.0, true)
+			draw_circle(c, 4.5, Color(0.45, 0.48, 0.54) if used > 0.0 else Color(0.75, 0.78, 0.83))
+			if i < need:
+				draw_rect(Rect2(x - 10.0, 29, 20.0, 3.0), U.ACCENT)
+			x += 30.0
 
 
 func _build_tyres() -> void:
@@ -548,13 +551,17 @@ func _build_tyres() -> void:
 		inf.text = "In dieser Saison gibt es keine Reifenbegrenzung: Du kannst in jedem Stopp frei wählen."
 	else:
 		var a: Array = sim.tyre_alloc()
-		inf.text = "Pro Wochenende und Auto: %d Soft, %d Medium, %d Hard, %d Inter, %d Wet. Im Training und Qualifying verbrauchte Sätze sind gebraucht (gelb, Füllstand = Restprofil). Jeder Stint im Rennen braucht einen eigenen Satz." % [a[0], a[1], a[2], a[3], a[4]]
+		inf.text = "Pro Wochenende und Auto: %d Soft, %d Medium, %d Hard, %d Inter, %d Wet. Im Training und Qualifying verbrauchte Sätze sind gebraucht (Ring = Restprofil, Strich darunter = im Plan). Jeder Stint im Rennen braucht einen eigenen Satz." % [a[0], a[1], a[2], a[3], a[4]]
 	tyre_box.add_child(inf)
 	var clean := _clean_plan()
 	var need: Dictionary = sim.plan_tyre_need(int(e["start"]), clean)
 	for k in RaceSim.COMPOUNDS.size():
 		var cd: Dictionary = RaceSim.COMPOUNDS[k]
-		var card := U.card(8, Color(cd["ink"], 0.07), Color(cd["ink"], 0.4))
+		var card := PanelContainer.new()
+		var csb := U.button_style(Color(1, 1, 1, 0.6), cd["color"], 2, 5)
+		csb.content_margin_top = 8
+		csb.content_margin_bottom = 8
+		card.add_theme_stylebox_override("panel", csb)
 		var v := U.vbox(4)
 		card.add_child(v)
 		var h := U.hbox(8)
@@ -573,6 +580,7 @@ func _build_tyres() -> void:
 			arr.sort_custom(func(x, y): return float(x["used"]) < float(y["used"]))
 			row.sets = arr
 			row.need = n_need
+			row.col = cd["color"]
 			v.add_child(row)
 		var cnt: Dictionary = sim.tyre_count(c, k)
 		var txt := ""
@@ -595,7 +603,9 @@ func _build_variants() -> void:
 	pv_cards = {}
 	var_box.add_child(_wl("Drei fertige Pläne zum Vergleichen. 'Vorschau' fährt das Rennen mehrfach mit Zufall (Safety Car, Gegner, Ausfälle) und zeigt, wie riskant ein Plan ist.", 12, U.MUTED))
 	var row := U.hbox(6)
-	row.add_child(U.button("Varianten berechnen", _on_calc_variants, 0, 38))
+	var vb := U.primary_button("VARIANTEN BERECHNEN", _on_calc_variants, 0, 40)
+	vb.add_theme_font_size_override("font_size", 15 if U.is_mobile() else 17)
+	row.add_child(vb)
 	row.add_child(U.spacer())
 	var_box.add_child(row)
 	if variants.is_empty():

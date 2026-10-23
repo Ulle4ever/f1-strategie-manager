@@ -22,6 +22,7 @@ var dots: Array = []          # Qualifying: [{"pos": Vector2 (Welt), "color", "c
 var selected = null
 var show_drs := true
 var show_sectors := true
+var ghost := {}                       # Rausfahrt bei Stopp jetzt: {"dist", "pos", "color"} (vom Rennbildschirm gesetzt)
 var sector_style := 0                 # 0 = dezente Marken (Rennen), 1 = farbige Sektoren mit Beschriftung (Streckenansicht)
 const SECTOR_COLS := [Color("e8364b"), Color("2f7bf6"), Color("f2a900")]
 var interactive := false
@@ -906,6 +907,23 @@ func _draw_sim_cars(rw: float, font: Font) -> void:
 			_label_chip(pos, c.code, c.color, rank + 1)
 	if sim.status == 2 and not ranking.is_empty():
 		_draw_safety_car(ranking[0], len_px, shapes)
+	if not ghost.is_empty():
+		_draw_ghost(len_px, shapes)
+
+
+## Geist-Auto: hier wäre das eigene Auto nach einem Stopp jetzt (halbtransparent, pulsierend, Marke "BOX P..").
+func _draw_ghost(len_px: float, shapes: bool) -> void:
+	var s: float = float(ghost["dist"])
+	var pos := to_screen(track.point_at(s))
+	if pos.x < -40.0 or pos.y < -40.0 or pos.x > size.x + 40.0 or pos.y > size.y + 40.0:
+		return
+	var col: Color = ghost.get("color", U.ACCENT)
+	var pulse := 0.5 + 0.5 * sin(_t * 4.0)
+	if shapes:
+		_draw_car_shape(pos, _tangent_screen(s).angle(), len_px, Color(col, 0.35), Color(1, 1, 1, 0.3), false)
+	draw_arc(pos, 9.0 + 3.0 * pulse, 0.0, TAU, 24, Color(col, 0.5 + 0.3 * pulse), 2.0, true)
+	draw_circle(pos, 5.5, Color(col, 0.35))
+	_label_chip(pos + Vector2(0, 26), "BOX P%d" % int(ghost["pos"]), Color(col, 0.6), 0)
 
 
 ## Safety Car etwa 140 m vor dem Führenden: weißes Auto bzw. Punkt mit blinkender Lichtleiste und Marke "SC".

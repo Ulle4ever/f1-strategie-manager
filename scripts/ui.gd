@@ -417,22 +417,38 @@ static func checkbox(text := "", on_dark := false) -> CheckBox:
 
 
 ## Selbst gezeichnetes Kästchen: gefüllt in der Akzentfarbe mit Häkchen in der passenden Schriftfarbe.
+## Schalter statt Häkchen: Spur mit kleinem Radius (an = Akzentfarbe, Knopf rechts; aus = grau, Knopf links), kantengeglättet.
 static func _check_icon(checked: bool) -> ImageTexture:
-	var img := Image.create(24, 24, false, Image.FORMAT_RGBA8)
+	var w := 40
+	var h := 22
+	var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
 	img.fill(Color(0, 0, 0, 0))
-	var bg := ACCENT if checked else Color.WHITE
-	var edge := ACCENT_DARK if checked else Color("8a90a0")
-	for y in range(2, 22):
-		for x in range(2, 22):
-			var border := x < 4 or x > 19 or y < 4 or y > 19
-			img.set_pixel(x, y, edge if border else bg)
-	if checked:
-		var pts := [Vector2i(7, 12), Vector2i(8, 13), Vector2i(9, 14), Vector2i(10, 15), Vector2i(11, 14), Vector2i(12, 13), Vector2i(13, 12), Vector2i(14, 11), Vector2i(15, 10), Vector2i(16, 9)]
-		for p in pts:
-			for dx in 2:
-				for dy in 2:
-					img.set_pixel(p.x + dx, p.y + dy, ACCENT_INK)
+	var track := ACCENT if checked else Color("c9d0db")
+	var knob_x := 28.0 if checked else 12.0
+	for y in h:
+		for x in w:
+			var p := Vector2(x + 0.5, y + 0.5)
+			# Spur: Rechteck 2..38 x 3..19 mit Radius 6
+			var a := _rrect_cov(p, Rect2(2, 3, 36, 16), 6.0)
+			var col := Color(track, a)
+			# Knopf: Quadrat 16 x 16 mit Radius 5, weiß mit leichtem Schatten
+			var ks := _rrect_cov(p - Vector2(0, -1), Rect2(knob_x - 8.0, 3, 16, 16), 5.0)
+			if ks > 0.0:
+				col = col.blend(Color(0, 0, 0, 0.18 * ks))
+			var kc := _rrect_cov(p, Rect2(knob_x - 7.0, 4, 14, 14), 4.5)
+			if kc > 0.0:
+				col = col.blend(Color(1, 1, 1, kc))
+			img.set_pixel(x, y, col)
 	return ImageTexture.create_from_image(img)
+
+
+## Deckung eines Pixels durch ein abgerundetes Rechteck (0..1, für Kantenglättung).
+static func _rrect_cov(p: Vector2, r: Rect2, rad: float) -> float:
+	var c := r.get_center()
+	var hs := r.size * 0.5 - Vector2(rad, rad)
+	var q := (p - c).abs() - hs
+	var d := Vector2(maxf(q.x, 0.0), maxf(q.y, 0.0)).length() + minf(maxf(q.x, q.y), 0.0) - rad
+	return clampf(0.5 - d, 0.0, 1.0)
 
 
 static func label(text: String, size := 17, col := TEXT, bold := false) -> Label:
@@ -556,6 +572,7 @@ static func option_card(title: String, hint: String, accent: Color, cb: Callable
 	if hint != "":
 		var h := label(hint, 11, MUTED)
 		h.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		h.set_meta("keep_text", true)      # Folgen einer Wahl nie einklappen
 		v.add_child(h)
 	p.add_child(v)
 	var b := Button.new()

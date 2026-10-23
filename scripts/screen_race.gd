@@ -10,6 +10,7 @@ const Market = preload("res://scripts/market.gd")
 const TvOverlay = preload("res://scripts/tv_overlay.gd")
 const TyreIcon = preload("res://scripts/tyre_icon.gd")
 const StintBar = preload("res://scripts/stint_bar.gd")
+const RejoinStrip = preload("res://scripts/rejoin_strip.gd")
 const FuelPlanBar = preload("res://scripts/fuel_plan_bar.gd")
 const DriverPanel = preload("res://scripts/driver_panel.gd")
 const Career = preload("res://scripts/career.gd")
@@ -74,6 +75,9 @@ var engine_label: Label
 var uc_label: Label
 var threat_label: Label
 var rejoin_label: Label
+var rj_head: Label           # Boxen-Seite: Rausfahrt bei Stopp jetzt bzw. in der gewählten Runde
+var rj_strip
+var rj_text: Label
 var uc_btn: Button
 var to_label: Label
 var order_buttons: Array = []
@@ -88,6 +92,7 @@ var quick_info: Label
 var goal_label: Label
 var goal_line: Label
 var decision_layer: Control
+var decision_scrim: ColorRect
 var decision_card: PanelContainer
 var decision_chip: Button     # Handy: Hinweis oben, wenn eine Funkanfrage wartet und die Karte nicht sichtbar ist
 var decision_box: VBoxContainer
@@ -446,7 +451,19 @@ func _build_decision_layer(parent: Control) -> void:
 		parent.add_child(decision_layer)
 	else:
 		add_child(decision_layer)
+	# leichter Schleier hinter der Funkkarte, damit sie sich vom Kartenbild abhebt
+	decision_scrim = ColorRect.new()
+	decision_scrim.color = Color(0.08, 0.1, 0.16, 0.28)
+	decision_scrim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	decision_scrim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	decision_scrim.visible = false
+	decision_layer.add_child(decision_scrim)
 	decision_card = U.panel(10, U.WARN)
+	var dsb: StyleBoxFlat = decision_card.get_theme_stylebox("panel")
+	dsb.bg_color = Color(1, 1, 1, 0.97)
+	dsb.border_width_top = 4
+	dsb.shadow_size = 22
+	dsb.shadow_color = Color(0.05, 0.08, 0.15, 0.35)
 	decision_card.visible = false
 	decision_card.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	decision_card.custom_minimum_size = Vector2(300.0 if U.is_mobile() else 380.0, 0)
@@ -470,6 +487,8 @@ func _place_decision() -> void:
 
 func _hide_decision() -> void:
 	decision_card.visible = false
+	if decision_scrim != null:
+		decision_scrim.visible = false
 	decision_data = {}
 	decision_car = null
 	_update_decision_chip()
@@ -526,6 +545,7 @@ func _show_decision(c, d: Dictionary) -> void:
 		oc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		holder.add_child(oc)
 	decision_card.visible = true
+	decision_scrim.visible = true
 	_update_decision_chip()
 	_place_decision.call_deferred()
 	# Einblenden: kurz aufploppen
@@ -792,6 +812,20 @@ func _build_page_pit(M: bool) -> Control:
 	hv.add_child(pit_cancel_btn)
 	v.add_child(hc)
 
+	# Rausfahrt: wo komme ich bei diesem Stopp heraus (live, folgt der gewählten Stopp-Runde)
+	var rjc := U.card(9)
+	var rjv := U.vbox(3)
+	rjc.add_child(rjv)
+	rj_head = U.label("", 12, U.TEXT, true)
+	rjv.add_child(rj_head)
+	rj_strip = RejoinStrip.new()
+	rj_strip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	rj_strip.setup([], "")
+	rjv.add_child(rj_strip)
+	rj_text = _wrap_label("", 12, U.GOOD, true)
+	rjv.add_child(rj_text)
+	v.add_child(rjc)
+
 	var sc := U.card(9)
 	var sv := U.vbox(4)
 	sc.add_child(sv)
@@ -939,6 +973,31 @@ func _build_page_pit(M: bool) -> Control:
 	gb.add_child(double_btn)
 	gb.add_child(_wrap_label("Beide Autos stoppen am Rundenende. Das zweite Auto wartet etwa 2-3 Sekunden.", 11, U.MUTED))
 	return pc[0]
+
+
+## Rausfahrt-Karte (Boxen-Seite) und Geist-Auto auf der Karte für das gewählte eigene Auto.
+func _update_rejoin(c) -> void:
+	var racing: bool = c != null and c.is_player and c.state == 1 and sim.started
+	if map != null:
+		map.ghost = {}
+	if rj_head == null:
+		return
+	rj_head.get_parent().get_parent().visible = racing
+	if not racing:
+		return
+	var now_lap: int = c.floor_laps + 1
+	var lap: int = _pit_sel_lap(c)
+	var rj: Dictionary = sim.rejoin_live(c, lap)
+	var when := "STOPP JETZT" if lap <= now_lap else "STOPP NACH RUNDE %d" % lap
+	rj_head.text = "RAUSFAHRT  ·  %s  ·  P%d  ·  %.0f S VERLUST" % [when, int(rj["pos"]), float(rj["loss"])]
+	rj_strip.setup(rj["near"], c.code)
+	rj_text.text = str(rj["traffic"])
+	rj_text.add_theme_color_override("font_color", U.WARN if bool(rj["warn"]) else U.GOOD)
+	var now_rj: Dictionary = rj if lap <= now_lap else sim.rejoin_live(c, now_lap)
+	if lap > now_lap:
+		rj_text.text += "\nStopp jetzt: P%d, %s" % [int(now_rj["pos"]), str(now_rj["traffic"])]
+	if map != null and float(now_rj["ghost"]) >= 0.0:
+		map.ghost = {"dist": float(now_rj["ghost"]), "pos": int(now_rj["pos"]), "color": c.color}
 
 
 ## Seite "Fahren": Fahrstil, Abstand, Funkanweisung (links), Energie/Motor, Teamorder, Automatik (rechts).
@@ -1616,6 +1675,7 @@ func _plan_row(e: Dictionary) -> Control:
 
 ## Auto, Fahren und Boxen aktualisieren.
 func _update_car_pit(c) -> void:
+	_update_rejoin(c)
 	var cd: Dictionary = RaceSim.COMPOUNDS[c.compound]
 	var life: float = sim.life_eff(c.compound)
 	var left := clampf(1.0 - c.tyre_wear / life, 0.0, 1.0)

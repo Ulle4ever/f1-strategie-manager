@@ -462,14 +462,32 @@ func _show_event_dialog() -> void:
 	U.fill(cc)
 	event_layer.add_child(cc)
 	var card := U.panel(14, U.ACCENT)
+	var esb: StyleBoxFlat = card.get_theme_stylebox("panel")
+	esb.bg_color = Color(1, 1, 1, 0.97)
+	esb.border_width_top = 4
+	esb.shadow_size = 24
+	esb.shadow_color = Color(0.05, 0.08, 0.15, 0.35)
 	card.custom_minimum_size = Vector2(clampf(vp.x - 40.0, 300.0, 660.0), 0)
 	cc.add_child(card)
 	var v := U.vbox(8)
 	card.add_child(v)
 	event_card_box = v
-	v.add_child(U.label("MELDUNG AUS DER ZENTRALE", 11, U.MUTED, true))
+	var eh := U.hbox(8)
+	eh.add_child(load("res://scripts/icon.gd").make("career", 18.0, U.ACCENT))
+	eh.add_child(U.label("MELDUNG AUS DER ZENTRALE", 11, U.MUTED, true))
+	v.add_child(eh)
 	v.add_child(_wl(str(def["title"]), 20 if not M else 17, U.TEXT, true))
-	v.add_child(_wl(str(def["text"]), 14 if not M else 12, U.MUTED))
+	var et := _wl(str(def["text"]), 14 if not M else 12, U.MUTED)
+	et.set_meta("keep_text", true)
+	v.add_child(et)
+	# hereinfedern
+	if U.fx_on():
+		card.modulate.a = 0.0
+		card.scale = Vector2(0.94, 0.94)
+		card.pivot_offset = Vector2(card.custom_minimum_size.x * 0.5, 60.0)
+		var etw := card.create_tween().set_parallel(true)
+		etw.tween_property(card, "modulate:a", 1.0, 0.2)
+		etw.tween_property(card, "scale", Vector2.ONE, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	var holder: Container = v
 	if M:
 		# Handy: Optionen zweispaltig in einem Scrollbereich (wenig Höhe)
@@ -523,12 +541,42 @@ func _build_next_race() -> Control:
 	if Game.season_over():
 		var ds: Array = Game.driver_standings()
 		var ts: Array = Game.team_standings()
-		v.add_child(U.heading("Saison beendet", 30, U.ACCENT))
-		v.add_child(U.label("Fahrer-Weltmeister", 13, U.MUTED))
-		v.add_child(U.label(str(ds[0]["name"]), 24, U.TEXT, true))
-		v.add_child(U.label("Konstrukteurs-Weltmeister", 13, U.MUTED))
-		v.add_child(U.label(str(ts[0]["name"]), 24, U.TEXT, true))
-		v.add_child(U.label("Dein Team: Platz %d bei den Konstrukteuren" % Game.final_rank(Game.team_id), 15, U.WARN, true))
+		var M := U.is_mobile()
+		# Titel mit Pokal, darunter die beiden Weltmeister als Kacheln (Foto bzw. Wappen, Teamfarbe, Punkte)
+		var hrow := U.hbox(10)
+		hrow.add_child(load("res://scripts/icon.gd").make("trophy", 30.0 if M else 40.0, Color("d4a017")))
+		hrow.add_child(U.heading("Saison %d beendet" % Game.year, 24 if M else 30, U.ACCENT_TEXT))
+		v.add_child(hrow)
+		var champs := HFlowContainer.new()
+		champs.add_theme_constant_override("h_separation", 8)
+		champs.add_theme_constant_override("v_separation", 8)
+		v.add_child(champs)
+		var d0: Dictionary = ds[0]
+		var t0: Dictionary = ts[0]
+		for e in [["FAHRER-WELTMEISTER", str(d0["name"]), str(d0.get("team", "")), float(d0.get("points", 0.0)), DriverPhoto.make(str(d0["id"]), 46.0 if M else 56.0), d0.get("color", U.ACCENT)],
+				["KONSTRUKTEURS-WELTMEISTER", str(t0["name"]), "", float(t0.get("points", 0.0)), TeamCrest.make(str(t0["id"]), 46.0 if M else 56.0), t0.get("color", U.ACCENT)]]:
+			var card := PanelContainer.new()
+			var csb := U.button_style(Color(1, 1, 1, 0.7), Color(e[5]), 2, 5)
+			csb.content_margin_top = 8
+			csb.content_margin_bottom = 8
+			card.add_theme_stylebox_override("panel", csb)
+			card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			var row := U.hbox(10)
+			card.add_child(row)
+			row.add_child(e[4])
+			var cv := U.vbox(0)
+			cv.add_child(U.label(str(e[0]), 10, U.MUTED, true))
+			cv.add_child(U.label(str(e[1]), 18 if M else 22, U.TEXT, true))
+			var sub := ("%s  ·  " % e[2] if str(e[2]) != "" else "") + "%s Punkte" % U.fmt_pts(float(e[3]))
+			cv.add_child(U.label(sub, 12, U.MUTED))
+			row.add_child(cv)
+			champs.add_child(card)
+		var my_rank: int = Game.final_rank(Game.team_id)
+		var rc := U.chip("Dein Team: Platz %d bei den Konstrukteuren" % my_rank, U.GOOD if my_rank <= 3 else U.WARN, U.INK)
+		rc.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+		v.add_child(rc)
+		# Konfetti, sobald die Karte zu sehen ist (Effekte an)
+		load("res://scripts/anim.gd").on_first_visible(p, func(): load("res://scripts/confetti.gd").burst(p))
 		v.add_child(U.spacer())
 		var nxt := U.label("Jetzt beginnt der Fahrermarkt. Verträge laufen aus, Fahrer wechseln, das Auto wird für %d neu entwickelt." % (Game.year + 1), 14, U.MUTED)
 		nxt.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

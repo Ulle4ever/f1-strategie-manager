@@ -3128,6 +3128,79 @@ func _mean_times(times: Array, from_lap: int, n: int) -> float:
 	return s / float(k) if k > 0 else avg_lap_time()
 
 
+## Mittlere Rundenzeit der letzten drei Runden (sonst die übliche Rennrunde).
+func _recent_lap(c: RaceCar) -> float:
+	var h: Array = c.lap_history
+	if h.size() == 0:
+		return avg_lap_time()
+	var s := 0.0
+	var n := 0
+	for i in range(maxi(0, h.size() - 3), h.size()):
+		s += float(h[i])
+		n += 1
+	return s / float(n)
+
+
+## Live-Prognose im Rennen: wo kommt c nach einem Stopp am Ende von Runde lap heraus (lap <= laufende Runde = jetzt)?
+## Die Abstände aller Autos werden mit ihrem Tempo der letzten Runden fortgeschrieben, ihre geplanten Stopps bis dahin
+## eingerechnet. Rückgabe: {"pos", "near" (wie rejoin_forecast), "loss", "lap", "ahead", "gap_ahead", "behind", "gap_behind",
+## "traffic" (Text), "warn" (Verkehr), "ghost" (Streckenposition der Rausfahrt in m, nur für "jetzt", sonst -1)}
+func rejoin_live(c: RaceCar, lap: int) -> Dictionary:
+	var now_lap: int = c.floor_laps + 1
+	var n := maxi(0, lap - now_lap)
+	var base_loss: float = track.pit_loss * float(rules["pit_loss_scale"])
+	var loss: float = pit_cost_now() if n == 0 else base_loss
+	var lap_t := avg_lap_time()
+	var t_me: float = c.gap_leader + loss + _recent_lap(c) * float(n)
+	var pos := 1
+	var near: Array = []
+	var ahead = null
+	var behind = null
+	var ga := 1e9
+	var gb := 1e9
+	for o in cars:
+		if o == c or (o.state != State.RACING and o.state != State.PIT):
+			continue
+		var t_o: float = o.gap_leader + _recent_lap(o) * float(n)
+		if n > 0:
+			for s in o.plan:
+				if int(s["lap"]) >= now_lap and int(s["lap"]) < lap:
+					t_o += base_loss
+					break
+		if o.state == State.PIT:
+			t_o += maxf(0.0, o.pit_timer) * 0.5
+		var delta := t_me - t_o
+		if delta > 0.0:
+			pos += 1
+		var road: float = fposmod(delta + lap_t * 0.5, lap_t) - lap_t * 0.5
+		if absf(road) <= 4.5:
+			near.append({"code": o.code, "team_id": o.team_id, "gap": road, "lapped": absf(delta) > lap_t * 0.5})
+		if road > 0.0 and road < ga:
+			ga = road
+			ahead = o
+		elif road <= 0.0 and -road < gb:
+			gb = -road
+			behind = o
+	near.sort_custom(func(a, b): return float(a["gap"]) > float(b["gap"]))
+	var txt := "Freie Fahrt"
+	var warn := false
+	if ahead != null and ga < 1.5:
+		txt = "Verkehr: direkt hinter %s (%.1f s)" % [ahead.code, ga]
+		warn = true
+	elif ahead != null and ga < 3.0:
+		txt = "Hinter %s (%.1f s), Anschluss möglich" % [ahead.code, ga]
+	elif ahead != null:
+		txt = "Freie Fahrt, nächstes Auto %s %.1f s vor dir" % [ahead.code, ga]
+	if behind != null and gb < 1.0:
+		txt += ", %s %.1f s dahinter" % [behind.code, gb]
+		warn = true
+	var ghost := -1.0
+	if n == 0 and c.state == State.RACING:
+		ghost = fposmod(c.dist - loss * track.length / maxf(lap_t, 1.0), track.length)
+	return {"pos": pos, "near": near, "loss": loss, "lap": maxi(lap, now_lap), "ahead": ahead, "gap_ahead": ga, "behind": behind,
+		"gap_behind": gb, "traffic": txt, "warn": warn, "ghost": ghost}
+
+
 ## Wohin würde c nach einem Stopp zurückkommen? {"pos", "ahead", "gap_ahead", "behind", "gap_behind"}
 func rejoin_info(c: RaceCar) -> Dictionary:
 	var loss := pit_cost_now()
