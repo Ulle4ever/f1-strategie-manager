@@ -34,7 +34,6 @@ class Banner extends Control:
 		draw_string(f, Vector2(104, h * 0.5 - 4), team_name.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, w * 0.6 - 110, 24 if w > 480 else 20, tc)
 		var inf := TeamStyle.info(team_id)
 		draw_string(U.font(false), Vector2(104, h * 0.5 + 18), "%s  |  seit %s" % [inf["hq"], str(inf["founded"]) if int(inf["founded"]) > 0 else "?"], HORIZONTAL_ALIGNMENT_LEFT, w * 0.6 - 110, 12, Color(tc, 0.85))
-		TeamStyle.draw_car(self, Vector2(w - 118, h * 0.5), 170.0, 0.0, team_id)
 
 
 func setup(team_id: String, show_drivers := true) -> void:
@@ -45,6 +44,11 @@ func setup(team_id: String, show_drivers := true) -> void:
 	bn.team_id = team_id
 	bn.team_name = str(team.get("name", team_id))
 	add_child(bn)
+	# drehbares 3D-Auto in Teamfarben rechts im Kopfbereich (ziehen dreht es)
+	var car = load("res://scripts/car_view.gd").make(team_id, Vector2(250, 118))
+	car.set_anchors_and_offsets_preset(Control.PRESET_RIGHT_WIDE)
+	car.offset_left = -250.0
+	bn.add_child(car)
 	# Eckdaten
 	var g := GridContainer.new()
 	g.columns = 4

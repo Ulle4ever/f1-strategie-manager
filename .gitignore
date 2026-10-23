@@ -6,3 +6,9 @@ export/
 *.tmp
 tools/cache_env/
 tools/cache_photos/
+
+# Summer Engine local-only state (SummerGit, caches, locks)
+.summer/local/
+.summer/captures/
+.summer/exports/
+*.bak

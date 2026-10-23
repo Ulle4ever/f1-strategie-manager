@@ -7,6 +7,7 @@ extends Control
 const U = preload("res://scripts/ui.gd")
 const TrackEnv = preload("res://scripts/track_env.gd")
 const OsmMap = preload("res://scripts/osm_map.gd")
+const CarSprites = preload("res://scripts/car_sprites.gd")
 
 signal car_clicked(car)
 signal expand_pressed
@@ -828,10 +829,17 @@ func _car_heading(c) -> float:
 	return d.angle() if d.length() > 0.01 else 0.0
 
 
-func _draw_car_shape(pos: Vector2, ang: float, len_px: float, col: Color, tyre: Color, player: bool) -> void:
+func _draw_car_shape(pos: Vector2, ang: float, len_px: float, col: Color, tyre: Color, player: bool, key := "") -> void:
 	if player:
 		draw_circle(pos, len_px * 0.62, Color(1, 1, 1, 0.18))
 	draw_set_transform(pos, ang, Vector2(len_px, len_px))
+	# Draufsicht des 3D-Autos in Teamlackierung, sobald gerendert; sonst die gezeichnete Form
+	var tex: Texture2D = CarSprites.get_tex(key) if key != "" else null
+	if tex != null:
+		draw_texture_rect(tex, CarSprites.RECT, false, Color(1, 1, 1, col.a))
+		draw_circle(Vector2(-0.16, 0.0), 0.06, tyre)
+		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		return
 	draw_colored_polygon(PackedVector2Array(FRONT_WING), col.darkened(0.45))
 	draw_colored_polygon(PackedVector2Array(REAR_WING), col.darkened(0.45))
 	var wheel := Color(0.03, 0.03, 0.04)
@@ -877,7 +885,7 @@ func _draw_sim_cars(rw: float, font: Font) -> void:
 		var rank: int = ranking.find(c)
 		if shapes:
 			var cd: Dictionary = sim.COMPOUNDS[c.compound]
-			_draw_car_shape(pos, ang, len_px, c.color, cd["color"], c.is_player)
+			_draw_car_shape(pos, ang, len_px, c.color, cd["color"], c.is_player, c.team_id)
 			if stopped:
 				var t := Vector2(cos(ang), sin(ang))
 				var nn := Vector2(-t.y, t.x)
@@ -933,7 +941,7 @@ func _draw_safety_car(leader, len_px: float, shapes: bool) -> void:
 	var ang := _tangent_screen(s).angle()
 	var on := fmod(_t, 0.5) < 0.25
 	if shapes:
-		_draw_car_shape(pos, ang, len_px, Color(0.96, 0.96, 0.98), Color(0.2, 0.2, 0.22), false)
+		_draw_car_shape(pos, ang, len_px, Color(0.96, 0.96, 0.98), Color(0.2, 0.2, 0.22), false, "sc")
 		var t := Vector2(cos(ang), sin(ang))
 		var nn := Vector2(-t.y, t.x)
 		draw_line(pos - nn * len_px * 0.18, pos, Color(1.0, 0.6, 0.0) if on else Color(0.2, 0.9, 0.3), 3.0)

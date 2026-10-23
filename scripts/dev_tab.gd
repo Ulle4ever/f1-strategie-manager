@@ -57,6 +57,9 @@ func rebuild() -> void:
 
 	# Stand der Bereiche
 	add_child(U.section("Dein Auto", 12))
+	var car = load("res://scripts/car_view.gd").make(Game.team_id, Vector2(0, 130 if M else 190))
+	car.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	add_child(car)
 	var g := GridContainer.new()
 	g.columns = 2 if M else 3
 	g.add_theme_constant_override("h_separation", 8)

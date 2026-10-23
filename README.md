@@ -3,11 +3,11 @@
 Realistische Formel-1-Teamchef-Simulation in **Godot 4**: Du leitest ein Team der Saisons **2000 bis 2026** (danach läuft die Karriere mit sich wandelndem Teamfeld weiter),
 planst die Reifenstrategie, funkst Boxenstopps und Fahrstil an deine Autos und entwickelst das Auto weiter.
 Die Rennen laufen über die **echte Renndistanz** (ca. 305 km) und lassen sich bis **256x** vorspulen.
-Die Autos sind Punkte auf der Streckenkarte (Ansicht von oben).
+Die Autos sind auf der Streckenkarte Punkte, beim Heranzoomen 3D-Autos in Teamlackierung (Ansicht von oben).
 
 ## Starten
-1. Godot 4.2 oder neuer (Standard-Version) von https://godotengine.org laden, entpacken, starten.
-2. **Importieren** und `project.godot` auswählen, dann **F5**.
+1. Bearbeitet wird das Projekt in **Summer Engine** (Godot 4.7, https://www.summerengine.com): Ordner öffnen, Spiel starten. Ein normales Godot 4.4 oder neuer geht ebenso: **Importieren**, `project.godot` wählen, **F5**.
+2. Veröffentlichen: `node tools/deploy_web.js` (siehe *Handy und Web-Version*).
 
 ## Spielablauf
 1. **Saison und Team wählen** (alle Teams und Fahrer der jeweiligen Saison, nach Stärke sortiert). Neben 2000 bis 2026 gibt es die Prognose-Startjahre **2027\* bis 2030\*** mit vorausgerechnetem Teamfeld (siehe unten).
@@ -54,7 +54,7 @@ Das Teamfeld bleibt über die Karriere nicht gleich (`field.gd`; auf dem Startbi
   - *Netlify Drop:* auf https://app.netlify.com/drop den Ordner `export/web` ins Fenster ziehen. Du bekommst sofort eine Adresse, die am Handy funktioniert (mit kostenlosem Konto dauerhaft).
   - *GitHub Pages:* neues Repository anlegen, den Inhalt von `export/web` (inklusive der leeren Datei `.nojekyll`) hochladen, unter Settings > Pages den Zweig `main` und den Ordner `/ (root)` wählen. Die Adresse lautet dann `https://<name>.github.io/<repo>/`.
   - Danach am Handy die Adresse öffnen und über das Browser-Menü "Zum Startbildschirm hinzufügen" wählen.
-- **Neu bauen:** Godot 4.4.1 mit installierten Web-Vorlagen, dann `Godot --headless --path . --export-release "Web" export/web/index.html` (Vorlage "Web" ist in `export_presets.cfg` angelegt).
+- **Neu bauen und veröffentlichen:** `node tools/deploy_web.js` (mit `--no-push` nur bauen). Das Skript exportiert mit einem normalen **Godot 4.4.1** samt Web-Vorlagen (Pfad über `GODOT=...`) aus einer sauberen Kopie, legt das Ergebnis nach `export/web` und schiebt es auf den Zweig `gh-pages`. Summers eigener Web-Export unterstützt nur Forward+/Mobile; der Compatibility-Renderer läuft dagegen auf allen Handys.
 - **Handy-Layout** (automatisch auf Touchgeräten mit kleinem Bildschirm): virtuelle Größe ca. 900 x 420, große Bedienelemente, jeder Bildschirm in Reitern:
   Zentrale mit Navigationsleiste links (Symbole für Rennen, Team, Kalender, Fahrer-WM, Team-WM, Technik, Personal, Fahrer, Karriere), Markt (Mein Team, Fahrer, News, Angebot), Wochenende (Strecke, Qualifying/Aufstellung, Strategie), Training (Training, Setup),
   Qualifying und Rennen (Tabelle, Karte, Funk, im Rennen zusätzlich Log). Nur Querformat, im Hochformat erscheint ein Hinweis zum Drehen.
@@ -82,6 +82,7 @@ Das Teamfeld bleibt über die Karriere nicht gleich (`field.gd`; auf dem Startbi
 
 ## Strategie-Zentrale, Teams und Look
 - **Look (hell, Glas / Soft UI):** heller Himmelsverlauf als Hintergrund, halbtransparente weiße Karten mit heller Kante und weichem Schatten, gerade Kanten mit kleinem Radius, Reiter mit Unterstrich in der Teamfarbe, Status als farbiger Streifen links, Kennzahlen als Kacheln, kursive Renn-Schrift für Titel und Zahlen, im Code gezeichnete Symbole (`icon.gd`). Die TV-Grafiken (Zeitentafel, Fahrer-Panel, Karte, Intro-Karte, Startaufstellung) bleiben dunkel wie im Fernsehen. Farben und Bausteine zentral in `ui.gd`.
+- **3D-Auto:** Ein freies Low-Poly-Formelauto aus der Summer-Bibliothek (`assets/car/`, Netz und Textur verkleinert) bekommt per Shader die Teamfarben (helle Lackflächen = Hauptfarbe, Akzente = Zweitfarbe). Es dreht sich als Showroom im Kopf der Team-Karte und im Reiter Entwicklung (mit Finger oder Maus ziehen dreht es von Hand) und liefert die Draufsicht der Autos auf der gezoomten Streckenkarte: je Team einmal unsichtbar von oben gerendert (`car_view.gd`, `car_sprites.gd`, `livery.gdshader`). Ohne Grafik (Tests) zeichnet die Karte die alte Form.
 - **Bewegung (Schalter *Effekte*, am Handy hinter dem Zahnrad im Startbildschirm):** Karten und Listen staffeln sich beim Öffnen eines Bildschirms oder Reiters herein, der Unterstrich der Reiter und die Markierung der Navigationsleiste gleiten, Zahlen in Kennzahl-Kacheln, Budget und Bilanz zählen hoch, Fortschritts- und Profilbalken füllen sich, Hauptknöpfe haben einen wandernden Glanzstreifen, der Himmel im Hintergrund hat ziehende Wolken und einen wandernden Lichtfleck, Glas-Panels zeichnen den Hintergrund echt unscharf (Milchglas-Shader), alle Flaggen wehen. Lange graue Erklärtexte zeigen nur die erste Zeile mit einem i; Antippen klappt sie auf. Im Rennen: Banner SAFETY CAR / VIRTUAL SAFETY CAR mit Warnstreifen und Blinklichtern, gelber pulsierender Rahmen und das Safety Car auf der Karte, grünes Banner beim Neustart; Boxenstopp-Grafik der eigenen Autos (Reifen wechseln nacheinander, Standzeit zählt mit); Reifenwahl mit Reifen-Symbolen, die gewählte Mischung federt auf. Konfetti bei einem Sieg und am Saisonende (Karte mit Pokal, Weltmeistern und Team-Platz), Meldungen aus der Zentrale federn herein, Auswahlkarten im Rennen liegen deckend über einem abgedunkelten Hintergrund, Ein/Aus-Optionen sind Schalter, Reifensätze in der Strategie sind kleine Reifen mit Ring für das Restprofil. Effekte aus = ruhiger und schonender für ältere Geräte (`anim.gd`, `shine.gd`, `flag.gd`, `tyre_icon.gd`, `confetti.gd`).
 - **Rennen am Handy:** Auf dem Reiter *Karte* steht das Fahrer-Panel als schmale Spalte rechts neben der Karte, damit die Karte die volle Höhe behält; die Kartenknöpfe sind kompakt (Alle, A1, A2, P1, Zoom, Groß). Wartet eine Funkanfrage, erscheint sie über der Karte, auf den anderen Reitern nur als Hinweis "Funk" oben (sie verdeckt so keine Bedienelemente).
 - **Teams:** Jedes Team hat ein selbst gezeichnetes Wappen (Form, Farbfeld, Muster, Kürzel; keine Originallogos wegen der Markenrechte), eine Livree für die Autodarstellung, Standort, Gründungsjahr, Titel und einen Charakter-Text
