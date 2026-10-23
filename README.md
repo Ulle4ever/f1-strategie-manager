@@ -160,6 +160,8 @@ Das Teamfeld bleibt über die Karriere nicht gleich (`field.gd`; auf dem Startbi
   (2009, 2014, 2017, 2022, 2026, ...) mischt das Kräfteverhältnis stärker durch.
 
 ## Was simuliert wird
+- **Virtuelles Safety Car** erst ab 2015 (davor nach Unfällen nur echtes Safety Car oder gelbe Flaggen).
+- **Motorverschleiß:** Die KI wechselt Motoren selbst; für die eigenen Autos warnt das Rennwochenende ab 90 % Verschleiß (PC: Hinweis neben "Rennen starten", Handy: Reiter "Auto (!)").
 - Rundenzeitmodell je Strecke aus der echten Geometrie (Krümmung, Beschleunigen/Bremsen), kalibriert auf typische Pole-Zeiten.
 - Teamstärke, Fahrerstärke, technische Ausfälle und Unfallneigung werden aus den echten Ergebnissen der Saison abgeleitet.
 - Reifenverschleiß (je Strecke), Spritgewicht, Fahrstil, Verkehr/Dirty Air, DRS (ab 2011), Überholen je nach Streckencharakter.

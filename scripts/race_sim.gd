@@ -2180,7 +2180,7 @@ func _retire(c: RaceCar, reason: String) -> void:
 			status_serial += 1
 			sc_marks.append({"lap": leader_lap(), "end": leader_lap() + status_laps_left, "kind": 2})
 			make_log("sc", "SAFETY CAR!")
-		elif r < p_sc:
+		elif r < p_sc and rules.get("vsc", true):
 			status = Status.VSC
 			status_laps_left = 2
 			status_serial += 1

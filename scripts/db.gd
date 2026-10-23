@@ -101,6 +101,7 @@ func rules(year: int) -> Dictionary:
 		"fastest_lap_point": year >= 2019 and year <= 2024,
 		"min_compounds": 2 if year >= 2007 else 1,
 		"drs": year >= 2011,
+		"vsc": year >= 2015,           # Virtuelles Safety Car erst ab 2015 (davor nur gelbe Flaggen oder Safety Car)
 		"stationary": 2.4 if year >= 2010 else 7.0,
 		"pit_loss_scale": 1.0 if year >= 2010 else 1.12,
 	}

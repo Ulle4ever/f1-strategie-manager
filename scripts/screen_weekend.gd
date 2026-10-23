@@ -67,6 +67,9 @@ func _ready() -> void:
 	if sim.quali_done and not U.is_mobile():
 		var foot := U.hbox(12)
 		root.add_child(foot)
+		var ea := _engine_alert()
+		if ea != "":
+			foot.add_child(U.label(ea + " – neuer Motor im Reiter Auto?", 14, U.WARN, true))
 		foot.add_child(U.spacer())
 		foot.add_child(U.button("Sofort simulieren", _on_instant, 220 if not U.is_mobile() else 170, 52 if not U.is_mobile() else 42))
 		foot.add_child(U.primary_button("RENNEN STARTEN", _on_start, 300 if not U.is_mobile() else 240, 52 if not U.is_mobile() else 42))
@@ -91,13 +94,13 @@ func _left_entries() -> Array:
 		return [
 			{"name": "Strecke", "node": _wrap(_info_content(), U.ACCENT, 12), "min": 350.0},
 			{"name": "Wetter", "node": _wrap(_weather_content(), U.BLUE, 12)},
-			{"name": "Auto", "node": _wrap(_fit_content(), U.WARN, 12)},
+			{"name": "Auto" + (" (!)" if _engine_alert() != "" else ""), "node": _wrap(_fit_content(), U.WARN, 12)},
 		]
 	var p := U.panel(12, U.ACCENT)
 	p.custom_minimum_size = Vector2(360, 0)
 	var tc := TabContainer.new()
 	tc.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	for e in [["Strecke", _info_content()], ["Wetter", _weather_content()], ["Auto", _fit_content()]]:
+	for e in [["Strecke", _info_content()], ["Wetter", _weather_content()], ["Auto" + (" (!)" if _engine_alert() != "" else ""), _fit_content()]]:
 		var sc := ScrollContainer.new()
 		sc.name = e[0]
 		sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -351,6 +354,17 @@ func _practice_box() -> Control:
 	b.add_child(l)
 	b.add_child(U.button("FREITAGSTRAINING", func(): main.show_practice(), 190, 40))
 	return b
+
+
+## Warnung, wenn ein eigener Motor fast verbraucht ist (ab 90 %, ohne Wechsel an diesem Wochenende), sonst "".
+func _engine_alert() -> String:
+	if sim == null or sim.engine_allowance <= 0:
+		return ""
+	var parts: Array = []
+	for c in sim.cars:
+		if c.is_player and not c.engine_new and c.engine_wear >= 0.9:
+			parts.append("%s %d %%" % [c.code, int(c.engine_wear * 100.0)])
+	return "" if parts.is_empty() else "Motor verschlissen: " + ", ".join(parts)
 
 
 ## Motoren: Verschleiß je Fahrer, Wechsel (mit Strafe, wenn das Kontingent überschritten wird).
